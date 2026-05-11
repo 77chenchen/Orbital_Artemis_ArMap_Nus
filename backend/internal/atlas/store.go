@@ -8,19 +8,29 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+	"database/sql"
+	_ "modernc.org/sqlite"
 )
 
 var ErrNotFound = errors.New("not found")
 
 type Store struct {
 	path string
+	db 	 *sql.DB // for easier reference to db
 }
 
 func OpenStore(path string) (*Store, error) {
 	if _, err := exec.LookPath("sqlite3"); err != nil {
 		return nil, errors.New("sqlite3 CLI is required for the demo backend")
 	}
-	return &Store{path: path}, nil
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Ping(); err != nil {
+		return nil, err 
+	}
+	return &Store{path: path, db: db}, nil
 }
 
 func (s *Store) Close() error {
@@ -70,6 +80,11 @@ func (s *Store) Migrate(ctx context.Context) error {
 			started_at TEXT NOT NULL,
 			finished_at TEXT NOT NULL
 		);
+
+		CREATE TABLE IF NOT EXISTS credentials (
+			email TEXT NOT NULL,
+			password TEXT NOT NULL
+		);
 	`)
 }
 
@@ -106,8 +121,12 @@ func (s *Store) Seed(ctx context.Context) error {
 			SELECT id, '1', 'Open Plaza Tables', 'study_space', 'Casual outdoor study and meeting tables.', 'low', %s FROM buildings WHERE code = 'UTOWN';
 		INSERT INTO schedule_items (title, module_code, location, start_at, end_at, notes, created_at)
 			VALUES ('Project meeting', 'CP2106', 'COM1', %s, %s, 'Discuss Atlas demo scope', %s);
+		INSERT INTO credentials (email, password)
+			VALUES ('test1@gmail.com', %s);
 		COMMIT;
-	`, sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(start.Format(time.RFC3339)), sqlQuote(start.Add(time.Hour).Format(time.RFC3339)), sqlQuote(now))
+	`, sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(start.Format(time.RFC3339)), sqlQuote(start.Add(time.Hour).Format(time.RFC3339)), sqlQuote(now), 
+	sqlQuote(hash("cp2106")),
+)
 	if err := s.execSQL(ctx, sql); err != nil {
 		return err
 	}

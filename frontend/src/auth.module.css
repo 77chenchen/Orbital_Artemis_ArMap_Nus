@@ -1,0 +1,63 @@
+.container {
+    height: 100vh;
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    background-color: #eaeaea;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    background-color: white;
+    border-radius: 10px;
+    width: 400px;
+} 
+
+.textbox {
+    padding: 1rem;
+    font-size: 1rem;
+}
+
+.button {
+    padding: 0.8rem;
+    font-size: 1rem;
+    cursor: pointer;
+    width: 100%;
+    background-color: #9206f6c5;
+    color: #f2f2f2;
+    transition: background-color 0.3s ease;
+}
+
+.button:hover {
+    background-color: #6e0cb0be;
+}
+
+.window {
+    width: 400px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: white;
+}
+
+.page {
+    width: 50%;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.slider {
+    display: flex;
+    width: 200%;
+    transition: transform 0.5s ease;
+}
+
+.toast_popup {
+  width: 400px;   
+  max-width: 90vw;
+}
