@@ -3,6 +3,7 @@ import { useState } from "react";
 import styles from "./auth.module.css";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { API_BASE } from "./api";
 
 export default function Login({toRegister}: {toRegister: () => void}) {
     const [email, setEmail] = useState<string>("");
@@ -12,7 +13,7 @@ export default function Login({toRegister}: {toRegister: () => void}) {
 
     const onSubmit = async (e: React.SubmitEvent) => {
         e.preventDefault();
-        const res = await fetch("http://localhost:8080/api/login", {
+        const res = await fetch(`${API_BASE}/login`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

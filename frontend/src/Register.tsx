@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import styles from "./auth.module.css";
 import { toast } from "react-toastify";
+import { API_BASE } from "./api";
 
 export default function Register({toLogin} : {toLogin: () => void}) {
 
@@ -8,7 +9,7 @@ export default function Register({toLogin} : {toLogin: () => void}) {
     const [password, setPassword] = useState("");
     const onSubmit = async (e: React.SubmitEvent) => {
         e.preventDefault();
-        const res = await fetch("http://localhost:8080/api/register", {
+        const res = await fetch(`${API_BASE}/register`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
