@@ -2,21 +2,21 @@ package atlas
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "modernc.org/sqlite"
 	"os/exec"
 	"strings"
 	"time"
-	"database/sql"
-	_ "modernc.org/sqlite"
 )
 
 var ErrNotFound = errors.New("not found")
 
 type Store struct {
 	path string
-	db 	 *sql.DB // for easier reference to db
+	db   *sql.DB // for easier reference to db
 }
 
 func OpenStore(path string) (*Store, error) {
@@ -28,7 +28,7 @@ func OpenStore(path string) (*Store, error) {
 		return nil, err
 	}
 	if err := db.Ping(); err != nil {
-		return nil, err 
+		return nil, err
 	}
 	return &Store{path: path, db: db}, nil
 }
@@ -82,7 +82,7 @@ func (s *Store) Migrate(ctx context.Context) error {
 		);
 
 		CREATE TABLE IF NOT EXISTS credentials (
-			email TEXT NOT NULL,
+			email TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL
 		);
 	`)
@@ -96,7 +96,10 @@ func (s *Store) Seed(ctx context.Context) error {
 		return err
 	}
 	if len(rows) > 0 && rows[0].Count > 0 {
-		return s.ensureFutureSchedule(ctx)
+		if err := s.ensureFutureSchedule(ctx); err != nil {
+			return err
+		}
+		return s.ensureDemoCredentials(ctx)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -124,13 +127,30 @@ func (s *Store) Seed(ctx context.Context) error {
 		INSERT INTO credentials (email, password)
 			VALUES ('test1@gmail.com', %s);
 		COMMIT;
-	`, sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(start.Format(time.RFC3339)), sqlQuote(start.Add(time.Hour).Format(time.RFC3339)), sqlQuote(now), 
-	sqlQuote(hash("cp2106")),
-)
+	`, sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(now), sqlQuote(start.Format(time.RFC3339)), sqlQuote(start.Add(time.Hour).Format(time.RFC3339)), sqlQuote(now),
+		sqlQuote(hash("cp2106")),
+	)
 	if err := s.execSQL(ctx, sql); err != nil {
 		return err
 	}
+	if err := s.ensureDemoCredentials(ctx); err != nil {
+		return err
+	}
 	return s.ensureFutureSchedule(ctx)
+}
+
+func (s *Store) ensureDemoCredentials(ctx context.Context) error {
+	exists, err := s.userExists(ctx, Credentials{Email: "test1@gmail.com"})
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return s.registerIntoDB(ctx, Credentials{
+		Email:    "test1@gmail.com",
+		Password: "cp2106",
+	})
 }
 
 func (s *Store) ensureFutureSchedule(ctx context.Context) error {
