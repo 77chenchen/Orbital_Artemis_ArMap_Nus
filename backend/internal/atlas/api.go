@@ -7,30 +7,131 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type API struct {
-	cfg    Config
-	store  *Store
-	client *NUSModsClient
+	cfg    		Config
+	store  		*Store
+	client 		*NUSModsClient
+	secretKey   []byte
 }
 
 func NewAPI(cfg Config, store *Store, client *NUSModsClient) *API {
-	return &API{cfg: cfg, store: store, client: client}
+	return &API{cfg: cfg, store: store, client: client, 
+		secretKey: []byte("8f4c1d9a73be52f6c1a8e4b97d3f62a1e5c8b0d7f4a9c2e6b1d3f8a7c5e9b2d4"),
+	}
 }
 
 func (api *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", api.health)
-	mux.HandleFunc("GET /api/buildings", api.listBuildings)
-	mux.HandleFunc("GET /api/facilities", api.listFacilities)
-	mux.HandleFunc("GET /api/schedule", api.listSchedule)
-	mux.HandleFunc("POST /api/schedule", api.createSchedule)
-	mux.HandleFunc("DELETE /api/schedule/{id}", api.deleteSchedule)
-	mux.HandleFunc("GET /api/recommendations", api.recommendations)
-	mux.HandleFunc("GET /api/sync/status", api.syncStatus)
-	mux.HandleFunc("POST /api/sync/run", api.runSync)
+	mux.HandleFunc("GET /api/buildings", api.Protect(api.listBuildings))
+	mux.HandleFunc("GET /api/facilities", api.Protect(api.listFacilities))
+	mux.HandleFunc("GET /api/schedule", api.Protect(api.listSchedule))
+	mux.HandleFunc("POST /api/schedule", api.Protect(api.createSchedule))
+	mux.HandleFunc("DELETE /api/schedule/{id}", api.Protect(api.deleteSchedule))
+	mux.HandleFunc("GET /api/recommendations", api.Protect(api.recommendations))
+	mux.HandleFunc("GET /api/sync/status", api.Protect(api.syncStatus))
+	mux.HandleFunc("POST /api/sync/run", api.Protect(api.runSync))
+	mux.HandleFunc("POST /api/login", api.login)
+	mux.HandleFunc("POST /api/register", api.register)
 	return api.withCORS(mux)
+}
+
+func (api *API) Protect(next http.HandlerFunc) http.HandlerFunc {
+	// this func serves as middleware 
+	// and protects unauthorized access via verifying jwt tokens
+	// one is supposed to wrap this func around the handler that u wan to protect.
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		authHeader := r.Header.Get("Authorization")
+
+		if authHeader == "" {
+			http.Error(w, "missing token; Login First :p", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+		token, err := jwt.Parse(
+			tokenString,
+			func(token *jwt.Token) (interface{}, error) {
+				return api.secretKey, nil
+			},
+		)
+
+		if err != nil || !token.Valid {
+			http.Error(w, "invalid token", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+func (api *API) register(w http.ResponseWriter, r *http.Request) {
+	var cred Credentials
+
+	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
+		return
+	}
+
+	// search in db whether user alr exists
+	exists, err := api.store.userExists(r.Context(), cred)
+	if err != nil || exists {
+		writeError(w, http.StatusBadRequest, errors.New("invalid credentials"))
+		return
+	}
+
+	// user does not exist then register it
+	err = api.store.registerIntoDB(r.Context(), cred)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, errors.New(err.Error()))
+		return
+	}
+
+	// if everything is sucessful, return status ok
+	writeJSON(w, http.StatusOK, map[string]string {
+		"message": "Register ok",
+	})
+
+}
+
+func (api *API) login(w http.ResponseWriter, r *http.Request) {
+	var cred Credentials
+
+	// decode JSON body
+	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
+		return
+	}
+
+	// validate user
+	isValidUser, err := api.store.searchUserDB(r.Context(), cred)
+
+	if err != nil || !isValidUser {
+		writeError(w, http.StatusUnauthorized, errors.New("invalid credentials"))
+		return
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email": cred.Email,
+		"exp": time.Now().Add(time.Hour * 24).Unix(), // expires in 24hrs
+	})
+
+	tokenString, err := token.SignedString(api.secretKey)
+
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "login ok",
+		"token": tokenString,
+	})
 }
 
 func (api *API) health(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +248,7 @@ func (api *API) withCORS(next http.Handler) http.Handler {
 		if origin != "" && (api.cfg.AllowedOrigin == "*" || strings.EqualFold(origin, api.cfg.AllowedOrigin)) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 		}
 		if r.Method == http.MethodOptions {
