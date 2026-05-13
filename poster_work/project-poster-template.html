@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Atlas Project Poster Template</title>
+  <style>
+    @page { size: A1 landscape; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+      color: #f7fbff;
+      background: #07131f;
+    }
+    .poster {
+      position: relative;
+      width: 100vw;
+      min-height: 100vh;
+      padding: 42px 48px 38px;
+      overflow: hidden;
+      background:
+        linear-gradient(115deg, rgba(7, 19, 31, 0.95) 0%, rgba(7, 19, 31, 0.89) 43%, rgba(7, 19, 31, 0.68) 100%),
+        url("orbital-ar-map-bg.png") right bottom / 64% auto no-repeat,
+        #07131f;
+    }
+    .poster::before {
+      content: "";
+      position: absolute;
+      inset: 22px;
+      border: 1px solid rgba(141, 232, 255, 0.24);
+      border-radius: 24px;
+      pointer-events: none;
+    }
+    .orbit {
+      position: absolute;
+      width: 620px;
+      height: 620px;
+      right: 62px;
+      top: -190px;
+      border: 2px solid rgba(68, 230, 213, 0.24);
+      border-radius: 50%;
+      transform: rotate(-18deg) scaleX(1.45);
+    }
+    .orbit::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 82px;
+      top: 122px;
+      border-radius: 50%;
+      background: #ffb85c;
+      box-shadow: 0 0 28px rgba(255, 184, 92, 0.92);
+    }
+    header {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1.35fr 0.65fr;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 24px;
+      z-index: 2;
+    }
+    .kicker {
+      margin: 0 0 8px;
+      color: #8de8ff;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: 60px;
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      max-width: 820px;
+      margin: 14px 0 0;
+      color: #d6e6ef;
+      font-size: 20px;
+      line-height: 1.34;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      color: #d7f9ff;
+      font-size: 14px;
+    }
+    .meta div {
+      min-height: 68px;
+      padding: 13px 14px;
+      border: 1px solid rgba(141, 232, 255, 0.26);
+      border-radius: 12px;
+      background: rgba(13, 35, 52, 0.66);
+    }
+    .meta strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #ffcf84;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.02fr 1.2fr 0.78fr;
+      grid-template-rows: auto auto;
+      gap: 16px;
+    }
+    section {
+      padding: 18px 20px;
+      border: 1px solid rgba(141, 232, 255, 0.18);
+      border-radius: 18px;
+      background: rgba(8, 23, 35, 0.78);
+      box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18);
+    }
+    h2 {
+      margin: 0 0 12px;
+      color: #ffffff;
+      font-size: 25px;
+      letter-spacing: 0;
+    }
+    p, li {
+      color: #dceaf1;
+      font-size: 15px;
+      line-height: 1.38;
+    }
+    p { margin: 0; }
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    li { margin: 0 0 7px; }
+    .overview {
+      grid-row: span 2;
+    }
+    .features {
+      min-height: 360px;
+    }
+    .practices {
+      grid-column: span 2;
+    }
+    .feature-map {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .feature {
+      min-height: 96px;
+      padding: 14px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(23, 75, 96, 0.92), rgba(13, 45, 54, 0.86));
+      border: 1px solid rgba(128, 235, 255, 0.22);
+    }
+    .feature strong {
+      display: block;
+      margin-bottom: 7px;
+      color: #8de8ff;
+      font-size: 15px;
+    }
+    .feature span {
+      color: #dbeef4;
+      font-size: 13px;
+      line-height: 1.33;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 15px;
+      align-items: center;
+    }
+    .node {
+      position: relative;
+      min-height: 74px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      text-align: center;
+    }
+    .node b {
+      display: block;
+      color: #ffcf84;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+    .node span {
+      color: #cfe2e9;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .tech {
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(141, 232, 255, 0.08);
+      border: 1px solid rgba(141, 232, 255, 0.16);
+      color: #ecfbff;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .testing-grid, .practice-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .mini {
+      min-height: 86px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .mini b {
+      display: block;
+      margin-bottom: 6px;
+      color: #83f2c6;
+      font-size: 14px;
+    }
+    .mini span {
+      color: #dceaf1;
+      font-size: 12.5px;
+      line-height: 1.3;
+    }
+    .principles {
+      background: linear-gradient(145deg, rgba(13, 41, 57, 0.88), rgba(16, 30, 38, 0.78));
+    }
+    .principle-list {
+      display: grid;
+      gap: 10px;
+    }
+    .principle {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .mark {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #83f2c6;
+      color: #07131f;
+      font-weight: 900;
+      text-align: center;
+      line-height: 26px;
+    }
+    .principle b {
+      display: block;
+      color: #ffffff;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+    .principle span {
+      color: #cfe2e9;
+      font-size: 12.5px;
+      line-height: 1.28;
+    }
+    .footer {
+      position: absolute;
+      left: 48px;
+      right: 48px;
+      bottom: 22px;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      color: rgba(228, 247, 255, 0.72);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="poster">
+    <div class="orbit"></div>
+    <header>
+      <div>
+        <p class="kicker">Orbital 26 · Artemis · Team Atlas</p>
+        <h1>Atlas AR Campus Assistant</h1>
+        <p class="subtitle">A context-aware campus navigation assistant that helps NUS students move from outdoor routes to indoor facilities, using AR-inspired wayfinding, schedule-aware recommendations, and live campus data.</p>
+      </div>
+      <div class="meta">
+        <div><strong>Problem</strong>NUS navigation often stops at the building entrance.</div>
+        <div><strong>Goal</strong>Guide students to rooms, lifts, study spaces, restrooms, and next activities.</div>
+        <div><strong>Users</strong>Students moving between classes, study areas, and daily campus routines.</div>
+        <div><strong>Output</strong>Web demo + Go API + SQLite-backed campus data.</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="overview">
+        <h2>Overview</h2>
+        <p>Atlas targets the gap between generic maps and real student movement. The app combines geospatial campus points, indoor facility discovery, personal schedule entries, and recommendation logic so students receive useful guidance based on location, time, and campus context.</p>
+        <div class="flow">
+          <div class="node"><b>Campus Data</b><span>Buildings, floors, facilities, crowd hints</span></div>
+          <div class="node"><b>Schedule</b><span>Classes, meetings, locations, time windows</span></div>
+          <div class="node"><b>Context</b><span>Current location and next destination</span></div>
+          <div class="node"><b>Guidance</b><span>Route and facility recommendations</span></div>
+        </div>
+        <h2 style="margin-top:18px;">Why It Matters</h2>
+        <ul>
+          <li>Students need help after reaching the correct building, not only before.</li>
+          <li>Indoor amenities such as lifts, restrooms, printers, and study spaces affect daily routines.</li>
+          <li>Schedule-aware recommendations reduce planning overhead during busy school days.</li>
+        </ul>
+      </section>
+
+      <section class="features">
+        <h2>Features</h2>
+        <div class="feature-map">
+          <div class="feature"><strong>AR Wayfinding Concept</strong><span>Visual route cues and waypoint thinking for future AR overlay navigation.</span></div>
+          <div class="feature"><strong>Indoor Facility Discovery</strong><span>Filter facilities by building and type: study space, restroom, lift, printing.</span></div>
+          <div class="feature"><strong>Daily Agent</strong><span>Recommendations use schedule and nearby campus context to surface next actions.</span></div>
+          <div class="feature"><strong>Campus Data Sync</strong><span>NUSMods sync status demonstrates external data integration readiness.</span></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Tech Stack</h2>
+        <div class="tech-grid">
+          <div class="tech">React</div>
+          <div class="tech">Vite</div>
+          <div class="tech">Go API</div>
+          <div class="tech">SQLite</div>
+          <div class="tech">JWT Auth</div>
+          <div class="tech">NUSMods API</div>
+        </div>
+      </section>
+
+      <section class="principles">
+        <h2>Design Principles</h2>
+        <div class="principle-list">
+          <div class="principle"><div class="mark">1</div><div><b>Context Before Controls</b><span>Show the next relevant campus action instead of forcing users to search from scratch.</span></div></div>
+          <div class="principle"><div class="mark">2</div><div><b>Indoor Continuity</b><span>Treat building arrival as a midpoint, then guide users to facilities and rooms.</span></div></div>
+          <div class="principle"><div class="mark">3</div><div><b>Fast Scanning</b><span>Compact cards, clear status, and map pins support repeated daily use.</span></div></div>
+          <div class="principle"><div class="mark">4</div><div><b>Progressive AR</b><span>Start with reliable map and facility data, then layer AR visualization on top.</span></div></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Testing</h2>
+        <div class="testing-grid">
+          <div class="mini"><b>API Checks</b><span>Health, protected routes, login token flow, schedule CRUD behavior.</span></div>
+          <div class="mini"><b>Frontend Build</b><span>Vite production build validates module imports and UI bundling.</span></div>
+          <div class="mini"><b>Data Scenarios</b><span>Seeded COM1, CLB, UTOWN data supports repeatable demo testing.</span></div>
+        </div>
+      </section>
+
+      <section class="practices">
+        <h2>SWE Practice</h2>
+        <div class="practice-grid">
+          <div class="mini"><b>Layered Architecture</b><span>React UI, API handlers, store layer, scheduler, and client modules remain separated.</span></div>
+          <div class="mini"><b>REST Contracts</b><span>JSON endpoints for buildings, facilities, schedule, recommendations, auth, and sync status.</span></div>
+          <div class="mini"><b>Security Baseline</b><span>Bcrypt password hashing and JWT-protected campus workflow routes.</span></div>
+        </div>
+      </section>
+    </div>
+    <div class="footer">
+      <span>Atlas · AR Map NUS · Project Poster Template</span>
+      <span>Replace placeholders with final metrics, screenshots, QR code, and team details before submission.</span>
+    </div>
+  </main>
+</body>
+</html>
