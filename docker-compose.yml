@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DB_PATH: /data/atlas.db
+      STATIC_DIR: /app/static
+      ALLOWED_ORIGIN: https://7chen.online
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      NUSMODS_ACAD_YEAR: 2025-2026
+      SYNC_INTERVAL: "21600"
+      HTTP_CLIENT_TIMEOUT: "10"
+    volumes:
+      - atlas_data:/data
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  atlas_data:
+  caddy_data:
+  caddy_config:

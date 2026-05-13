@@ -1,4 +1,5 @@
 .DS_Store
+.env
 apikey.md
 node_modules/
 dist/

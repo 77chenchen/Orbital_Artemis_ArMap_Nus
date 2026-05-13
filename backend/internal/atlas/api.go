@@ -4,22 +4,29 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type API struct {
-	cfg    		Config
-	store  		*Store
-	client 		*NUSModsClient
-	secretKey   []byte
+	cfg       Config
+	store     *Store
+	client    *NUSModsClient
+	secretKey []byte
 }
 
 func NewAPI(cfg Config, store *Store, client *NUSModsClient) *API {
-	return &API{cfg: cfg, store: store, client: client, 
-		secretKey: []byte("8f4c1d9a73be52f6c1a8e4b97d3f62a1e5c8b0d7f4a9c2e6b1d3f8a7c5e9b2d4"),
+	secret := cfg.JWTSecret
+	if secret == "" {
+		secret = "8f4c1d9a73be52f6c1a8e4b97d3f62a1e5c8b0d7f4a9c2e6b1d3f8a7c5e9b2d4"
+	}
+	return &API{cfg: cfg, store: store, client: client,
+		secretKey: []byte(secret),
 	}
 }
 
@@ -36,11 +43,29 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/sync/run", api.Protect(api.runSync))
 	mux.HandleFunc("POST /api/login", api.login)
 	mux.HandleFunc("POST /api/register", api.register)
+	if api.cfg.StaticDir != "" {
+		mux.HandleFunc("/", api.serveStaticApp)
+	}
 	return api.withCORS(mux)
 }
 
+func (api *API) serveStaticApp(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		http.NotFound(w, r)
+		return
+	}
+	cleanPath := strings.TrimPrefix(filepath.Clean(r.URL.Path), string(filepath.Separator))
+	path := filepath.Join(api.cfg.StaticDir, cleanPath)
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		http.ServeFile(w, r, filepath.Join(api.cfg.StaticDir, "index.html"))
+		return
+	}
+	http.ServeFile(w, r, path)
+}
+
 func (api *API) Protect(next http.HandlerFunc) http.HandlerFunc {
-	// this func serves as middleware 
+	// this func serves as middleware
 	// and protects unauthorized access via verifying jwt tokens
 	// one is supposed to wrap this func around the handler that u wan to protect.
 
@@ -93,7 +118,7 @@ func (api *API) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if everything is sucessful, return status ok
-	writeJSON(w, http.StatusOK, map[string]string {
+	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "Register ok",
 	})
 
@@ -118,7 +143,7 @@ func (api *API) login(w http.ResponseWriter, r *http.Request) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"email": cred.Email,
-		"exp": time.Now().Add(time.Hour * 24).Unix(), // expires in 24hrs
+		"exp":   time.Now().Add(time.Hour * 24).Unix(), // expires in 24hrs
 	})
 
 	tokenString, err := token.SignedString(api.secretKey)
@@ -130,7 +155,7 @@ func (api *API) login(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "login ok",
-		"token": tokenString,
+		"token":   tokenString,
 	})
 }
 

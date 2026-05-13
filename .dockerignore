@@ -1,0 +1,11 @@
+.git
+.DS_Store
+apikey.md
+node_modules
+frontend/node_modules
+frontend/dist
+poster_work
+*.db
+*.sqlite
+*.sqlite3
+backend/atlas.db
