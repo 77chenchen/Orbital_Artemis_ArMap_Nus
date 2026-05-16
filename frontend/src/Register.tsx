@@ -1,68 +1,77 @@
 import React, { useState } from "react";
-import styles from "./auth.module.css";
-import { toast } from "react-toastify";
+import { motion } from "framer-motion";
 import { API_BASE } from "./api";
 
-export default function Register({toLogin} : {toLogin: () => void}) {
+export default function Register({
+  toLogin,
+  onRegistered,
+}: {
+  toLogin: () => void;
+  onRegistered: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const onSubmit = async (e: React.SubmitEvent) => {
-        e.preventDefault();
-        const res = await fetch(`${API_BASE}/register`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-            email,
-            password,
-            }),
-        });
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const res = await fetch(`${API_BASE}/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-        if (!res.ok) {
-            toast.error("Registration Failed. User email may have already existed or invalid credentials.",
-                {style: {width: "500px"}},
-            );
-            return;
-        }
-
-        toast.success("Registration successful. Please try loggin in.", {style: {width: "500px"}});
-        setEmail("");
-        setPassword("");
-        toLogin();
+    if (!res.ok) {
+      setError("Registration failed. The email may already exist or the credentials are invalid.");
+      return;
     }
 
-    return (
-        <form className={styles.form} onSubmit={onSubmit}>
+    setEmail("");
+    setPassword("");
+    onRegistered();
+  }
 
-            <h1>Register</h1>
+  return (
+    <form className="auth-form" onSubmit={submit}>
+      <label className="field">
+        <span>Email</span>
+        <input
+          type="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </label>
 
-            <input
-                className={styles.textbox}
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-            />
+      <label className="field">
+        <span>Password</span>
+        <input
+          type="password"
+          placeholder="At least 6 characters"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </label>
 
-            <input
-                className={styles.textbox}
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-            />
+      {error ? <p className="form-error">{error}</p> : null}
 
-            <small
-                onClick={toLogin}
-                style={{ cursor: "pointer", color: "blue" }}
-            >
-                Already have account? Login
-            </small>
+      <motion.button
+        type="submit"
+        className="login-button"
+        whileHover={{ y: -2, scale: 1.01 }}
+        whileTap={{ scale: 0.985 }}
+      >
+        Create account
+      </motion.button>
 
-            <button className={styles.button} type="submit">Register</button>
-
-        </form>
-    );
+      <div className="form-links single">
+        <button type="button" onClick={toLogin}>
+          Back to login
+        </button>
+      </div>
+    </form>
+  );
 }
