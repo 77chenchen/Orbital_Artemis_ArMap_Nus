@@ -1,285 +1,250 @@
-import React, { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import CampusMap2D from "./CampusMap2D";
+import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import Login from "./Login";
 import Register from "./Register";
-import { colors } from "./theme";
+import "./auth.css";
 
-const showcaseBuildings = [
-  { code: "COM1", name: "Computing 1", supportedIndoor: true },
-  { code: "CLB", name: "Central Library", supportedIndoor: true },
-  { code: "UTOWN", name: "University Town", supportedIndoor: false },
+const assistantMessages = [
+  "Your first lecture starts at LT27.",
+  "Fastest route found.",
+  "You have 12 minutes before class.",
+  "Focus session ready after arrival.",
+];
+
+const particles = [
+  { left: "8%", top: "14%", size: 5, duration: 7.2, delay: 0.1 },
+  { left: "18%", top: "78%", size: 4, duration: 8.3, delay: 1.2 },
+  { left: "28%", top: "38%", size: 6, duration: 9.1, delay: 0.6 },
+  { left: "42%", top: "10%", size: 3, duration: 7.8, delay: 1.8 },
+  { left: "57%", top: "72%", size: 5, duration: 8.8, delay: 0.4 },
+  { left: "66%", top: "24%", size: 4, duration: 9.4, delay: 1.4 },
+  { left: "78%", top: "84%", size: 6, duration: 7.6, delay: 0.8 },
+  { left: "89%", top: "18%", size: 4, duration: 8.6, delay: 1.1 },
 ];
 
 export default function Auth() {
   const [isRegister, setIsRegister] = useState(false);
-  const [selectedCode, setSelectedCode] = useState("COM1");
+  const [messageIndex, setMessageIndex] = useState(0);
   const [notice, setNotice] = useState("");
-  const { width } = useWindowDimensions();
-  const compact = width < 960;
+  const navigate = useNavigate();
 
   useEffect(() => {
     document.title = "Atlas | Sign in";
+    const timer = window.setInterval(() => {
+      setMessageIndex((current) => (current + 1) % assistantMessages.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
   }, []);
 
+  const activeMessage = useMemo(() => assistantMessages[messageIndex], [messageIndex]);
+
+  function enterDemoMode() {
+    localStorage.setItem("token", "demo-mode");
+    navigate("/Dashboard");
+  }
+
   return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <View style={[styles.shell, compact && styles.shellCompact]}>
-        <View style={[styles.showcase, compact && styles.showcaseCompact]}>
-          <View style={styles.brandRow}>
-            <View style={styles.logoMark}>
-              <View style={styles.logoCore} />
-            </View>
-            <View>
-              <Text style={styles.brandName}>Atlas</Text>
-              <Text style={styles.brandCaption}>NUS daily campus agent</Text>
-            </View>
-          </View>
-
-          <View style={styles.copy}>
-            <Text style={styles.kicker}>Campus intelligence</Text>
-            <Text style={[styles.heroTitle, compact && styles.heroTitleCompact]}>ATLAS</Text>
-            <Text style={styles.heroBadge}>AR MAP NUS</Text>
-            <Text style={styles.heroBody}>
-              A responsive campus assistant for schedules, indoor routes, facilities, and fast class handoffs.
-            </Text>
-          </View>
-
-          <CampusMap2D
-            buildings={showcaseBuildings}
-            selectedCode={selectedCode}
-            onSelect={setSelectedCode}
+    <main className="auth-page">
+      <div className="auth-background" aria-hidden="true">
+        {particles.map((particle, index) => (
+          <motion.span
+            key={`${particle.left}-${particle.top}`}
+            className="background-particle"
+            style={{
+              left: particle.left,
+              top: particle.top,
+              width: particle.size,
+              height: particle.size,
+            }}
+            animate={{
+              y: [0, -18, 0],
+              opacity: [0.18, 0.7, 0.18],
+              scale: [0.8, 1.15, 0.8],
+            }}
+            transition={{
+              duration: particle.duration,
+              delay: particle.delay + index * 0.08,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
           />
+        ))}
+      </div>
 
-          <View style={styles.featureRow}>
-            {[
-              ["2D Map", "Mouse-reactive route"],
-              ["Daily Agent", "Tasks and focus"],
-              ["Indoor Support", "Quick handoffs"],
-            ].map(([title, detail]) => (
-              <View key={title} style={styles.featureCell}>
-                <Text style={styles.featureTitle}>{title}</Text>
-                <Text style={styles.featureText}>{detail}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+      <section className="auth-shell">
+        <section className="preview-pane">
+          <div className="preview-copy">
+            <p>Atlas AR Preview</p>
+            <h1>Navigate campus before the day starts.</h1>
+          </div>
+          <ARCampusPreview />
+        </section>
 
-        <View style={[styles.authPanel, compact && styles.authPanelCompact]}>
-          <View style={styles.modeSwitch}>
-            <Pressable
-              onPress={() => {
-                setNotice("");
-                setIsRegister(false);
-              }}
-              style={[styles.modeButton, !isRegister && styles.modeButtonActive]}
-            >
-              <Text style={[styles.modeLabel, !isRegister && styles.modeLabelActive]}>Login</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setNotice("");
-                setIsRegister(true);
-              }}
-              style={[styles.modeButton, isRegister && styles.modeButtonActive]}
-            >
-              <Text style={[styles.modeLabel, isRegister && styles.modeLabelActive]}>Register</Text>
-            </Pressable>
-          </View>
+        <section className="login-pane">
+          <motion.div
+            className="login-stack"
+            initial={{ opacity: 0, y: 28 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="brand-lockup">
+              <div className="atlas-mark" aria-hidden="true" />
+              <div>
+                <strong>Atlas</strong>
+                <span>AR Campus Map + Daily Assistant</span>
+              </div>
+            </div>
 
-          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+            <div className="assistant-bubble" aria-live="polite">
+              <span>Atlas Assistant</span>
+              <AnimatePresence mode="wait">
+                <motion.strong
+                  key={activeMessage}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  {activeMessage}
+                </motion.strong>
+              </AnimatePresence>
+            </div>
 
-          {isRegister ? (
-            <Register
-              toLogin={() => setIsRegister(false)}
-              onRegistered={() => {
-                setNotice("Account created. You can sign in now.");
-                setIsRegister(false);
-              }}
-            />
-          ) : (
-            <Login toRegister={() => setIsRegister(true)} />
-          )}
-        </View>
-      </View>
-    </ScrollView>
+            {notice ? <p className="auth-notice">{notice}</p> : null}
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={isRegister ? "register" : "login"}
+                initial={{ opacity: 0, x: isRegister ? 18 : -18 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: isRegister ? -18 : 18 }}
+                transition={{ duration: 0.28 }}
+              >
+                {isRegister ? (
+                  <Register
+                    toLogin={() => setIsRegister(false)}
+                    onRegistered={() => {
+                      setNotice("Account created. You can sign in now.");
+                      setIsRegister(false);
+                    }}
+                  />
+                ) : (
+                  <Login toRegister={() => setIsRegister(true)} onDemoMode={enterDemoMode} />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+        </section>
+      </section>
+    </main>
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    minHeight: "100vh",
-    justifyContent: "center",
-    padding: 28,
-    backgroundColor: colors.canvas,
-  },
-  shell: {
-    alignSelf: "center",
-    flexDirection: "row",
-    width: "100%",
-    maxWidth: 1160,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.72)",
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.62)",
-    boxShadow: "0 30px 80px rgba(35,60,54,0.16)",
-  },
-  shellCompact: {
-    flexDirection: "column",
-  },
-  showcase: {
-    flex: 1.1,
-    gap: 22,
-    padding: 32,
-    backgroundImage:
-      "linear-gradient(140deg, rgba(21,70,60,0.96), rgba(38,92,130,0.9) 58%, rgba(216,119,63,0.82))",
-  },
-  showcaseCompact: {
-    padding: 22,
-  },
-  brandRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  logoMark: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.4)",
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  logoCore: {
-    width: 15,
-    height: 15,
-    borderRadius: 99,
-    backgroundColor: colors.gold,
-  },
-  brandName: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  brandCaption: {
-    color: "rgba(255,255,255,0.72)",
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-  },
-  copy: {
-    gap: 8,
-  },
-  kicker: {
-    color: "#dfefe8",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  heroTitle: {
-    color: "#eaf8f1",
-    fontSize: 72,
-    lineHeight: 78,
-    fontWeight: "900",
-  },
-  heroTitleCompact: {
-    fontSize: 48,
-    lineHeight: 54,
-  },
-  heroBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.26)",
-    borderRadius: 8,
-    color: "#ffffff",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  heroBody: {
-    maxWidth: 430,
-    color: "rgba(255,255,255,0.82)",
-    fontSize: 16,
-    lineHeight: 25,
-  },
-  featureRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  featureCell: {
-    flexGrow: 1,
-    minWidth: 140,
-    gap: 4,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.24)",
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  featureTitle: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  featureText: {
-    color: "rgba(255,255,255,0.74)",
-    fontSize: 13,
-  },
-  authPanel: {
-    flex: 0.82,
-    justifyContent: "center",
-    gap: 18,
-    padding: 34,
-    backgroundColor: "rgba(255,255,255,0.8)",
-  },
-  authPanelCompact: {
-    padding: 18,
-  },
-  modeSwitch: {
-    flexDirection: "row",
-    gap: 6,
-    alignSelf: "center",
-    width: "100%",
-    maxWidth: 380,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  modeButton: {
-    flex: 1,
-    minHeight: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 6,
-  },
-  modeButtonActive: {
-    backgroundColor: colors.green,
-  },
-  modeLabel: {
-    color: colors.muted,
-    fontWeight: "800",
-  },
-  modeLabelActive: {
-    color: "#ffffff",
-  },
-  notice: {
-    alignSelf: "center",
-    width: "100%",
-    maxWidth: 430,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "rgba(46,112,88,0.18)",
-    borderRadius: 8,
-    color: colors.green,
-    backgroundColor: "rgba(152,223,198,0.18)",
-    fontWeight: "700",
-  },
-});
+function ARCampusPreview() {
+  return (
+    <div className="ar-preview">
+      <div className="scan-grid" />
+      <div className="terrain terrain-one" />
+      <div className="terrain terrain-two" />
+      <div className="campus-shadow" />
+
+      <svg className="map-svg" viewBox="0 0 720 520" role="img" aria-label="Animated AR campus map preview">
+        <defs>
+          <linearGradient id="routeGradient" x1="0%" x2="100%">
+            <stop offset="0%" stopColor="#9ff6dd" />
+            <stop offset="50%" stopColor="#f5d27b" />
+            <stop offset="100%" stopColor="#7cc6ff" />
+          </linearGradient>
+          <filter id="routeGlow">
+            <feGaussianBlur stdDeviation="6" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <g className="map-plane">
+          <path d="M120 365 278 448 605 300 446 221Z" fill="rgba(23, 55, 64, 0.84)" />
+          <path d="M154 350 278 414 564 286 442 228Z" fill="rgba(27, 88, 92, 0.52)" />
+        </g>
+
+        <g>
+          <path d="M168 315 246 348 246 402 168 369Z" fill="#4b7fa1" />
+          <path d="M168 315 220 286 298 319 246 348Z" fill="#8cb9de" />
+          <path d="M246 348 298 319 298 373 246 402Z" fill="#34627f" />
+
+          <path d="M292 283 365 314 365 387 292 355Z" fill="#4e9a8d" />
+          <path d="M292 283 340 258 413 288 365 314Z" fill="#9fe9d7" />
+          <path d="M365 314 413 288 413 360 365 387Z" fill="#37766d" />
+
+          <path d="M432 225 520 260 520 346 432 311Z" fill="#5b74bd" />
+          <path d="M432 225 493 194 580 229 520 260Z" fill="#a4b8ff" />
+          <path d="M520 260 580 229 580 316 520 346Z" fill="#43579c" />
+
+          <path d="M515 327 592 358 592 414 515 382Z" fill="#d8965c" />
+          <path d="M515 327 566 301 643 333 592 358Z" fill="#ffd39c" />
+          <path d="M592 358 643 333 643 389 592 414Z" fill="#b66f3e" />
+        </g>
+
+        <motion.path
+          d="M186 341 C247 322 273 320 324 323 C376 326 398 291 455 263 C495 243 535 253 559 308"
+          fill="none"
+          stroke="url(#routeGradient)"
+          strokeWidth="8"
+          strokeLinecap="round"
+          filter="url(#routeGlow)"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 2.3, ease: "easeInOut" }}
+        />
+
+        <motion.circle
+          r="6"
+          fill="#9ff6dd"
+          animate={{ cx: [186, 250, 324, 401, 455, 559], cy: [341, 326, 323, 298, 263, 308] }}
+          transition={{ duration: 6.5, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.circle
+          r="5"
+          fill="#f5d27b"
+          animate={{ cx: [214, 285, 348, 427, 510], cy: [360, 338, 342, 309, 281] }}
+          transition={{ duration: 7.8, repeat: Infinity, ease: "linear", delay: 1.2 }}
+        />
+        <motion.circle
+          r="4"
+          fill="#7cc6ff"
+          animate={{ cx: [294, 336, 388, 450, 532], cy: [395, 371, 348, 334, 344] }}
+          transition={{ duration: 8.6, repeat: Infinity, ease: "linear", delay: 0.6 }}
+        />
+      </svg>
+
+      {[
+        { label: "COM1", left: "24%", top: "59%", delay: 0 },
+        { label: "LT27", left: "48%", top: "40%", delay: 0.25 },
+        { label: "COM3", left: "72%", top: "31%", delay: 0.5 },
+      ].map((pin) => (
+        <motion.div
+          key={pin.label}
+          className="location-pin"
+          style={{ left: pin.left, top: pin.top }}
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 3.2, delay: pin.delay, repeat: Infinity, ease: "easeInOut" }}
+        >
+          {pin.label}
+        </motion.div>
+      ))}
+
+      <motion.div
+        className="route-card"
+        animate={{ y: [0, -8, 0] }}
+        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <span>Indoor route detected</span>
+        <strong>Navigate to COM3</strong>
+        <small>ETA 7 min</small>
+      </motion.div>
+    </div>
+  );
+}
