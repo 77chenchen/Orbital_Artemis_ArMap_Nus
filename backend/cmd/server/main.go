@@ -20,6 +20,7 @@ func main() {
 		AllowedOrigin:     env("ALLOWED_ORIGIN", "*"),
 		StaticDir:         env("STATIC_DIR", ""),
 		JWTSecret:         env("JWT_SECRET", ""),
+		GoogleClientID:    env("GOOGLE_CLIENT_ID", ""),
 		NUSModsAcadYear:   env("NUSMODS_ACAD_YEAR", "2025-2026"),
 		SyncInterval:      durationEnv("SYNC_INTERVAL", 6*time.Hour),
 		HTTPClientTimeout: durationEnv("HTTP_CLIENT_TIMEOUT", 10*time.Second),

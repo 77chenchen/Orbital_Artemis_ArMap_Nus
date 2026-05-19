@@ -3,6 +3,7 @@ package atlas
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"google.golang.org/api/idtoken"
 )
 
 type API struct {
@@ -42,6 +44,7 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/sync/status", api.Protect(api.syncStatus))
 	mux.HandleFunc("POST /api/sync/run", api.Protect(api.runSync))
 	mux.HandleFunc("POST /api/login", api.login)
+	mux.HandleFunc("POST /api/auth/google", api.googleLogin)
 	mux.HandleFunc("POST /api/register", api.register)
 	if api.cfg.StaticDir != "" {
 		mux.HandleFunc("/", api.serveStaticApp)
@@ -85,6 +88,7 @@ func (api *API) Protect(next http.HandlerFunc) http.HandlerFunc {
 			func(token *jwt.Token) (interface{}, error) {
 				return api.secretKey, nil
 			},
+			jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
 		)
 
 		if err != nil || !token.Valid {
@@ -141,13 +145,9 @@ func (api *API) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	tokenString, err := api.issueLoginToken(jwt.MapClaims{
 		"email": cred.Email,
-		"exp":   time.Now().Add(time.Hour * 24).Unix(), // expires in 24hrs
 	})
-
-	tokenString, err := token.SignedString(api.secretKey)
-
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -157,6 +157,75 @@ func (api *API) login(w http.ResponseWriter, r *http.Request) {
 		"message": "login ok",
 		"token":   tokenString,
 	})
+}
+
+func (api *API) googleLogin(w http.ResponseWriter, r *http.Request) {
+	if api.cfg.GoogleClientID == "" {
+		writeError(w, http.StatusServiceUnavailable, errors.New("google sign-in is not configured"))
+		return
+	}
+
+	var payload struct {
+		Credential string `json:"credential"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
+		return
+	}
+	if payload.Credential == "" {
+		writeError(w, http.StatusBadRequest, errors.New("missing google credential"))
+		return
+	}
+
+	verified, err := idtoken.Validate(r.Context(), payload.Credential, api.cfg.GoogleClientID)
+	if err != nil {
+		log.Printf("google id token validation failed: %v", err)
+		writeError(w, http.StatusUnauthorized, errors.New("invalid google credential"))
+		return
+	}
+
+	email, _ := verified.Claims["email"].(string)
+	if email == "" {
+		writeError(w, http.StatusUnauthorized, errors.New("google credential is missing email"))
+		return
+	}
+	if !googleEmailVerified(verified.Claims["email_verified"]) {
+		writeError(w, http.StatusUnauthorized, errors.New("google email is not verified"))
+		return
+	}
+
+	subject, _ := verified.Claims["sub"].(string)
+	tokenString, err := api.issueLoginToken(jwt.MapClaims{
+		"email":         email,
+		"auth_provider": "google",
+		"google_sub":    subject,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "google login ok",
+		"token":   tokenString,
+	})
+}
+
+func (api *API) issueLoginToken(claims jwt.MapClaims) (string, error) {
+	claims["exp"] = time.Now().Add(time.Hour * 24).Unix()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(api.secretKey)
+}
+
+func googleEmailVerified(value any) bool {
+	switch typed := value.(type) {
+	case bool:
+		return typed
+	case string:
+		return strings.EqualFold(typed, "true")
+	default:
+		return false
+	}
 }
 
 func (api *API) health(w http.ResponseWriter, r *http.Request) {

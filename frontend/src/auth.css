@@ -321,6 +321,12 @@
   background: #ffffff;
 }
 
+.google-button:disabled {
+  cursor: not-allowed;
+  color: #72817b;
+  background: #f4f7f6;
+}
+
 .google-button span {
   display: inline-grid;
   width: 24px;
@@ -329,6 +335,33 @@
   border-radius: 999px;
   color: #3f70a8;
   background: #eef3fb;
+}
+
+.google-button-shell {
+  position: relative;
+  display: grid;
+  min-height: 50px;
+  align-items: center;
+}
+
+.google-button-shell > div {
+  display: grid;
+}
+
+.google-button-shell iframe {
+  margin: 0 auto;
+}
+
+.google-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d5e2dd;
+  border-radius: 8px;
+  color: #16312c;
+  background: rgba(255, 255, 255, 0.86);
+  font-weight: 800;
 }
 
 .form-links {
