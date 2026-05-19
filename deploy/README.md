@@ -72,8 +72,11 @@ Copy the generated value:
 ```bash
 cat > .env <<'EOF'
 JWT_SECRET=<paste-generated-secret-here>
+GOOGLE_CLIENT_ID=<your-google-oauth-client-id.apps.googleusercontent.com>
 EOF
 ```
+
+For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins.
 
 ## 5. Start the site
 

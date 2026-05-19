@@ -8,6 +8,7 @@ type Config struct {
 	AllowedOrigin     string
 	StaticDir         string
 	JWTSecret         string
+	GoogleClientID    string
 	NUSModsAcadYear   string
 	SyncInterval      time.Duration
 	HTTPClientTimeout time.Duration
