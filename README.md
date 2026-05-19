@@ -103,12 +103,14 @@ For production, also add:
 https://7chen.online
 ```
 
-Run the backend and frontend with the same client ID:
+Run the backend with the Google client ID:
 
 ```bash
 cd backend
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com go run ./cmd/server
 ```
+
+The frontend reads this value from `GET /api/config` at runtime. For local frontend-only development, you may also pass the client ID directly to Vite:
 
 ```bash
 cd frontend
@@ -154,6 +156,7 @@ VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 
 ```text
 GET    /api/health
+GET    /api/config
 POST   /api/register
 POST   /api/login
 POST   /api/auth/google
@@ -208,6 +211,8 @@ Create a `.env` file:
 JWT_SECRET=replace-with-a-long-random-secret
 GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 ```
+
+The deployed frontend receives the Google client ID from the backend runtime config endpoint, so `GOOGLE_CLIENT_ID` must be present in the app container environment.
 
 Start the stack:
 

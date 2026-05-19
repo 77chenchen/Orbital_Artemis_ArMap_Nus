@@ -76,7 +76,7 @@ GOOGLE_CLIENT_ID=<your-google-oauth-client-id.apps.googleusercontent.com>
 EOF
 ```
 
-For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins.
+For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins. The app exposes this client ID to the frontend through `GET /api/config`, so make sure `GOOGLE_CLIENT_ID` is set before rebuilding and restarting the stack.
 
 ## 5. Start the site
 

@@ -35,6 +35,7 @@ func NewAPI(cfg Config, store *Store, client *NUSModsClient) *API {
 func (api *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", api.health)
+	mux.HandleFunc("GET /api/config", api.publicConfig)
 	mux.HandleFunc("GET /api/buildings", api.Protect(api.listBuildings))
 	mux.HandleFunc("GET /api/facilities", api.Protect(api.listFacilities))
 	mux.HandleFunc("GET /api/schedule", api.Protect(api.listSchedule))
@@ -233,6 +234,12 @@ func (api *API) health(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"service": "atlas-api",
 		"time":    time.Now().UTC(),
+	})
+}
+
+func (api *API) publicConfig(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"googleClientId": api.cfg.GoogleClientID,
 	})
 }
 

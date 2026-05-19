@@ -48,9 +48,41 @@ export default function Login({
   const [loginFailed, setLoginFailed] = useState(false);
   const [googleError, setGoogleError] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleConfigLoaded, setGoogleConfigLoaded] = useState(Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID));
+  const [googleClientId, setGoogleClientId] = useState(import.meta.env.VITE_GOOGLE_CLIENT_ID || "");
   const googleButtonRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (googleClientId) {
+      setGoogleConfigLoaded(true);
+      return;
+    }
+
+    fetch(`${API_BASE}/config`)
+      .then((response) => (response.ok ? response.json() : {}))
+      .then((config) => {
+        if (!cancelled && typeof config.googleClientId === "string") {
+          setGoogleClientId(config.googleClientId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGoogleError("Google sign-in configuration could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setGoogleConfigLoaded(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleClientId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +231,7 @@ export default function Login({
       ) : (
         <button className="google-button" type="button" disabled>
           <span>G</span>
-          Google sign-in unavailable
+          {googleConfigLoaded ? "Google sign-in unavailable" : "Loading Google sign-in..."}
         </button>
       )}
 
