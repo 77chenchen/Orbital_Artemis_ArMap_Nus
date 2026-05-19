@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Auth from "./Auth";
 import Dashboard from "./Dashboard";
 import Protected from "./Protected";
+import MapScreen from "./Map";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
             </Protected>
           }
         />
+        <Route path="/Map" element={<Protected><MapScreen/></Protected>} />
       </Routes>
     </BrowserRouter>
   );

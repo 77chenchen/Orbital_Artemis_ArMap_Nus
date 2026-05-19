@@ -13,7 +13,7 @@ export default function Register({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.SubmitEvent) {
     event.preventDefault();
     setError("");
     const res = await fetch(`${API_BASE}/register`, {
