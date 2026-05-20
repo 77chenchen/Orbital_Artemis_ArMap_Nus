@@ -72,11 +72,11 @@ Copy the generated value:
 ```bash
 cat > .env <<'EOF'
 JWT_SECRET=<paste-generated-secret-here>
-GOOGLE_CLIENT_ID=<your-google-oauth-client-id.apps.googleusercontent.com>
+GOOGLE_CLIENT_ID=<optional-custom-google-oauth-client-id.apps.googleusercontent.com>
 EOF
 ```
 
-For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins. The app exposes this client ID to the frontend through `GET /api/config`, so make sure `GOOGLE_CLIENT_ID` is set before rebuilding and restarting the stack.
+For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins. The app exposes the client ID to the frontend through `GET /api/config`. If `GOOGLE_CLIENT_ID` is omitted, the backend uses the built-in demo client ID.
 
 ## 5. Start the site
 

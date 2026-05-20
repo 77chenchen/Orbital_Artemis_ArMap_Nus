@@ -13,6 +13,8 @@ import (
 	"github.com/atlas-nus/armap/backend/internal/atlas"
 )
 
+const defaultGoogleClientID = "256709725892-l8c193prtctrjm4bhsv0fdknhshuvdqd.apps.googleusercontent.com"
+
 func main() {
 	cfg := atlas.Config{
 		Port:              env("PORT", "8080"),
@@ -20,7 +22,7 @@ func main() {
 		AllowedOrigin:     env("ALLOWED_ORIGIN", "*"),
 		StaticDir:         env("STATIC_DIR", ""),
 		JWTSecret:         env("JWT_SECRET", ""),
-		GoogleClientID:    env("GOOGLE_CLIENT_ID", ""),
+		GoogleClientID:    env("GOOGLE_CLIENT_ID", defaultGoogleClientID),
 		NUSModsAcadYear:   env("NUSMODS_ACAD_YEAR", "2025-2026"),
 		SyncInterval:      durationEnv("SYNC_INTERVAL", 6*time.Hour),
 		HTTPClientTimeout: durationEnv("HTTP_CLIENT_TIMEOUT", 10*time.Second),

@@ -103,14 +103,14 @@ For production, also add:
 https://7chen.online
 ```
 
-Run the backend with the Google client ID:
+The backend includes the demo Google client ID by default, so local development can start with:
 
 ```bash
 cd backend
-GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com go run ./cmd/server
+go run ./cmd/server
 ```
 
-The frontend reads this value from `GET /api/config` at runtime. For local frontend-only development, you may also pass the client ID directly to Vite:
+To use a different Google OAuth client, override it with `GOOGLE_CLIENT_ID`. The frontend reads this value from `GET /api/config` at runtime. For local frontend-only development, you may also pass the client ID directly to Vite:
 
 ```bash
 cd frontend
@@ -144,6 +144,8 @@ NUSMODS_ACAD_YEAR=2025-2026
 SYNC_INTERVAL=21600
 HTTP_CLIENT_TIMEOUT=10
 ```
+
+`GOOGLE_CLIENT_ID` is optional for the demo because the backend has a default client ID. Set it only when you want to use your own OAuth client.
 
 ### Frontend
 
@@ -212,7 +214,7 @@ JWT_SECRET=replace-with-a-long-random-secret
 GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 ```
 
-The deployed frontend receives the Google client ID from the backend runtime config endpoint, so `GOOGLE_CLIENT_ID` must be present in the app container environment.
+The deployed frontend receives the Google client ID from the backend runtime config endpoint. If `GOOGLE_CLIENT_ID` is omitted, the backend uses the demo client ID.
 
 Start the stack:
 
