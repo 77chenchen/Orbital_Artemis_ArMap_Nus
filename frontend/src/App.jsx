@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Auth from "./Auth";
 import Dashboard from "./Dashboard";
 import Protected from "./Protected";
-import MapScreen from "./Map";
+import MapScreen from "./Map/map";
 
 export default function App() {
   return (

@@ -1,53 +1,10 @@
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { fetchBuildings, fetchRoute } from "./fetch";
 
 export default function MapScreen() {
   const mapContainer = useRef(null);
-
-  
-  // FETCH BUILDINGS
-
-  async function fetchBuildings(bounds) {
-    const query = `
-      [out:json][timeout:25];
-      (
-        way["building"]
-        (${bounds.s},${bounds.w},${bounds.n},${bounds.e});
-      );
-      out geom center;
-    `;
-
-    const res = await fetch(
-      "https://overpass-api.de/api/interpreter",
-      {
-        method: "POST",
-        body: query,
-      }
-    );
-
-    const data = await res.json();
-
-    return data.elements;
-  }
-
- 
-  // FETCH ROUTE
-  
-  async function fetchRoute(start, end) {
-    const url = `
-      https://router.project-osrm.org/route/v1/walking/
-      ${start[0]},${start[1]};
-      ${end[0]},${end[1]}
-      ?overview=full&geometries=geojson
-    `.replace(/\s+/g, "");
-
-    const res = await fetch(url);
-
-    const data = await res.json();
-
-    return data.routes[0].geometry;
-  }
 
   
   // INIT MAP
@@ -59,7 +16,7 @@ export default function MapScreen() {
       style:
         "https://tiles.stadiamaps.com/styles/osm_bright.json",
 
-      center: [103.7764, 1.2966],
+      center: [103.7764, 1.2966], // nus
       zoom: 16,
     });
 
