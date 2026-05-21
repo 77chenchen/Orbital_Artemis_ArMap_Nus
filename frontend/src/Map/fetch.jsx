@@ -24,7 +24,8 @@ export default function initMap(container) {
       ]
     },
 
-    center: [103.7764, 1.2966],
-    zoom: 14
+    center: [103.7764, 1.2966], // center to be nus
+    zoom: 16
   });
 }
+

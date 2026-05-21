@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/api/idtoken"
 )
@@ -47,11 +47,14 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/login", api.login)
 	mux.HandleFunc("POST /api/auth/google", api.googleLogin)
 	mux.HandleFunc("POST /api/register", api.register)
+	
 	if api.cfg.StaticDir != "" {
 		mux.HandleFunc("/", api.serveStaticApp)
 	}
 	return api.withCORS(mux)
 }
+
+
 
 func (api *API) serveStaticApp(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") {
