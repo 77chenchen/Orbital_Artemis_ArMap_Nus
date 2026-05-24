@@ -8,12 +8,12 @@ const OrsGeocode = new Openrouteservice.Geocode({
   api_key: "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjRmOWQ2MGZkNzdhYjQzMmU5NjY4MWYzY2M1NzljNDBkIiwiaCI6Im11cm11cjY0In0=",
 });
 
-export default async function getSuggestions(inputString) {
+export default async function getSuggestions(inputString, opts=5) {
   try {
-    // FIX: Use .geocode() instead of .autocomplete()
+    
     const response = await OrsGeocode.geocode({
       text: inputString, // This triggers the Pelias type-ahead logic
-      size: 5,
+      size: opts,
       boundary_country: "SG",
     });
 
