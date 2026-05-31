@@ -144,7 +144,7 @@ export default function MapScreen() {
                   const coords = d.geometry.coordinates;
 
                   setQueryText(label);
-                  setEndPlace({ label, coords }); // 🔥 FIX
+                  setEndPlace({ label, coords });
 
                   setActiveField(null);
                   setShowDropdown(false);
