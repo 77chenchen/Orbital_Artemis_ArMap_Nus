@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { API_BASE } from "./api";
+import { API_BASE } from "../api";
 
 const GOOGLE_SCRIPT_URL = "https://accounts.google.com/gsi/client";
 let googleScriptPromise: Promise<void> | null = null;

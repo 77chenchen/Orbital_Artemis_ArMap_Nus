@@ -9,6 +9,7 @@ export default async function getShortestRoutes(start, end, mode = "foot") {
     `point=${start[1]},${start[0]}&` +
     `point=${end[1]},${end[0]}&` +
     `profile=${mode}&` +
+    `weighting=shortest&` +
     `points_encoded=false&` +
     `key=${ghpAPI}`;
 

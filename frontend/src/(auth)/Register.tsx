@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { API_BASE } from "./api";
+import { API_BASE } from "../api";
 
 export default function Register({
   toLogin,

@@ -3,16 +3,16 @@ import Openrouteservice from 'openrouteservice-js';
 const ORSapi = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjRmOWQ2MGZkNzdhYjQzMmU5NjY4MWYzY2M1NzljNDBkIiwiaCI6Im11cm11cjY0In0=";
 
 
-// 1. Initialize the Geocode service with your Openrouteservice API Key
+// initialize the Geocode service with Openrouteservice API Key
 const OrsGeocode = new Openrouteservice.Geocode({ 
   api_key: "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjRmOWQ2MGZkNzdhYjQzMmU5NjY4MWYzY2M1NzljNDBkIiwiaCI6Im11cm11cjY0In0=",
 });
 
-export default async function getSuggestions(inputString, opts=5) {
+export default async function getSuggestions(inputString, { opts = 5 } = {}) {
   try {
     
     const response = await OrsGeocode.geocode({
-      text: inputString, // This triggers the Pelias type-ahead logic
+      text: inputString, // triggers the Pelias type-ahead logic
       size: opts,
       boundary_country: "SG",
     });

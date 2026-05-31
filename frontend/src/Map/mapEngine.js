@@ -3,21 +3,27 @@ import maplibregl from "maplibre-gl";
 export class MapEngine {
   constructor(map) {
     this.map = map;
-    this.marker = null;
+    this.markers = [];
   }
 
   flyTo(coord) {
     this.map.flyTo({ center: coord, zoom: 17 });
   }
 
-  setMarker(coord, { fly = true, removeOld = true } = {}) {
-    if (this.marker && removeOld) {
-      this.marker.remove();
+  clear() {
+    for (const marker of this.markers) {
+      marker.remove();
     }
+    this.markers = [];
+  }
 
-    this.marker = new maplibregl.Marker()
+  setMarker(coord, { fly = true } = {}) {
+
+    let marker = new maplibregl.Marker()
       .setLngLat(coord)
       .addTo(this.map);
+
+    this.markers.push(marker);
 
     if (fly) this.flyTo(coord);
   }

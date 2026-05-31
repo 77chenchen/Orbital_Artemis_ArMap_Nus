@@ -1,8 +1,8 @@
 import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import Auth from "./Auth";
+import Auth from "./(auth)/Auth";
 import Dashboard from "./Dashboard";
-import Protected from "./Protected";
+import Protected from "./(auth)/Protected";
 import MapScreen from "./Map/map";
 
 export default function App() {
