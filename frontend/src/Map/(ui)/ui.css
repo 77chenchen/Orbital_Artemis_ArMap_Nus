@@ -1,0 +1,155 @@
+.menu-container {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+
+  width: 100%;
+  margin: 0;
+  padding: 0px ;
+
+  list-style: none;
+
+  background: white;
+  border-radius: 12px;
+
+  
+
+  max-height: 300px;
+  overflow-y: auto;
+
+  z-index: 1000;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+
+  padding: 20px 20px;
+  cursor: pointer;
+  width: 100%;
+  z-index: 9999;
+
+
+  transition: background 0.15s ease;
+}
+
+.menu-item:hover {
+  background-color: #f1f3f4;
+}
+
+.menu-text {
+  font-size: 16px;
+  color: #202124;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.input-wrapper {
+  position: relative;
+  width: 100%;
+
+}
+
+.routing-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  height: 100vh;
+  width: 400px;
+
+  background: white;
+  border-right: 1px solid #eee;
+  overflow-x: hidden;
+}
+
+/* main card */
+.rout-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid rgb(1, 64, 252);
+  width: 100%;
+  box-sizing: border-box;
+  background: white;
+  border-radius: 0px;
+  padding: 14px 20px;
+  
+  gap: 12px;
+  padding-top: 50px;
+  padding-bottom: 40px;
+}
+
+/* left A-B markers */
+.route-markers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 40px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.start {
+  background: #1a73e8;
+}
+
+.dot.end {
+  background: #ea4335;
+}
+
+.line {
+  width: 2px;
+  height: 40px;
+  background: #ddd;
+  margin: 3px 0;
+}
+
+/* inputs */
+.route-inputs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 15px;
+}
+
+.route-input {
+  border: none;
+  outline: none;
+  font-size: 14px;
+  padding: 8px 6px;
+  background: transparent;
+  width:80%;
+  border-bottom: 1px solid #1a73e8;
+}
+
+.route-input::placeholder {
+  color: #888;
+}
+
+/* swap button */
+.swap-button {
+  border: none;
+  background: #f1f3f4;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 16px;
+  transition: 0.2s;
+}
+
+.swap-button:hover {
+  background: #e8eaed;
+}

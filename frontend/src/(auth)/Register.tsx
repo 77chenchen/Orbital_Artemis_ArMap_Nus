@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { API_BASE } from "./api";
+import { API_BASE } from "../api";
 
 export default function Register({
   toLogin,
@@ -13,7 +13,7 @@ export default function Register({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.SubmitEvent) {
     event.preventDefault();
     setError("");
     const res = await fetch(`${API_BASE}/register`, {
