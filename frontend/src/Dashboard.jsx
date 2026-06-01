@@ -855,10 +855,12 @@ const styles = StyleSheet.create({
   agentGridCompact: {
     flexDirection: "column",
   },
+  agentColumn: {
+    flex: 1,
+  },
   panel: {
     gap: 14,
     minWidth: 0,
-    flex: 1,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.line,
