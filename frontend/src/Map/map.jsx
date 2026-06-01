@@ -8,9 +8,12 @@ import { MapEngine } from "./mapEngine";
 import { geocode, route } from "./services";
 import getSuggestions from "./geocoding";
 import RoutingForm from "./(ui)/routingForm";
+import { api } from "../api";
+import { installBusLayers, setActiveBuses } from "./busLayer";
 
 export default function MapScreen() {
   const mapContainer = useRef(null);
+  const mapRef = useRef(null);
   const engineRef = useRef(null);
 
   // text (ui only)
@@ -29,12 +32,106 @@ export default function MapScreen() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeField, setActiveField] = useState(null);
 
+  const [busReady, setBusReady] = useState(false);
+  const [busRoutes, setBusRoutes] = useState([]);
+  const [selectedRoute, setSelectedRoute] = useState("D1");
+  const [selectedStop, setSelectedStop] = useState(null);
+  const [arrival, setArrival] = useState(null);
+  const [busError, setBusError] = useState("");
+
   // init map
   useEffect(() => {
     const map = initMap(mapContainer.current);
+    mapRef.current = map;
     engineRef.current = new MapEngine(map);
-    return () => map.remove();
+
+    let cleanupBusLayer = null;
+    let cancelled = false;
+
+    async function loadBusLayer() {
+      try {
+        const [stops, routes] = await Promise.all([
+          api.busStops(),
+          api.busRoutes(),
+        ]);
+        if (cancelled) return;
+
+        cleanupBusLayer = installBusLayers(map, stops, handleBusStopSelect);
+        setBusRoutes(routes);
+
+        const preferredRoute = routes.some((item) => item.code === "D1")
+          ? "D1"
+          : routes[0]?.code || "";
+        if (preferredRoute) {
+          setSelectedRoute(preferredRoute);
+        }
+
+        if (stops[0]) {
+          await handleBusStopSelect({ code: stops[0].code, name: stops[0].name });
+        }
+
+        if (!cancelled) {
+          setBusReady(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBusError(err.message);
+        }
+      }
+    }
+
+    async function handleBusStopSelect(stop) {
+      setSelectedStop(stop);
+      setArrival(null);
+      setBusError("");
+      try {
+        const nextArrival = await api.busArrivals(stop.code);
+        if (!cancelled) {
+          setArrival(nextArrival);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBusError(err.message);
+        }
+      }
+    }
+
+    map.on("load", loadBusLayer);
+
+    return () => {
+      cancelled = true;
+      cleanupBusLayer?.();
+      mapRef.current = null;
+      map.remove();
+    };
   }, []);
+
+  useEffect(() => {
+    if (!busReady || !selectedRoute || !mapRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    async function refreshActiveBus() {
+      try {
+        const active = await api.activeBus(selectedRoute);
+        if (!cancelled && mapRef.current) {
+          setActiveBuses(mapRef.current, active.vehicles || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBusError(err.message);
+        }
+      }
+    }
+
+    refreshActiveBus();
+    const timer = window.setInterval(refreshActiveBus, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [busReady, selectedRoute]);
 
   
   useEffect(() => {
@@ -183,6 +280,63 @@ export default function MapScreen() {
           setEndPlace={setEndPlace}
         />
       )}
+
+      <section className="bus-panel">
+        <div className="bus-panel-header">
+          <div>
+            <p className="bus-kicker">NUS NextBus</p>
+            <h2>Campus Bus Layer</h2>
+          </div>
+          <select
+            value={selectedRoute}
+            onChange={(event) => setSelectedRoute(event.target.value)}
+            aria-label="Select bus route"
+          >
+            {busRoutes.map((routeItem) => (
+              <option key={routeItem.code} value={routeItem.code}>
+                {routeItem.code}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedStop ? (
+          <div className="bus-stop-card">
+            <div>
+              <p className="bus-kicker">Selected Stop</p>
+              <h3>{selectedStop.name || selectedStop.code}</h3>
+            </div>
+            <span>{selectedStop.code}</span>
+          </div>
+        ) : (
+          <p className="bus-muted">Loading campus shuttle stops...</p>
+        )}
+
+        <div className="bus-arrivals">
+          {(arrival?.routes || []).map((routeItem) => (
+            <div className="bus-arrival-row" key={routeItem.routeCode}>
+              <strong>{routeItem.routeCode}</strong>
+              <span>{formatEtas(routeItem.arrivalMinutes)}</span>
+              <em className={`crowd crowd-${routeItem.crowdLevel || "live"}`}>
+                {routeItem.crowdLevel || "live"}
+              </em>
+            </div>
+          ))}
+          {arrival && arrival.routes?.length === 0 && (
+            <p className="bus-muted">No live arrivals for this stop yet.</p>
+          )}
+        </div>
+
+        {busError && <p className="bus-error">{busError}</p>}
+        <p className="bus-footer">
+          Source: {arrival?.source || "loading"} · active buses refresh every 15s
+        </p>
+      </section>
     </div>
   );
+}
+
+function formatEtas(minutes = []) {
+  if (!minutes.length) return "Check app";
+  return minutes.map((minute) => (minute === 0 ? "Arr" : `${minute} min`)).join(" / ");
 }

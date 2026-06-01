@@ -10,6 +10,12 @@ type Config struct {
 	JWTSecret         string
 	GoogleClientID    string
 	NUSModsAcadYear   string
+	NUSBusAuthBase    string
+	NUSBusAPIBase     string
+	NUSBusXHTDAPI     string
+	NUSBusXAPPAPI     string
+	NUSBusDeviceID    string
+	NUSBusVersion     string
 	SyncInterval      time.Duration
 	HTTPClientTimeout time.Duration
 }

@@ -15,6 +15,7 @@ An NUS campus assistant prototype with React, Go, SQLite, Google Sign-In, schedu
 - Schedule management for upcoming classes, meetings, and events.
 - Recommendation cards that respond to schedule and campus context.
 - NUSMods sync status and manual sync trigger for external API integration.
+- NUS campus bus map layer with stops, arrivals, active vehicles, and assistant-ready context.
 - Seeded demo data for buildings, facilities, schedules, and demo credentials.
 - Docker Compose deployment with Caddy reverse proxy and HTTPS support.
 
@@ -143,9 +144,17 @@ GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
 NUSMODS_ACAD_YEAR=2025-2026
 SYNC_INTERVAL=21600
 HTTP_CLIENT_TIMEOUT=10
+NUS_BUS_AUTH_BASE=https://myizaac2.nus.edu.sg
+NUS_BUS_API_BASE=https://fms.connectx.com.sg/apiy/NUSETA
+NUS_BUS_X_HTD_API=
+NUS_BUS_X_APP_API=
+NUS_BUS_DEVICE_ID=atlas-nus-bus-demo-device
+NUS_BUS_VERSION=2.56.0
 ```
 
 `GOOGLE_CLIENT_ID` is optional for the demo because the backend has a default client ID. Set it only when you want to use your own OAuth client.
+
+`NUS_BUS_X_HTD_API` and `NUS_BUS_X_APP_API` are optional for local development. When they are empty, the bus endpoints return demo data; when they are configured, the backend proxies NUS bus data server-side and caches live responses.
 
 ### Frontend
 
@@ -171,6 +180,13 @@ DELETE /api/schedule/{id}
 GET    /api/recommendations
 GET    /api/sync/status
 POST   /api/sync/run
+
+GET    /api/bus/stops
+GET    /api/bus/routes
+GET    /api/bus/arrivals?stop=COM2
+GET    /api/bus/active?route=D1
+GET    /api/bus/alerts
+GET    /api/bus/context?lat=1.2966&lng=103.7764
 ```
 
 Most app data routes require:
@@ -204,6 +220,41 @@ Run backend checks:
 cd backend
 go test ./...
 ```
+
+## iOS App Demo
+
+The project includes a Capacitor iOS shell under `frontend/ios`. The shell loads the Render-hosted Atlas site:
+
+```text
+https://orbital-artemis-armap-nus.onrender.com
+```
+
+This keeps the iOS demo simple: the app uses the deployed HTTPS frontend/backend instead of trying to call a local `localhost` API from the simulator or a real device.
+
+### Run In Xcode
+
+```bash
+cd frontend
+npm install
+npm run ios:sync
+npm run ios:open
+```
+
+In Xcode:
+
+1. Select an iPhone simulator.
+2. Press Run.
+3. Test login, dashboard loading, map, schedule, recommendations, and sync status.
+
+### Google Sign-In For iOS Shell
+
+Because the iOS shell loads the Render HTTPS site, Google Cloud Console must include this Authorized JavaScript origin:
+
+```text
+https://orbital-artemis-armap-nus.onrender.com
+```
+
+For a production App Store app, replace the WebView Google flow with a native iOS Google Sign-In plugin. For this demo shell, the Render-hosted HTTPS page is the simplest path.
 
 ## Docker Deployment
 

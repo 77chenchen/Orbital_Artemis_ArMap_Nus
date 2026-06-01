@@ -24,6 +24,12 @@ func main() {
 		JWTSecret:         env("JWT_SECRET", ""),
 		GoogleClientID:    env("GOOGLE_CLIENT_ID", defaultGoogleClientID),
 		NUSModsAcadYear:   env("NUSMODS_ACAD_YEAR", "2025-2026"),
+		NUSBusAuthBase:    env("NUS_BUS_AUTH_BASE", "https://myizaac2.nus.edu.sg"),
+		NUSBusAPIBase:     env("NUS_BUS_API_BASE", "https://fms.connectx.com.sg/apiy/NUSETA"),
+		NUSBusXHTDAPI:     env("NUS_BUS_X_HTD_API", ""),
+		NUSBusXAPPAPI:     env("NUS_BUS_X_APP_API", ""),
+		NUSBusDeviceID:    env("NUS_BUS_DEVICE_ID", "atlas-nus-bus-demo-device"),
+		NUSBusVersion:     env("NUS_BUS_VERSION", "2.56.0"),
 		SyncInterval:      durationEnv("SYNC_INTERVAL", 6*time.Hour),
 		HTTPClientTimeout: durationEnv("HTTP_CLIENT_TIMEOUT", 10*time.Second),
 	}

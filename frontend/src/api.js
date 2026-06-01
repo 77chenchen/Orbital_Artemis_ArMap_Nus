@@ -95,6 +95,48 @@ const demoRecommendations = [
   },
 ];
 
+const demoBusStops = [
+  { code: 'COM2', name: 'COM 2', latitude: 1.29486, longitude: 103.77388, source: 'demo' },
+  { code: 'CLB', name: 'Central Library', latitude: 1.29661, longitude: 103.77234, source: 'demo' },
+  { code: 'YIH', name: 'Yusof Ishak House', latitude: 1.29854, longitude: 103.77406, source: 'demo' },
+  { code: 'UTOWN', name: 'University Town', latitude: 1.30483, longitude: 103.77382, source: 'demo' },
+  { code: 'KR-MRT', name: 'Kent Ridge MRT', latitude: 1.29234, longitude: 103.78499, source: 'demo' },
+  { code: 'PGP', name: "Prince George's Park", latitude: 1.29094, longitude: 103.78022, source: 'demo' },
+];
+
+const demoBusRoutes = [
+  { code: 'A1', name: 'A1', color: '#E04F5F', description: 'Kent Ridge MRT, Central Library, UTown loop' },
+  { code: 'A2', name: 'A2', color: '#2F80ED', description: 'Reverse campus loop' },
+  { code: 'D1', name: 'D1', color: '#27AE60', description: 'COM and UTown connector' },
+  { code: 'D2', name: 'D2', color: '#F2C94C', description: 'PGP and campus connector' },
+];
+
+const demoBusArrivals = {
+  COM2: [
+    { routeCode: 'D1', arrivalMinutes: [2, 8], crowdLevel: 'medium', vehiclePlate: 'PC1234A' },
+    { routeCode: 'A1', arrivalMinutes: [5, 12], crowdLevel: 'low', vehiclePlate: 'PC2345B' },
+  ],
+  CLB: [
+    { routeCode: 'A1', arrivalMinutes: [3, 10], crowdLevel: 'low', vehiclePlate: 'PC3456C' },
+    { routeCode: 'A2', arrivalMinutes: [6, 14], crowdLevel: 'medium', vehiclePlate: 'PC4567D' },
+  ],
+  UTOWN: [
+    { routeCode: 'D1', arrivalMinutes: [4, 11], crowdLevel: 'high', vehiclePlate: 'PC5678E' },
+    { routeCode: 'A2', arrivalMinutes: [7, 15], crowdLevel: 'medium', vehiclePlate: 'PC6789F' },
+  ],
+};
+
+const demoActiveBuses = {
+  A1: [
+    { plate: 'PC2345B', latitude: 1.2962, longitude: 103.7731, crowdLevel: 'low', occupancy: 0.32 },
+    { plate: 'PC3456C', latitude: 1.2928, longitude: 103.7832, crowdLevel: 'medium', occupancy: 0.58 },
+  ],
+  D1: [
+    { plate: 'PC1234A', latitude: 1.2969, longitude: 103.774, crowdLevel: 'medium', occupancy: 0.52 },
+    { plate: 'PC5678E', latitude: 1.3035, longitude: 103.7738, crowdLevel: 'high', occupancy: 0.81 },
+  ],
+};
+
 let demoSchedule = [
   {
     id: 1,
@@ -170,6 +212,30 @@ function demoRequest(path, options = {}) {
     return Promise.resolve(null);
   }
   if (path.startsWith('/recommendations')) return Promise.resolve(demoRecommendations);
+  if (path === '/bus/stops') return Promise.resolve(demoBusStops);
+  if (path === '/bus/routes') return Promise.resolve(demoBusRoutes);
+  if (path.startsWith('/bus/arrivals')) {
+    const url = new URL(`https://demo.local${path}`);
+    const stop = url.searchParams.get('stop');
+    return Promise.resolve({
+      stopCode: stop,
+      stopName: demoBusStops.find((item) => item.code === stop)?.name || stop,
+      routes: demoBusArrivals[stop] || [{ routeCode: 'A1', arrivalMinutes: [5, 13], crowdLevel: 'low' }],
+      source: 'demo',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  if (path.startsWith('/bus/active')) {
+    const url = new URL(`https://demo.local${path}`);
+    const route = url.searchParams.get('route');
+    return Promise.resolve({
+      routeCode: route,
+      vehicles: demoActiveBuses[route] || [],
+      source: 'demo',
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  if (path === '/bus/alerts') return Promise.resolve([]);
   if (path === '/sync/status') return Promise.resolve(demoSyncStatus);
   if (path === '/sync/run' && options.method === 'POST') {
     demoSyncStatus = {
@@ -196,6 +262,11 @@ export const api = {
   createSchedule: (item) => request('/schedule', { method: 'POST', body: JSON.stringify(item) }),
   deleteSchedule: (id) => request(`/schedule/${id}`, { method: 'DELETE' }),
   recommendations: () => request('/recommendations?lat=1.2966&lng=103.7764'),
+  busStops: () => request('/bus/stops'),
+  busRoutes: () => request('/bus/routes'),
+  busArrivals: (stop) => request(`/bus/arrivals?stop=${encodeURIComponent(stop)}`),
+  activeBus: (route) => request(`/bus/active?route=${encodeURIComponent(route)}`),
+  busAlerts: () => request('/bus/alerts'),
   syncStatus: () => request('/sync/status'),
   runSync: () => request('/sync/run', { method: 'POST' }),
 };
