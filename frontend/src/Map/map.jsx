@@ -11,7 +11,7 @@ import RoutingForm from "./(ui)/routingForm";
 import { api } from "../api";
 import { installBusLayers, setActiveBuses } from "./busLayer";
 
-export default function MapScreen() {
+export default function MapScreen({ embedded = false }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const engineRef = useRef(null);
@@ -214,7 +214,7 @@ export default function MapScreen() {
   }
 
   return (
-    <div className="container">
+    <div className={`container${embedded ? " container-embedded" : ""}`}>
       <div ref={mapContainer} className="map-container" />
 
       

@@ -18,7 +18,8 @@ export default function App() {
             </Protected>
           }
         />
-        <Route path="/Map" element={<Protected><MapScreen/></Protected>} />
+        <Route path="/Map" element={<Protected><MapScreen /></Protected>} />
+        <Route path="/map" element={<Protected><MapScreen /></Protected>} />
       </Routes>
     </BrowserRouter>
   );
