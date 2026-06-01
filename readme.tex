@@ -1,0 +1,402 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper, margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{helvet}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric}
+
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\renewcommand{\familydefault}{\sfdefault}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue
+}
+
+\pagestyle{plain}
+
+\newcommand{\screenbox}[2]{
+\begin{figure}[h]
+    \centering
+    \fbox{
+        \begin{minipage}[c][0.18\textheight][c]{0.86\textwidth}
+            \centering
+            \textbf{#1}\\[0.5em]
+            #2
+        \end{minipage}
+    }
+    \caption*{#1}
+\end{figure}
+}
+
+\begin{document}
+
+\begin{center}
+    \textbf{\Huge NUS Orbital 2026}
+
+    \vspace{1.2cm}
+
+    \includegraphics[width=0.34\textwidth]{team_logo.jpg}
+
+    \vspace{0.8cm}
+
+    \textbf{\LARGE Milestone 01}
+
+    \vspace{0.8cm}
+
+    {\Large
+    \underline{\href{https://drive.google.com/file/d/1kHCFBJZEATOGSeAxe3MZQu1tjgT1XCv5/view?usp=share_link}{Poster}}
+    \hspace{0.2cm}
+    \underline{\href{https://drive.google.com/file/d/1g0qcSA1oe-XH0mgNVUuB4pHMQPBQDxpa/view?usp=share_link}{Video}}
+    \hspace{0.2cm}
+    \underline{\href{https://orbital-artemis-armap-nus.onrender.com}{App}}
+    \hspace{0.2cm}
+    \underline{\href{https://github.com/77chenchen/Orbital_Artemis_ArMap_Nus/issues}{Logs}}
+    }
+
+    \vspace{1cm}
+
+    \textbf{\LARGE Atlas (Team ID: \hspace{2.2cm})}\\
+    {\large Wang Qichen (A0337219B)}\\
+    {\large Feng Yi (A0322277E)}
+
+    \vspace{0.6cm}
+
+    \textbf{\large Proposed Level of Achievement:}\\
+    {\large Artemis}
+\end{center}
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\section*{Deployment}
+\addcontentsline{toc}{section}{Deployment}
+
+The deployed web application is available at:
+\href{https://orbital-artemis-armap-nus.onrender.com}{orbital-artemis-armap-nus.onrender.com}
+
+\section*{Motivation}
+\addcontentsline{toc}{section}{Motivation}
+
+Navigating through the NUS campus can be difficult because complete geospatial and indoor facility data is not always publicly available or intuitive to use. Even after reaching the correct building, students may still need to locate lecture rooms, tutorial classrooms, study spaces, restrooms, lifts, printing services, and other facilities.
+
+These navigation needs are closely tied to students' daily routines and schedules. Atlas is motivated by the need for a smarter, more context-aware campus assistant that supports both outdoor movement across NUS and indoor discovery within selected buildings.
+
+\section*{Our Aim}
+\addcontentsline{toc}{section}{Our Aim}
+
+Atlas aims to create a seamless campus assistant for NUS students. The project combines map-based navigation, facility discovery, schedule-aware guidance, and a daily assistant interface so that students can move through campus more confidently.
+
+For Milestone 01, our goal is to establish a working full-stack prototype: authentication, a protected dashboard, campus data APIs, map rendering, location search, and deployment. Later milestones will extend this foundation toward richer AR-style navigation, indoor guidance, and smarter route planning.
+
+\section*{User Stories}
+\addcontentsline{toc}{section}{User Stories}
+
+\begin{enumerate}[leftmargin=*]
+    \item As an NUS student who wants to get to class on time, I want to use Atlas to navigate from my current location to the correct building and classroom so that I can reach lessons with less confusion.
+    \item As an NUS student who is unfamiliar with a campus building, I want to find indoor facilities such as restrooms, lifts, study spaces, and printing services so that I can quickly locate useful services.
+    \item As an NUS student managing a busy day, I want schedule-aware reminders and location-based suggestions so that I know where to go next and when to leave.
+\end{enumerate}
+
+\newpage
+
+\section*{Overall Architecture Diagram}
+\addcontentsline{toc}{section}{Overall Architecture Diagram}
+
+The architecture follows the proposal's modular design: a user-facing interface, an authentication layer, a campus assistant/dashboard layer, a navigation and map layer, backend APIs, persistent data, and external campus services.
+
+\begin{figure}[h]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        node distance=1.25cm and 1.6cm,
+        box/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.95cm, fill=gray!8},
+        data/.style={cylinder, shape border rotate=90, draw=black, thick, align=center, minimum width=2.7cm, minimum height=1.1cm, fill=blue!8},
+        ext/.style={rectangle, draw=black, dashed, thick, align=center, minimum width=2.9cm, minimum height=0.9cm, fill=green!8},
+        arrow/.style={-{Latex[length=3mm]}, thick}
+    ]
+        \node[box] (user) {NUS Student\\Web / Mobile};
+        \node[box, right=of user] (frontend) {React + Vite Frontend\\Auth, Dashboard, Map};
+        \node[box, right=of frontend] (backend) {Go API Server\\JWT, Campus APIs};
+        \node[data, below=of backend] (db) {SQLite\\Campus + Schedule Data};
+        \node[box, below=of frontend] (assistant) {Daily Assistant\\Recommendations};
+        \node[box, below=of user] (map) {Map / Navigation\\Search + Routing};
+        \node[ext, right=of backend] (external) {External Services\\Google Sign-In, OSM, NUSMods};
+        \node[ext, below=of external] (future) {Future Extensions\\AR, Indoor Data, Transit};
+
+        \draw[arrow] (user) -- (frontend);
+        \draw[arrow] (frontend) -- (backend);
+        \draw[arrow] (backend) -- (db);
+        \draw[arrow] (backend) -- (external);
+        \draw[arrow] (frontend) -- (assistant);
+        \draw[arrow] (frontend) -- (map);
+        \draw[arrow] (assistant) -- (backend);
+        \draw[arrow] (map) -- (backend);
+        \draw[arrow] (backend) -- (future);
+    \end{tikzpicture}
+    }
+    \caption*{Atlas overall architecture for Milestone 01 and planned Artemis extensions}
+\end{figure}
+
+\newpage
+
+\section*{Core Features}
+\addcontentsline{toc}{section}{Core Features}
+
+The feature list below is based on the GitHub issue tracker. Sprint 3 issues are intentionally excluded from the Milestone 01 core feature count, including OpenTripPlanner backend setup, NUS bus API setup, multimodal route integration, and route color coding.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|C{0.08\textwidth}|L{0.24\textwidth}|C{0.16\textwidth}|X|}
+\hline
+\textbf{S/N} & \textbf{Feature} & \textbf{Completed At} & \textbf{Brief Explanation} \\
+\hline
+\multicolumn{4}{|c|}{\textbf{Core Features}} \\
+\hline
+1 & Repository and project foundation & Milestone 01 & Issue \#1 established the repository, README skeleton, license, and basic development structure. \\
+\hline
+2 & Authentication and protected access & Milestone 01 & Issues \#2 and \#8 cover email/password login, Google Sign-In, JWT issuing, and protected dashboard routing. \\
+\hline
+3 & Campus map rendering & Milestone 01 & Issues \#7 and \#17 cover OpenStreetMap/MapLibre rendering and fixing building polygon display. \\
+\hline
+4 & Location search and route tracing & Milestone 01 & Issue \#12 adds a searchable map interface with suggestions, map centering, and route-oriented interaction. \\
+\hline
+5 & Daily assistant and campus data UI & Milestone 01 & Issue \#11 connects schedule, recommendations, buildings, facilities, and sync status into a student-facing assistant dashboard. \\
+\hline
+\multicolumn{4}{|c|}{\textbf{Supporting / Usability Features}} \\
+\hline
+6 & Mobile frontend experience & Milestone 01 & Issue \#10 tracks responsive layout and mobile usability checks for auth, dashboard, map, schedule, and recommendations. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\newpage
+
+\section*{Repository and Project Foundation}
+\addcontentsline{toc}{section}{Repository and Project Foundation}
+
+This feature establishes the engineering foundation for Atlas. From the user's point of view, it makes the project accessible as a real deployed application rather than a static proposal: the repository contains reproducible setup instructions, a clear project structure, and a production deployment path.
+
+\subsection*{Project Structure and Version Control}
+\addcontentsline{toc}{subsection}{Project Structure and Version Control}
+
+Atlas is organized into a frontend, backend, deployment configuration, and supporting documentation. This mirrors the modular design described in the proposal and keeps responsibility boundaries clear. The frontend owns user interaction, the backend owns authentication and campus data APIs, and the deployment files define how the system runs in production.
+
+\screenbox{Project Structure}{Root-level folders include \texttt{frontend/}, \texttt{backend/}, \texttt{deploy/}, \texttt{poster\_work/}, \texttt{Dockerfile}, and \texttt{docker-compose.yml}.}
+
+The repository uses GitHub issues and pull requests as progress logs. Issue \#1 initialized the repository and documentation baseline, while later issues track authentication, map rendering, search, dashboard integration, and mobile usability. This supports the proposal's branch-based workflow: tasks are decomposed into issues, implemented on feature branches, reviewed through pull requests, and eventually integrated into \texttt{main}.
+
+The main trade-off of this structure is that it creates more files and coordination overhead than a single-folder prototype. However, the benefit is significant for an Artemis-level project: each module can evolve independently, deployment can be reproduced, and later AR/navigation extensions can be added without rewriting the whole codebase.
+
+\newpage
+
+\section*{Authentication and Protected Access}
+\addcontentsline{toc}{section}{Authentication and Protected Access}
+
+Authentication allows students to enter Atlas through email/password login, registration, demo mode, or Google Sign-In. Once authenticated, users can access protected pages such as the dashboard and map.
+
+\subsection*{Email, Demo, and Google Sign-In}
+\addcontentsline{toc}{subsection}{Email, Demo, and Google Sign-In}
+
+The login system supports multiple entry paths. Email/password login provides a traditional account flow, demo mode allows quick testing without setup, and Google Sign-In supports a more realistic student login experience.
+
+\screenbox{Authentication Screens}{Implemented screens include login, registration, Google Sign-In, and protected route redirection.}
+
+On the backend, Atlas verifies credentials and issues a JWT. For Google Sign-In, the frontend obtains a Google ID token and sends it to the backend, where it is verified against the configured Google client ID. If verification succeeds, the backend returns the same application JWT format used by email login. This keeps the rest of the application independent of the authentication method.
+
+From a software engineering perspective, this follows separation of concerns. The frontend handles user interaction and token storage, while the backend performs trust-sensitive verification and token signing. This is safer than trusting the frontend alone, because the backend remains the authority for protected access. The trade-off is that local development requires OAuth configuration and network access to Google's verification service, but the design is closer to a production-ready authentication system.
+
+\subsection*{Protected Routes}
+\addcontentsline{toc}{subsection}{Protected Routes}
+
+Protected routes guard the dashboard and map pages. If a user is not authenticated, the frontend redirects them to the login screen. API requests also attach the JWT in the \texttt{Authorization} header, allowing the backend to reject unauthenticated access consistently.
+
+This pattern reduces duplicated access checks. Instead of manually checking login state inside every page component, protected routing creates a reusable access boundary. It also makes later feature additions easier, because new protected pages can reuse the same wrapper.
+
+\newpage
+
+\section*{Campus Map Rendering}
+\addcontentsline{toc}{section}{Campus Map Rendering}
+
+The map feature gives users an interactive visual interface for campus navigation. For Milestone 01, Atlas renders a MapLibre/OpenStreetMap-based campus map centered around NUS and prepares the map surface for future AR and indoor navigation work.
+
+\subsection*{MapLibre and OSM Tiles}
+\addcontentsline{toc}{subsection}{MapLibre and OSM Tiles}
+
+The frontend uses MapLibre to render map tiles and manage markers, routes, and future geospatial overlays. This gives the project an open-source map engine that can be extended with custom campus data instead of relying only on a closed map UI.
+
+\screenbox{Campus Map Screen}{Implemented map view centered on NUS with route drawing, markers, and search integration.}
+
+The map logic is separated into a map initialization module, a \texttt{MapEngine} helper, routing services, and UI components. This modular approach prevents the main map page from becoming a single large component. It also makes it easier to add bus layers, indoor facility overlays, or AR-style markers later.
+
+The bug tracked in issue \#17 showed why this separation matters. Rendering geospatial polygons and map layers can fail due to data format mismatches, layer ordering, or source initialization timing. By separating map engine actions from UI state, Atlas can debug and update rendering logic without changing authentication or dashboard code.
+
+\subsection*{Route Tracing}
+\addcontentsline{toc}{subsection}{Route Tracing}
+
+Route tracing allows selected start and end points to be drawn on the map. In Milestone 01, this is implemented as a route line on the MapLibre layer. It is an early prototype of the proposal's broader navigation goal.
+
+The engineering trade-off is that route tracing is currently web-map based rather than full AR. This is intentional for Milestone 01: a reliable map and routing foundation reduces risk before adding heavier AR components in later milestones.
+
+\newpage
+
+\section*{Location Search and Route Interaction}
+\addcontentsline{toc}{section}{Location Search and Route Interaction}
+
+Location search improves usability by allowing users to type a destination instead of manually inspecting the map. This directly addresses the proposal's motivation: students often know the place name but not its exact location or route.
+
+\subsection*{Search Suggestions}
+\addcontentsline{toc}{subsection}{Search Suggestions}
+
+The search UI provides a text input and suggestion dropdown. As the user types, Atlas fetches matching places and displays suggestions. Selecting a suggestion places a marker and moves the map to the chosen location.
+
+\screenbox{Search and Suggestions}{Implemented search box, debounced suggestions, result selection, marker placement, and route mode transition.}
+
+Debouncing is used so that search requests are not fired for every keystroke. This is a practical performance technique: it improves responsiveness, reduces unnecessary requests, and avoids making the UI feel unstable while the user is still typing.
+
+\subsection*{Routing Form}
+\addcontentsline{toc}{subsection}{Routing Form}
+
+When route mode is enabled, the UI switches to a start/end routing form. This allows the user to choose both endpoints and draw a route. The state is split into display text and actual place objects, which avoids confusing a typed label with a confirmed geospatial result.
+
+This design applies a simple model-view separation. Text input state belongs to the UI, while confirmed places contain labels and coordinates used by the map engine. The trade-off is a slightly larger state model, but it prevents invalid or incomplete text from being treated as a real route endpoint.
+
+\newpage
+
+\section*{Daily Assistant and Campus Data UI}
+\addcontentsline{toc}{section}{Daily Assistant and Campus Data UI}
+
+The daily assistant dashboard connects campus data to the student's schedule and context. Rather than showing isolated data tables, Atlas presents buildings, facilities, upcoming schedule items, sync status, and recommendations in one student-facing interface.
+
+\subsection*{Buildings, Facilities, and Recommendations}
+\addcontentsline{toc}{subsection}{Buildings, Facilities, and Recommendations}
+
+The backend exposes APIs for buildings, facilities, recommendations, schedule data, and sync status. The frontend dashboard consumes these APIs and displays them as cards and filters that students can scan quickly.
+
+\screenbox{Dashboard and Assistant UI}{Implemented dashboard sections for campus buildings, facility filters, schedule, recommendations, and NUSMods sync status.}
+
+This feature implements the proposal's daily agent direction in an initial form. The system can suggest useful next actions, such as route-oriented recommendations or nearby campus resources, based on available schedule and location-like context.
+
+The backend uses a structured data layer with seeded SQLite data. This is a deliberate compromise for Milestone 01: it gives the prototype reliable data without requiring a full production data collection pipeline. Later, the same API surface can be connected to richer campus datasets, indoor mapping data, or user feedback loops.
+
+\subsection*{Schedule Management}
+\addcontentsline{toc}{subsection}{Schedule Management}
+
+Students can view, add, and delete schedule items. This supports the user story about managing the day more smoothly. Schedule data also gives the recommendation layer context for future reminders, departure-time estimation, and transition planning.
+
+From a design perspective, schedule management is a bridge between static campus information and personalized assistance. It turns Atlas from a map-only prototype into a context-aware assistant prototype.
+
+\newpage
+
+\section*{Mobile Frontend Experience}
+\addcontentsline{toc}{section}{Mobile Frontend Experience}
+
+Because campus navigation is often used while students are moving, mobile usability is a supporting but important feature. Issue \#10 tracks responsive layout and manual viewport checks for authentication, dashboard, map, schedule, and recommendations.
+
+\subsection*{Responsive Layout}
+\addcontentsline{toc}{subsection}{Responsive Layout}
+
+The frontend is designed to remain readable on common mobile widths. Cards, buttons, filters, and map panels are arranged to avoid horizontal scrolling and text overlap.
+
+\screenbox{Mobile Testing Scope}{Checked auth, dashboard, demo mode, map visibility, facility filters, schedule cards, recommendations, sync status, and protected-route behavior.}
+
+The main engineering principle here is progressive enhancement: the application should remain usable on desktop while also adapting to mobile. The trade-off is extra CSS and layout testing, but this matters for a campus assistant because students are more likely to use it on phones than on large desktop screens.
+
+\newpage
+
+\section*{UML Diagram}
+\addcontentsline{toc}{section}{UML Diagram}
+
+The diagrams below summarize two important interactions in the current prototype: authentication and map search/routing.
+
+\subsection*{Authentication Flow}
+\addcontentsline{toc}{subsection}{Authentication Flow}
+
+\begin{figure}[h]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        node distance=1.1cm and 1.2cm,
+        actor/.style={rectangle, draw=black, thick, align=center, minimum width=2.5cm, minimum height=0.8cm, fill=gray!8},
+        proc/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.8cm, fill=blue!7},
+        arrow/.style={-{Latex[length=3mm]}, thick}
+    ]
+        \node[actor] (student) {Student};
+        \node[proc, right=of student] (frontend) {Frontend Auth Page};
+        \node[proc, right=of frontend] (backend) {Go Auth API};
+        \node[proc, right=of backend] (google) {Google Token Verification};
+        \node[proc, below=of backend] (jwt) {JWT Issued};
+        \node[proc, below=of frontend] (protected) {Protected Dashboard / Map};
+
+        \draw[arrow] (student) -- node[above]{login / Google token} (frontend);
+        \draw[arrow] (frontend) -- node[above]{credentials or ID token} (backend);
+        \draw[arrow] (backend) -- node[above]{verify} (google);
+        \draw[arrow] (google) -- node[below]{valid claims} (backend);
+        \draw[arrow] (backend) -- (jwt);
+        \draw[arrow] (jwt) -- node[below]{store token} (frontend);
+        \draw[arrow] (frontend) -- (protected);
+    \end{tikzpicture}
+    }
+    \caption*{Authentication sequence for protected access}
+\end{figure}
+
+\subsection*{Map Search and Routing Flow}
+\addcontentsline{toc}{subsection}{Map Search and Routing Flow}
+
+\begin{figure}[h]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        node distance=1.1cm and 1.2cm,
+        box/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.8cm, fill=green!8},
+        arrow/.style={-{Latex[length=3mm]}, thick}
+    ]
+        \node[box] (input) {User enters search text};
+        \node[box, right=of input] (suggest) {Debounced suggestions};
+        \node[box, right=of suggest] (select) {Place selected};
+        \node[box, below=of select] (marker) {MapEngine places marker};
+        \node[box, left=of marker] (route) {Route service returns path};
+        \node[box, left=of route] (draw) {MapEngine draws route};
+
+        \draw[arrow] (input) -- (suggest);
+        \draw[arrow] (suggest) -- (select);
+        \draw[arrow] (select) -- (marker);
+        \draw[arrow] (select) -- (route);
+        \draw[arrow] (route) -- (draw);
+    \end{tikzpicture}
+    }
+    \caption*{Map search and route drawing workflow}
+\end{figure}
+
+\section*{Milestone 01 Progress}
+\addcontentsline{toc}{section}{Milestone 01 Progress}
+
+Milestone 01 focused on ideation, planning, initial prototyping, and establishing a deployed technical foundation. The current implementation provides a working React frontend, Go backend, SQLite data layer, authentication flow, dashboard, map page, campus data APIs, and Render deployment.
+
+The implementation also validates the proposed modular system design. Frontend pages, backend handlers, authentication logic, campus data storage, and map features are separated into maintainable modules, making it easier to extend the project in later milestones.
+
+\section*{Planned Next Steps}
+\addcontentsline{toc}{section}{Planned Next Steps}
+
+\begin{itemize}[leftmargin=*]
+    \item Expand the navigation layer toward richer indoor guidance and AR-style interaction.
+    \item Improve campus data coverage for buildings, rooms, facilities, and navigation points.
+    \item Continue the Sprint 3 work on transit, multimodal routing, and route visualization as extension features.
+    \item Gather user feedback from NUS students and refine the assistant workflow.
+\end{itemize}
+
+\end{document}

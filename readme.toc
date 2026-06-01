@@ -1,0 +1,27 @@
+\contentsline {section}{Deployment}{4}{section*.2}%
+\contentsline {section}{Motivation}{4}{section*.3}%
+\contentsline {section}{Our Aim}{4}{section*.4}%
+\contentsline {section}{User Stories}{4}{section*.5}%
+\contentsline {section}{Overall Architecture Diagram}{5}{section*.6}%
+\contentsline {section}{Core Features}{6}{section*.8}%
+\contentsline {section}{Repository and Project Foundation}{7}{section*.9}%
+\contentsline {subsection}{Project Structure and Version Control}{7}{section*.10}%
+\contentsline {section}{Authentication and Protected Access}{8}{section*.12}%
+\contentsline {subsection}{Email, Demo, and Google Sign-In}{8}{section*.13}%
+\contentsline {subsection}{Protected Routes}{8}{section*.15}%
+\contentsline {section}{Campus Map Rendering}{9}{section*.16}%
+\contentsline {subsection}{MapLibre and OSM Tiles}{9}{section*.17}%
+\contentsline {subsection}{Route Tracing}{9}{section*.19}%
+\contentsline {section}{Location Search and Route Interaction}{10}{section*.20}%
+\contentsline {subsection}{Search Suggestions}{10}{section*.21}%
+\contentsline {subsection}{Routing Form}{10}{section*.23}%
+\contentsline {section}{Daily Assistant and Campus Data UI}{11}{section*.24}%
+\contentsline {subsection}{Buildings, Facilities, and Recommendations}{11}{section*.25}%
+\contentsline {subsection}{Schedule Management}{11}{section*.27}%
+\contentsline {section}{Mobile Frontend Experience}{12}{section*.28}%
+\contentsline {subsection}{Responsive Layout}{12}{section*.29}%
+\contentsline {section}{UML Diagram}{13}{section*.31}%
+\contentsline {subsection}{Authentication Flow}{13}{section*.32}%
+\contentsline {subsection}{Map Search and Routing Flow}{13}{section*.34}%
+\contentsline {section}{Milestone 01 Progress}{13}{section*.36}%
+\contentsline {section}{Planned Next Steps}{13}{section*.37}%
