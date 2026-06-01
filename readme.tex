@@ -40,6 +40,14 @@
 \end{figure}
 }
 
+\newcommand{\screenimage}[3]{
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=#3\textwidth]{#2}
+    \caption*{#1}
+\end{figure}
+}
+
 \begin{document}
 
 \begin{center}
@@ -196,7 +204,30 @@ This feature establishes the engineering foundation for Atlas. From the user's p
 
 Atlas is organized into a frontend, backend, deployment configuration, and supporting documentation. This mirrors the modular design described in the proposal and keeps responsibility boundaries clear. The frontend owns user interaction, the backend owns authentication and campus data APIs, and the deployment files define how the system runs in production.
 
-\screenbox{Project Structure}{Root-level folders include \texttt{frontend/}, \texttt{backend/}, \texttt{deploy/}, \texttt{poster\_work/}, \texttt{Dockerfile}, and \texttt{docker-compose.yml}.}
+\begin{figure}[h]
+    \centering
+    \fbox{
+        \begin{minipage}{0.86\textwidth}
+            \vspace{0.6em}
+            {\small\ttfamily
+            \mbox{\detokenize{Orbital_Artemis_ArMap_Nus/}}\\
+            \mbox{\detokenize{|-- frontend/              React + Vite frontend and mobile app shell}}\\
+            \mbox{\detokenize{|   |-- src/               Auth, dashboard, campus map, and UI code}}\\
+            \mbox{\detokenize{|   `-- ios/               Capacitor iOS project}}\\
+            \mbox{\detokenize{|-- backend/               Go API server}}\\
+            \mbox{\detokenize{|   |-- cmd/server/        Server entry point}}\\
+            \mbox{\detokenize{|   `-- internal/atlas/    Auth, campus data, routing, and API logic}}\\
+            \mbox{\detokenize{|-- deploy/                Production deployment configuration}}\\
+            \mbox{\detokenize{|-- poster_work/           Poster and presentation assets}}\\
+            \mbox{\detokenize{|-- Dockerfile             Container build definition}}\\
+            \mbox{\detokenize{|-- docker-compose.yml     Local multi-service run configuration}}\\
+            \mbox{\detokenize{`-- readme.tex             Milestone report source}}
+            }
+            \vspace{0.2em}
+        \end{minipage}
+    }
+    \caption*{Project Structure}
+\end{figure}
 
 The repository uses GitHub issues and pull requests as progress logs. Issue \#1 initialized the repository and documentation baseline, while later issues track authentication, map rendering, search, dashboard integration, and mobile usability. This supports the proposal's branch-based workflow: tasks are decomposed into issues, implemented on feature branches, reviewed through pull requests, and eventually integrated into \texttt{main}.
 
@@ -214,7 +245,7 @@ Authentication allows students to enter Atlas through email/password login, regi
 
 The login system supports multiple entry paths. Email/password login provides a traditional account flow, demo mode allows quick testing without setup, and Google Sign-In supports a more realistic student login experience.
 
-\screenbox{Authentication Screens}{Implemented screens include login, registration, Google Sign-In, and protected route redirection.}
+\screenimage{Authentication Screen}{readme_assets/authentication-login-page.png}{0.96}
 
 On the backend, Atlas verifies credentials and issues a JWT. For Google Sign-In, the frontend obtains a Google ID token and sends it to the backend, where it is verified against the configured Google client ID. If verification succeeds, the backend returns the same application JWT format used by email login. This keeps the rest of the application independent of the authentication method.
 
@@ -239,7 +270,7 @@ The map feature gives users an interactive visual interface for campus navigatio
 
 The frontend uses MapLibre to render map tiles and manage markers, routes, and future geospatial overlays. This gives the project an open-source map engine that can be extended with custom campus data instead of relying only on a closed map UI.
 
-\screenbox{Campus Map Screen}{Implemented map view centered on NUS with route drawing, markers, and search integration.}
+\screenimage{Campus Map Screen}{readme_assets/campus-map-screen.png}{0.96}
 
 The map logic is separated into a map initialization module, a \texttt{MapEngine} helper, routing services, and UI components. This modular approach prevents the main map page from becoming a single large component. It also makes it easier to add bus layers, indoor facility overlays, or AR-style markers later.
 
@@ -254,54 +285,6 @@ The engineering trade-off is that route tracing is currently web-map based rathe
 
 \newpage
 
-\section*{Location Search and Route Interaction}
-\addcontentsline{toc}{section}{Location Search and Route Interaction}
-
-Location search improves usability by allowing users to type a destination instead of manually inspecting the map. This directly addresses the proposal's motivation: students often know the place name but not its exact location or route.
-
-\subsection*{Search Suggestions}
-\addcontentsline{toc}{subsection}{Search Suggestions}
-
-The search UI provides a text input and suggestion dropdown. As the user types, Atlas fetches matching places and displays suggestions. Selecting a suggestion places a marker and moves the map to the chosen location.
-
-\screenbox{Search and Suggestions}{Implemented search box, debounced suggestions, result selection, marker placement, and route mode transition.}
-
-Debouncing is used so that search requests are not fired for every keystroke. This is a practical performance technique: it improves responsiveness, reduces unnecessary requests, and avoids making the UI feel unstable while the user is still typing.
-
-\subsection*{Routing Form}
-\addcontentsline{toc}{subsection}{Routing Form}
-
-When route mode is enabled, the UI switches to a start/end routing form. This allows the user to choose both endpoints and draw a route. The state is split into display text and actual place objects, which avoids confusing a typed label with a confirmed geospatial result.
-
-This design applies a simple model-view separation. Text input state belongs to the UI, while confirmed places contain labels and coordinates used by the map engine. The trade-off is a slightly larger state model, but it prevents invalid or incomplete text from being treated as a real route endpoint.
-
-\newpage
-
-\section*{Daily Assistant and Campus Data UI}
-\addcontentsline{toc}{section}{Daily Assistant and Campus Data UI}
-
-The daily assistant dashboard connects campus data to the student's schedule and context. Rather than showing isolated data tables, Atlas presents buildings, facilities, upcoming schedule items, sync status, and recommendations in one student-facing interface.
-
-\subsection*{Buildings, Facilities, and Recommendations}
-\addcontentsline{toc}{subsection}{Buildings, Facilities, and Recommendations}
-
-The backend exposes APIs for buildings, facilities, recommendations, schedule data, and sync status. The frontend dashboard consumes these APIs and displays them as cards and filters that students can scan quickly.
-
-\screenbox{Dashboard and Assistant UI}{Implemented dashboard sections for campus buildings, facility filters, schedule, recommendations, and NUSMods sync status.}
-
-This feature implements the proposal's daily agent direction in an initial form. The system can suggest useful next actions, such as route-oriented recommendations or nearby campus resources, based on available schedule and location-like context.
-
-The backend uses a structured data layer with seeded SQLite data. This is a deliberate compromise for Milestone 01: it gives the prototype reliable data without requiring a full production data collection pipeline. Later, the same API surface can be connected to richer campus datasets, indoor mapping data, or user feedback loops.
-
-\subsection*{Schedule Management}
-\addcontentsline{toc}{subsection}{Schedule Management}
-
-Students can view, add, and delete schedule items. This supports the user story about managing the day more smoothly. Schedule data also gives the recommendation layer context for future reminders, departure-time estimation, and transition planning.
-
-From a design perspective, schedule management is a bridge between static campus information and personalized assistance. It turns Atlas from a map-only prototype into a context-aware assistant prototype.
-
-\newpage
-
 \section*{Mobile Frontend Experience}
 \addcontentsline{toc}{section}{Mobile Frontend Experience}
 
@@ -312,7 +295,19 @@ Because campus navigation is often used while students are moving, mobile usabil
 
 The frontend is designed to remain readable on common mobile widths. Cards, buttons, filters, and map panels are arranged to avoid horizontal scrolling and text overlap.
 
-\screenbox{Mobile Testing Scope}{Checked auth, dashboard, demo mode, map visibility, facility filters, schedule cards, recommendations, sync status, and protected-route behavior.}
+\begin{figure}[h]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.92\textwidth]{readme_assets/mobile-app-1.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \includegraphics[width=0.92\textwidth]{readme_assets/mobile-app-2.png}
+    \end{minipage}
+    \caption*{Mobile App Screens}
+\end{figure}
 
 The main engineering principle here is progressive enhancement: the application should remain usable on desktop while also adapting to mobile. The trade-off is extra CSS and layout testing, but this matters for a campus assistant because students are more likely to use it on phones than on large desktop screens.
 
@@ -328,27 +323,28 @@ The diagrams below summarize two important interactions in the current prototype
 
 \begin{figure}[h]
     \centering
-    \resizebox{\textwidth}{!}{%
+    \resizebox{0.88\textwidth}{!}{%
     \begin{tikzpicture}[
-        node distance=1.1cm and 1.2cm,
-        actor/.style={rectangle, draw=black, thick, align=center, minimum width=2.5cm, minimum height=0.8cm, fill=gray!8},
-        proc/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.8cm, fill=blue!7},
+        node distance=0.9cm and 1.3cm,
+        actor/.style={rectangle, draw=black, thick, align=center, minimum width=3.0cm, minimum height=0.8cm, fill=gray!8},
+        proc/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.8cm, minimum height=0.85cm, fill=blue!7},
         arrow/.style={-{Latex[length=3mm]}, thick}
     ]
         \node[actor] (student) {Student};
-        \node[proc, right=of student] (frontend) {Frontend Auth Page};
-        \node[proc, right=of frontend] (backend) {Go Auth API};
-        \node[proc, right=of backend] (google) {Google Token Verification};
-        \node[proc, below=of backend] (jwt) {JWT Issued};
-        \node[proc, below=of frontend] (protected) {Protected Dashboard / Map};
+        \node[proc, below=of student] (frontend) {Frontend Auth Page};
+        \node[proc, below=of frontend] (backend) {Go Auth API};
+        \node[proc, below left=of backend] (local) {Email / Demo Validation};
+        \node[proc, below right=of backend] (google) {Google ID Token Verification};
+        \node[proc, below=2.0cm of backend] (jwt) {Application JWT Issued};
+        \node[proc, below=of jwt] (protected) {Protected Dashboard and Map};
 
-        \draw[arrow] (student) -- node[above]{login / Google token} (frontend);
-        \draw[arrow] (frontend) -- node[above]{credentials or ID token} (backend);
-        \draw[arrow] (backend) -- node[above]{verify} (google);
-        \draw[arrow] (google) -- node[below]{valid claims} (backend);
-        \draw[arrow] (backend) -- (jwt);
-        \draw[arrow] (jwt) -- node[below]{store token} (frontend);
-        \draw[arrow] (frontend) -- (protected);
+        \draw[arrow] (student) -- node[right]{submit login request} (frontend);
+        \draw[arrow] (frontend) -- node[right]{send credentials or ID token} (backend);
+        \draw[arrow] (backend) -- (local);
+        \draw[arrow] (backend) -- (google);
+        \draw[arrow] (local) -- (jwt);
+        \draw[arrow] (google) -- (jwt);
+        \draw[arrow] (jwt) -- node[right]{store token} (protected);
     \end{tikzpicture}
     }
     \caption*{Authentication sequence for protected access}

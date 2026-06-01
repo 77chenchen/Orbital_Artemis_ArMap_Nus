@@ -63,6 +63,17 @@ export default function Dashboard() {
 
   const indoorReadyCount = buildings.filter((building) => building.supportedIndoor).length;
   const activeSectionMeta = sections.find((section) => section.key === activeSection) || sections[0];
+  const sortedSchedule = useMemo(
+    () =>
+      [...schedule].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()),
+    [schedule],
+  );
+  const nextScheduleItem = sortedSchedule.find((item) => new Date(item.endAt).getTime() >= Date.now()) || sortedSchedule[0];
+  const topRecommendation = recommendations[0];
+  const nearestRecommendation = recommendations.reduce(
+    (nearest, rec) => (!nearest || rec.distanceM < nearest.distanceM ? rec : nearest),
+    null,
+  );
 
   async function loadAll() {
     setError("");
@@ -173,20 +184,103 @@ export default function Dashboard() {
         </View>
 
         {activeSection === "recommendations" ? (
-          <Panel>
-            <PanelHeading eyebrow="Daily agent" title="Recommendations" />
-            <View style={styles.stack}>
-              {recommendations.map((rec) => (
-                <View key={`${rec.kind}-${rec.title}`} style={styles.compactCard}>
-                  <View style={styles.cardCopy}>
-                    <Text style={styles.cardTitle}>{rec.title}</Text>
-                    <Text style={styles.cardText}>{rec.description}</Text>
-                  </View>
-                  <Text style={styles.distance}>{Math.round(rec.distanceM)} m</Text>
+          <>
+            <View style={styles.agentHero}>
+              <View style={styles.agentHeroCopy}>
+                <Text style={styles.eyebrow}>Next move</Text>
+                <Text style={styles.agentHeroTitle}>
+                  {topRecommendation?.title || nextScheduleItem?.title || "Your campus day is ready"}
+                </Text>
+                <Text style={styles.agentHeroText}>
+                  {topRecommendation?.description ||
+                    (nextScheduleItem
+                      ? `${nextScheduleItem.moduleCode} at ${buildingByCode[nextScheduleItem.location]?.name || nextScheduleItem.location}`
+                      : "Atlas will surface routes, schedule gaps, and nearby campus support here.")}
+                </Text>
+                <View style={styles.agentActions}>
+                  <ActionButton label="Open map" onPress={() => setActiveSection("map")} primary />
+                  <ActionButton label="Edit plan" onPress={() => setActiveSection("schedule")} />
                 </View>
-              ))}
+              </View>
+              <View style={styles.agentHeroAside}>
+                <Text style={styles.agentAsideValue}>
+                  {nextScheduleItem ? formatTime(nextScheduleItem.startAt) : "Ready"}
+                </Text>
+                <Text style={styles.agentAsideLabel}>
+                  {nextScheduleItem
+                    ? buildingByCode[nextScheduleItem.location]?.name || nextScheduleItem.location
+                    : "No upcoming class"}
+                </Text>
+              </View>
             </View>
-          </Panel>
+
+            <View style={[styles.agentMetricGrid, compact && styles.agentMetricGridCompact]}>
+              <MetricTile label="Suggestions" value={recommendations.length} tone="green" />
+              <MetricTile label="Plans" value={schedule.length} tone="blue" />
+              <MetricTile
+                label="Nearest"
+                value={nearestRecommendation ? `${Math.round(nearestRecommendation.distanceM)}m` : "-"}
+                tone="orange"
+              />
+            </View>
+
+            <View style={[styles.agentGrid, compact && styles.agentGridCompact]}>
+              <Panel style={styles.agentColumn}>
+                <PanelHeading eyebrow="Priority queue" title="Agent suggestions" />
+                <View style={styles.stack}>
+                  {recommendations.map((rec, index) => (
+                    <View key={`${rec.kind}-${rec.title}`} style={styles.agentQueueItem}>
+                      <View style={styles.queueRank}>
+                        <Text style={styles.queueRankText}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.cardCopy}>
+                        <View style={styles.queueTitleRow}>
+                          <Text style={styles.cardTitle}>{rec.title}</Text>
+                          <Text style={styles.kindPill}>{rec.kind}</Text>
+                        </View>
+                        <Text style={styles.cardText}>{rec.description}</Text>
+                      </View>
+                      <Text style={styles.distance}>{Math.round(rec.distanceM)} m</Text>
+                    </View>
+                  ))}
+                  {!recommendations.length ? (
+                    <Text style={styles.cardText}>No recommendations yet. Refresh after adding schedule context.</Text>
+                  ) : null}
+                </View>
+              </Panel>
+
+              <Panel style={styles.agentColumn}>
+                <PanelHeading eyebrow="Today" title="Timeline" />
+                <View style={styles.timeline}>
+                  {sortedSchedule.map((item) => (
+                    <View key={item.id} style={styles.timelineItem}>
+                      <View style={styles.timelineRail}>
+                        <View style={styles.timelineDot} />
+                      </View>
+                      <View style={styles.cardCopy}>
+                        <Text style={styles.cardTitle}>{item.moduleCode} - {item.title}</Text>
+                        <Text style={styles.cardText}>{buildingByCode[item.location]?.name || item.location}</Text>
+                        <Text style={styles.meta}>{formatTime(item.startAt)} to {formatTime(item.endAt)}</Text>
+                      </View>
+                    </View>
+                  ))}
+                  {!sortedSchedule.length ? (
+                    <Text style={styles.cardText}>No scheduled items yet. Add one in Schedule to unlock richer guidance.</Text>
+                  ) : null}
+                </View>
+              </Panel>
+            </View>
+
+            <Panel>
+              <PanelHeading eyebrow="Campus signal" title="Context used by Atlas" />
+              <View style={styles.signalGrid}>
+                <SignalRow label="Supported buildings" value={buildings.length} />
+                <SignalRow label="Indoor-ready buildings" value={indoorReadyCount} />
+                <SignalRow label="Facility matches" value={facilities.length} />
+                <SignalRow label="NUSMods sync" value={syncStatus?.status || "never_run"} />
+              </View>
+            </Panel>
+          </>
         ) : null}
 
         {activeSection === "facilities" ? (
@@ -379,8 +473,26 @@ function StatusStrip({ items }) {
   );
 }
 
-function Panel({ children }) {
-  return <View style={styles.panel}>{children}</View>;
+function MetricTile({ label, value, tone }) {
+  return (
+    <View style={[styles.metricTile, styles[`metricTile${capitalize(tone)}`]]}>
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function SignalRow({ label, value }) {
+  return (
+    <View style={styles.signalRow}>
+      <Text style={styles.cardText}>{label}</Text>
+      <Text style={styles.cardTitle}>{value}</Text>
+    </View>
+  );
+}
+
+function Panel({ children, style }) {
+  return <View style={[styles.panel, style]}>{children}</View>;
 }
 
 function PanelHeading({ eyebrow, title, children }) {
@@ -431,6 +543,10 @@ function formatTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function capitalize(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 const styles = StyleSheet.create({
@@ -639,9 +755,110 @@ const styles = StyleSheet.create({
     lineHeight: 39,
     fontWeight: "900",
   },
+  agentHero: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "stretch",
+    justifyContent: "space-between",
+    gap: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(46,112,88,0.22)",
+    borderRadius: 8,
+    backgroundColor: "#f6fbf8",
+  },
+  agentHeroCopy: {
+    flex: 1,
+    minWidth: 280,
+    gap: 9,
+  },
+  agentHeroTitle: {
+    color: colors.ink,
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: "900",
+  },
+  agentHeroText: {
+    maxWidth: 620,
+    color: colors.muted,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  agentActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  agentHeroAside: {
+    width: 210,
+    minHeight: 128,
+    justifyContent: "space-between",
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#dce8e3",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  agentAsideValue: {
+    color: colors.green,
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: "900",
+  },
+  agentAsideLabel: {
+    color: colors.muted,
+    lineHeight: 19,
+  },
+  agentMetricGrid: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  agentMetricGridCompact: {
+    flexWrap: "wrap",
+  },
+  metricTile: {
+    flex: 1,
+    minWidth: 170,
+    gap: 4,
+    padding: 15,
+    borderWidth: 1,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  metricTileGreen: {
+    borderColor: "rgba(46,112,88,0.28)",
+  },
+  metricTileBlue: {
+    borderColor: "rgba(71,118,184,0.28)",
+  },
+  metricTileOrange: {
+    borderColor: "rgba(219,138,86,0.32)",
+  },
+  metricValue: {
+    color: colors.ink,
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: "900",
+  },
+  metricLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  agentGrid: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 16,
+  },
+  agentGridCompact: {
+    flexDirection: "column",
+  },
   panel: {
     gap: 14,
     minWidth: 0,
+    flex: 1,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.line,
@@ -696,6 +913,83 @@ const styles = StyleSheet.create({
   distance: {
     color: colors.green,
     fontWeight: "900",
+  },
+  agentQueueItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#e4ece8",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  queueRank: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundColor: "#e8f3ef",
+  },
+  queueRankText: {
+    color: colors.green,
+    fontWeight: "900",
+  },
+  queueTitleRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8,
+  },
+  kindPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: "hidden",
+    color: colors.green,
+    backgroundColor: "#e8f3ef",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  timeline: {
+    gap: 4,
+  },
+  timelineItem: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 8,
+  },
+  timelineRail: {
+    width: 18,
+    alignItems: "center",
+    paddingTop: 3,
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 99,
+    backgroundColor: colors.blue,
+  },
+  signalGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  signalRow: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 220,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#e4ece8",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
   },
   filterBlock: {
     gap: 9,

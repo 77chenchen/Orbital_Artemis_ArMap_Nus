@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.11.22)  1 JUN 2026 09:55
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.11.22)  1 JUN 2026 10:25
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -572,8 +572,8 @@ shapes.geometric.code.tex
 File: pgflibraryshapes.geometric.code.tex 2023-01-15 v3.1.10 (3.1.10)
 ))
 Package hyperref Info: Option `colorlinks' set `true' on input line 25.
-LaTeX Font Info:    Trying to load font information for OT1+phv on input line 4
-3.
+LaTeX Font Info:    Trying to load font information for OT1+phv on input line 5
+1.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ot1phv.fd
 File: ot1phv.fd 2020/03/25 scalable font definitions for OT1/phv.
@@ -586,24 +586,24 @@ File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 (./readme.aux)
 \openout1 = `readme.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 43.
-LaTeX Font Info:    ... okay on input line 43.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 51.
+LaTeX Font Info:    ... okay on input line 51.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -661,7 +661,7 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring ON on input line 43.
+Package hyperref Info: Link coloring ON on input line 51.
 
 (./readme.out) (./readme.out)
 \@outlinefile=\write4
@@ -669,15 +669,15 @@ Package hyperref Info: Link coloring ON on input line 43.
 
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
-<team_logo.jpg, id=115, 642.4pt x 642.4pt>
+<team_logo.jpg, id=91, 642.4pt x 642.4pt>
 File: team_logo.jpg Graphic file (type jpg)
 <use team_logo.jpg>
-Package pdftex.def Info: team_logo.jpg  used on input line 50.
+Package pdftex.def Info: team_logo.jpg  used on input line 58.
 (pdftex.def)             Requested size: 154.00742pt x 154.0027pt.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <14.4> on input line 59.
+(Font)              <14.4> on input line 67.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <7> on input line 59.
+(Font)              <7> on input line 67.
 
 
 [1
@@ -702,63 +702,89 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 [3]
 
 [4]
-
-[5]
-Underfull \hbox (badness 10000) in paragraph at lines 184--184
+Underfull \hbox (badness 10000) in paragraph at lines 192--192
 []|\OT1/phv/m/n/10.95 Issues #2 and #8 cover
  []
 
 
-Underfull \hbox (badness 4872) in paragraph at lines 184--184
+Underfull \hbox (badness 4872) in paragraph at lines 192--192
 []|\OT1/phv/m/n/10.95 Issues #7 and #17 cover Open-
  []
 
 
 
-[6]
+[5]
 
-[7]
+[6]
+<readme_assets/authentication-login-page.png, id=153, 1475.5125pt x 811.03pt>
+File: readme_assets/authentication-login-page.png Graphic file (type png)
+<use readme_assets/authentication-login-page.png>
+Package pdftex.def Info: readme_assets/authentication-login-page.png  used on i
+nput line 248.
+(pdftex.def)             Requested size: 434.85222pt x 239.01665pt.
+
+
+[7 <./readme_assets/authentication-login-page.png>]
 
 [8]
+<readme_assets/campus-map-screen.png, id=166, 1475.5125pt x 815.045pt>
+File: readme_assets/campus-map-screen.png Graphic file (type png)
+<use readme_assets/campus-map-screen.png>
+Package pdftex.def Info: readme_assets/campus-map-screen.png  used on input lin
+e 273.
+(pdftex.def)             Requested size: 434.85222pt x 240.19989pt.
 
-[9]
+
+[9 <./readme_assets/campus-map-screen.png>]
 
 [10]
+<readme_assets/mobile-app-1.png, id=177, 411.5375pt x 786.94pt>
+File: readme_assets/mobile-app-1.png Graphic file (type png)
+<use readme_assets/mobile-app-1.png>
+Package pdftex.def Info: readme_assets/mobile-app-1.png  used on input line 302
+.
+(pdftex.def)             Requested size: 187.52705pt x 358.5866pt.
+<readme_assets/mobile-app-2.png, id=178, 442.65375pt x 810.02625pt>
+File: readme_assets/mobile-app-2.png Graphic file (type png)
+<use readme_assets/mobile-app-2.png>
+Package pdftex.def Info: readme_assets/mobile-app-2.png  used on input line 307
+.
+(pdftex.def)             Requested size: 187.52705pt x 343.16273pt.
 
-[11]
 
-[12]
+[11 <./readme_assets/mobile-app-1.png> <./readme_assets/mobile-app-2.png>]
 LaTeX Font Info:    Trying to load font information for TS1+phv on input line 3
-95.
- (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ts1phv.fd
+91.
+
+(/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ts1phv.fd
 File: ts1phv.fd 2020/03/25 scalable font definitions for TS1/phv.
 )
 
-[13]
+[12]
 
-[14] (./readme.aux)
+[13] (./readme.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `readme.out' has not changed.
-(rerunfilecheck)             Checksum: 651FD6BD5666A900295DEAAEDB4819E5;4459.
+(rerunfilecheck)             Checksum: 3059FC2D22F08CA7F7C748D1A8F437FD;3284.
  ) 
 Here is how much of TeX's memory you used:
- 22454 strings out of 473190
- 428137 string characters out of 5715799
- 818006 words of memory out of 5000000
- 45314 multiletter control sequences out of 15000+600000
- 576415 words of font info for 66 fonts, out of 8000000 for 9000
+ 22480 strings out of 473190
+ 429326 string characters out of 5715799
+ 816051 words of memory out of 5000000
+ 45349 multiletter control sequences out of 15000+600000
+ 577189 words of font info for 68 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  84i,10n,87p,545b,892s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/
 local/texlive/2025/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb>
-Output written on readme.pdf (14 pages, 112074 bytes).
+Output written on readme.pdf (13 pages, 7596415 bytes).
 PDF statistics:
- 256 PDF objects out of 1000 (max. 8388607)
- 230 compressed objects within 3 object streams
- 55 named destinations out of 1000 (max. 500000)
- 234 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 226 PDF objects out of 1000 (max. 8388607)
+ 194 compressed objects within 2 object streams
+ 46 named destinations out of 1000 (max. 500000)
+ 206 words of extra memory for PDF output out of 10000 (max. 10000000)
 
