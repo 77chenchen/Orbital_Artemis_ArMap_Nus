@@ -14,6 +14,7 @@ An NUS campus assistant prototype with React, Go, SQLite, Google Sign-In, schedu
 - 2D campus map preview for selected NUS locations.
 - Schedule management for upcoming classes, meetings, and events.
 - Recommendation cards that respond to schedule and campus context.
+- LLM-powered Daily Assistant agent with OpenAI-compatible provider configuration and local fallback behavior.
 - NUSMods sync status and manual sync trigger for external API integration.
 - NUS campus bus map layer with stops, arrivals, active vehicles, and assistant-ready context.
 - Seeded demo data for buildings, facilities, schedules, and demo credentials.
@@ -150,11 +151,17 @@ NUS_BUS_X_HTD_API=
 NUS_BUS_X_APP_API=
 NUS_BUS_DEVICE_ID=atlas-nus-bus-demo-device
 NUS_BUS_VERSION=2.56.0
+LLM_PROVIDER=qwen
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+LLM_MODEL=qwen-plus
 ```
 
 `GOOGLE_CLIENT_ID` is optional for the demo because the backend has a default client ID. Set it only when you want to use your own OAuth client.
 
 `NUS_BUS_X_HTD_API` and `NUS_BUS_X_APP_API` are optional for local development. When they are empty, the bus endpoints return demo data; when they are configured, the backend proxies NUS bus data server-side and caches live responses.
+
+`LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` are optional. When they are missing, the Daily Assistant agent returns a structured fallback response instead of crashing. Any OpenAI-compatible chat completions provider can be used by changing `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL`, for example Qwen DashScope, Kimi, MiniMax, or another compatible endpoint.
 
 ### Frontend
 
@@ -178,6 +185,7 @@ GET    /api/schedule
 POST   /api/schedule
 DELETE /api/schedule/{id}
 GET    /api/recommendations
+POST   /api/agent/daily-assistant
 GET    /api/sync/status
 POST   /api/sync/run
 
@@ -194,6 +202,43 @@ Most app data routes require:
 ```text
 Authorization: Bearer <app-jwt>
 ```
+
+### Daily Assistant Agent
+
+Request:
+
+```json
+{
+  "message": "Plan my day around my current schedule.",
+  "mode": "daily_plan",
+  "context": {
+    "schedule": []
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "reply": "1. ...",
+  "scheduleItems": [
+    {
+      "title": "Focus block",
+      "moduleCode": "TASK",
+      "location": "CLB",
+      "startAt": "2026-06-06T02:00:00Z",
+      "endAt": "2026-06-06T03:00:00Z",
+      "notes": "Suggested by the assistant"
+    }
+  ],
+  "provider": "qwen",
+  "model": "qwen-plus"
+}
+```
+
+If the provider is not configured or fails, `success` is `false` and `reply` contains a fallback plan. When the assistant proposes `scheduleItems`, the frontend shows them as drafts and only saves them after the user clicks `Add`.
 
 ## Demo Flow
 
@@ -220,6 +265,28 @@ Run backend checks:
 cd backend
 go test ./...
 ```
+
+Test the Daily Assistant without an API key:
+
+```bash
+cd backend
+go run ./cmd/server
+```
+
+Open the frontend, sign in or enter demo mode, go to `Agent`, and submit a Daily Assistant prompt. The UI should show a fallback response and an error label, but the app should keep working.
+
+Test with an OpenAI-compatible provider:
+
+```bash
+cd backend
+LLM_PROVIDER=qwen \
+LLM_API_KEY=your_api_key_here \
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1 \
+LLM_MODEL=qwen-plus \
+go run ./cmd/server
+```
+
+Then submit a prompt from the `Agent` tab. The response should include the configured provider/model metadata.
 
 ## iOS App Demo
 

@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1780280751.4472 "readme.tex" "readme.pdf" "readme" 1780280753.31359 0
+["pdflatex"] 1780639224.14481 "readme.tex" "readme.pdf" "readme" 1780639226.13467 0
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/adobe/helvetic/phvb7t.tfm" 1136768653 2240 eb56c13537f4d8a0bd3fafc25572b1bd ""
@@ -19,6 +19,8 @@
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/public/cm/cmsy6.tfm" 1136768653 1116 933a60c408fc0a863a92debe84b2d294 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/public/cm/cmsy8.tfm" 1136768653 1120 8b7d695260f3cff42e636090a8002094 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/public/cm/cmtt10.tfm" 1136768653 768 1321e9409b4137d6fb428ac9dc956269 ""
+  "/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb" 1248133631 35752 024fb6c41858982481f6968b5fc26508 ""
+  "/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb" 1248133631 32569 5e5ddc8df908dea60932f3c484a54c0d ""
   "/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb" 1248133631 31099 c85edf1dd5b9e826d67c9c7293b6786c ""
   "/usr/local/texlive/2025/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb" 1136849748 35941 f27169cc74234d5bd5e4cca5abafaabb ""
   "/usr/local/texlive/2025/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb" 1136849748 44648 23115b2a545ebfe2c526c3ca99db8b95 ""
@@ -149,10 +151,10 @@
   "/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1763797094 5467155 19efa205003f9ecad95fbbaa6ff24da1 ""
   "/usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt" 1763797027 3345742 a9a75702d513b8c2373c0e59c40570d8 ""
   "/usr/local/texlive/2025/texmf.cnf" 1741450484 577 418a7058ec8e006d8704f60ecd22c938 ""
-  "readme.aux" 1780280753.26432 2377 779fc7a579b20b1e287ea04c19407052 "pdflatex"
-  "readme.out" 1780280753.26482 3284 3059fc2d22f08ca7f7c748d1a8f437fd "pdflatex"
-  "readme.tex" 1780280741.91466 20808 64bec783da7eb46142ef525c8c0ac0e5 ""
-  "readme.toc" 1780280753.265 1353 41a9123c786355a6da047b0464a53991 "pdflatex"
+  "readme.aux" 1780639226.0776 3170 b5897cc1fd0201402279709ddb680bb1 "pdflatex"
+  "readme.out" 1780639226.0783 4603 da267a38fa2d27864c9cc703c1e5ad77 "pdflatex"
+  "readme.tex" 1780639199.59457 31671 41abe7196dc51c730adb3bca02edbec4 ""
+  "readme.toc" 1780639226.07856 1859 76160f206363a8a8e0477564a0039042 "pdflatex"
   "readme_assets/authentication-login-page.png" 1780280360.911 2692115 8d58927097421a71bcf89ee9fb9a5220 ""
   "readme_assets/campus-map-screen.png" 1780280360.91836 4921647 5edec5aba12780a4ed81ce11b4e09c0e ""
   "readme_assets/mobile-app-1.png" 1780280360.92131 723019 d4ad41c067901d6b70090737806664bf ""

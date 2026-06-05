@@ -73,10 +73,16 @@ Copy the generated value:
 cat > .env <<'EOF'
 JWT_SECRET=<paste-generated-secret-here>
 GOOGLE_CLIENT_ID=<optional-custom-google-oauth-client-id.apps.googleusercontent.com>
+LLM_PROVIDER=<optional-openai-compatible-provider-name>
+LLM_API_KEY=<optional-llm-api-key>
+LLM_BASE_URL=<optional-openai-compatible-base-url>
+LLM_MODEL=<optional-model-name>
 EOF
 ```
 
 For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins. The app exposes the client ID to the frontend through `GET /api/config`. If `GOOGLE_CLIENT_ID` is omitted, the backend uses the built-in demo client ID.
+
+The Daily Assistant agent works without the optional LLM values by returning fallback responses. To enable provider calls, use an OpenAI-compatible chat completions endpoint such as Qwen DashScope, Kimi, MiniMax, or another compatible API.
 
 ## 5. Start the site
 
