@@ -30,10 +30,6 @@ func main() {
 		NUSBusXAPPAPI:     env("NUS_BUS_X_APP_API", ""),
 		NUSBusDeviceID:    env("NUS_BUS_DEVICE_ID", "atlas-nus-bus-demo-device"),
 		NUSBusVersion:     env("NUS_BUS_VERSION", "2.56.0"),
-		LLMProvider:       env("LLM_PROVIDER", "openai-compatible"),
-		LLMAPIKey:         env("LLM_API_KEY", ""),
-		LLMBaseURL:        env("LLM_BASE_URL", ""),
-		LLMModel:          env("LLM_MODEL", ""),
 		SyncInterval:      durationEnv("SYNC_INTERVAL", 6*time.Hour),
 		HTTPClientTimeout: durationEnv("HTTP_CLIENT_TIMEOUT", 10*time.Second),
 	}

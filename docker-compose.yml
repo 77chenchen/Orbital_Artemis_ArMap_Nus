@@ -15,10 +15,6 @@ services:
       NUSMODS_ACAD_YEAR: 2025-2026
       SYNC_INTERVAL: "21600"
       HTTP_CLIENT_TIMEOUT: "10"
-      LLM_PROVIDER: ${LLM_PROVIDER:-}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
-      LLM_MODEL: ${LLM_MODEL:-}
     volumes:
       - atlas_data:/data
 

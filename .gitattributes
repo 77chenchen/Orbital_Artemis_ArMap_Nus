@@ -1,2 +1,0 @@
-# Exclude poster assets/scripts from GitHub Linguist language statistics.
-poster_work/** linguist-vendored

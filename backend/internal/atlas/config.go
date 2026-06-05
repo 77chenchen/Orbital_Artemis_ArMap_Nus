@@ -16,10 +16,6 @@ type Config struct {
 	NUSBusXAPPAPI     string
 	NUSBusDeviceID    string
 	NUSBusVersion     string
-	LLMProvider       string
-	LLMAPIKey         string
-	LLMBaseURL        string
-	LLMModel          string
 	SyncInterval      time.Duration
 	HTTPClientTimeout time.Duration
 }

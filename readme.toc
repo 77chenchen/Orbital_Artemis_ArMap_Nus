@@ -1,28 +1,21 @@
-\contentsline {section}{Resubmission Response}{3}{section*.2}%
-\contentsline {section}{Deployment and Submitted Materials}{3}{section*.3}%
-\contentsline {section}{Motivation}{4}{section*.4}%
-\contentsline {section}{Aim and Artemis Scope}{4}{section*.5}%
-\contentsline {section}{User Stories}{5}{section*.6}%
-\contentsline {section}{Feature Ideation}{7}{section*.7}%
-\contentsline {section}{Overall Architecture}{8}{section*.8}%
-\contentsline {section}{Software Engineering At Project Level}{9}{section*.10}%
-\contentsline {subsection}{Project Structure}{9}{section*.11}%
-\contentsline {subsection}{Project Management}{9}{section*.13}%
-\contentsline {section}{Implemented Core Features}{10}{section*.14}%
-\contentsline {subsection}{Authentication and Protected Access}{10}{section*.15}%
-\contentsline {subsection}{Campus Dashboard and Assistant}{10}{section*.17}%
-\contentsline {subsection}{Campus Map Rendering}{10}{section*.18}%
-\contentsline {section}{Implemented Supporting Features}{11}{section*.20}%
-\contentsline {subsection}{Location Search and Route Interaction}{11}{section*.21}%
-\contentsline {subsection}{NUS Bus Context}{11}{section*.22}%
-\contentsline {subsection}{Mobile and iOS Experience}{11}{section*.23}%
-\contentsline {section}{Testing Strategy}{12}{section*.25}%
-\contentsline {subsection}{Automated Checks}{13}{section*.26}%
-\contentsline {subsection}{Manual Regression Checks}{13}{section*.27}%
-\contentsline {section}{CI/CD Pipeline}{14}{section*.28}%
-\contentsline {section}{UML Diagrams}{15}{section*.30}%
-\contentsline {subsection}{Authentication Flow}{15}{section*.31}%
-\contentsline {subsection}{Map Search and Routing Flow}{15}{section*.33}%
-\contentsline {section}{Video Walkthrough}{16}{section*.35}%
-\contentsline {section}{Milestone 01 Progress}{16}{section*.36}%
-\contentsline {section}{Planned Next Steps}{16}{section*.37}%
+\contentsline {section}{Deployment}{3}{section*.2}%
+\contentsline {section}{Motivation}{3}{section*.3}%
+\contentsline {section}{Our Aim}{3}{section*.4}%
+\contentsline {section}{User Stories}{3}{section*.5}%
+\contentsline {section}{Overall Architecture Diagram}{4}{section*.6}%
+\contentsline {section}{Core Features}{5}{section*.8}%
+\contentsline {section}{Repository and Project Foundation}{6}{section*.9}%
+\contentsline {subsection}{Project Structure and Version Control}{6}{section*.10}%
+\contentsline {section}{Authentication and Protected Access}{7}{section*.12}%
+\contentsline {subsection}{Email, Demo, and Google Sign-In}{7}{section*.13}%
+\contentsline {subsection}{Protected Routes}{7}{section*.15}%
+\contentsline {section}{Campus Map Rendering}{9}{section*.16}%
+\contentsline {subsection}{MapLibre and OSM Tiles}{9}{section*.17}%
+\contentsline {subsection}{Route Tracing}{9}{section*.19}%
+\contentsline {section}{Mobile Frontend Experience}{11}{section*.20}%
+\contentsline {subsection}{Responsive Layout}{11}{section*.21}%
+\contentsline {section}{UML Diagram}{12}{section*.23}%
+\contentsline {subsection}{Authentication Flow}{12}{section*.24}%
+\contentsline {subsection}{Map Search and Routing Flow}{12}{section*.26}%
+\contentsline {section}{Milestone 01 Progress}{12}{section*.28}%
+\contentsline {section}{Planned Next Steps}{13}{section*.29}%
