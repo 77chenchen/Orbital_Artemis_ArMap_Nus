@@ -38,6 +38,56 @@ export function installBusLayers(map, stops, onStopClick) {
     data: activeBusGeoJSON([]),
   });
 
+  map.addSource("route-pickup-line", {
+    type: "geojson",
+    data: routePickupLineGeoJSON([]),
+  });
+
+  map.addLayer({
+    id: "route-pickup-line",
+    type: "line",
+    source: "route-pickup-line",
+    paint: {
+      "line-color": "#f97316",
+      "line-width": 4,
+      "line-opacity": 0.82,
+    },
+  });
+
+  map.addSource("route-pickup-points", {
+    type: "geojson",
+    data: routePickupPointsGeoJSON([]),
+  });
+
+  map.addLayer({
+    id: "route-pickup-points",
+    type: "circle",
+    source: "route-pickup-points",
+    paint: {
+      "circle-color": "#f97316",
+      "circle-radius": 8,
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  });
+
+  map.addLayer({
+    id: "route-pickup-labels",
+    type: "symbol",
+    source: "route-pickup-points",
+    layout: {
+      "text-field": ["get", "seq"],
+      "text-size": 11,
+      "text-offset": [0, -1.4],
+      "text-anchor": "bottom",
+    },
+    paint: {
+      "text-color": "#7c2d12",
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 1.5,
+    },
+  });
+
   map.addLayer({
     id: "active-bus-dots",
     type: "circle",
@@ -110,6 +160,17 @@ export function setActiveBuses(map, vehicles) {
   }
 }
 
+export function setRoutePickupPoints(map, points, routeCoordinates = []) {
+  const lineSource = map.getSource("route-pickup-line");
+  if (lineSource) {
+    lineSource.setData(routePickupLineGeoJSON(routeCoordinates));
+  }
+  const pointSource = map.getSource("route-pickup-points");
+  if (pointSource) {
+    pointSource.setData(routePickupPointsGeoJSON(points));
+  }
+}
+
 function busStopsGeoJSON(stops) {
   return {
     type: "FeatureCollection",
@@ -126,6 +187,45 @@ function busStopsGeoJSON(stops) {
           coordinates: [stop.longitude, stop.latitude],
         },
       })),
+  };
+}
+
+function routePickupPointsGeoJSON(points) {
+  return {
+    type: "FeatureCollection",
+    features: points
+      .filter((point) => point.latitude && point.longitude)
+      .map((point) => ({
+        type: "Feature",
+        properties: {
+          seq: String(point.seq || ""),
+          code: point.stopCode,
+          name: point.pickupName || point.longName || point.stopCode,
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [point.longitude, point.latitude],
+        },
+      })),
+  };
+}
+
+function routePickupLineGeoJSON(coordinates = []) {
+  return {
+    type: "FeatureCollection",
+    features:
+      coordinates.length >= 2
+        ? [
+            {
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates,
+              },
+            },
+          ]
+        : [],
   };
 }
 

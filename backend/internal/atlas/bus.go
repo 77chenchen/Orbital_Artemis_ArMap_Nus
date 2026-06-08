@@ -49,6 +49,20 @@ type BusRoute struct {
 	Description string `json:"description"`
 }
 
+type BusPickupPoint struct {
+	RouteCode  string    `json:"routeCode"`
+	RouteID    int       `json:"routeId,omitempty"`
+	Seq        int       `json:"seq"`
+	StopCode   string    `json:"stopCode"`
+	LongName   string    `json:"longName"`
+	ShortName  string    `json:"shortName"`
+	PickupName string    `json:"pickupName"`
+	Latitude   float64   `json:"latitude"`
+	Longitude  float64   `json:"longitude"`
+	Source     string    `json:"source"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
 type BusArrival struct {
 	StopCode  string            `json:"stopCode"`
 	StopName  string            `json:"stopName"`
@@ -58,10 +72,15 @@ type BusArrival struct {
 }
 
 type BusArrivalRoute struct {
-	RouteCode      string `json:"routeCode"`
-	ArrivalMinutes []int  `json:"arrivalMinutes"`
-	CrowdLevel     string `json:"crowdLevel,omitempty"`
-	VehiclePlate   string `json:"vehiclePlate,omitempty"`
+	RouteCode          string `json:"routeCode"`
+	ArrivalTime        string `json:"arrivalTime,omitempty"`
+	NextArrivalTime    string `json:"nextArrivalTime,omitempty"`
+	ArrivalTimeAt      string `json:"arrivalTimeAt,omitempty"`
+	NextArrivalTimeAt  string `json:"nextArrivalTimeAt,omitempty"`
+	ArrivalMinutes     []int  `json:"arrivalMinutes"`
+	CrowdLevel         string `json:"crowdLevel,omitempty"`
+	VehiclePlate       string `json:"vehiclePlate,omitempty"`
+	NextArrivalVehicle string `json:"nextArrivalVehicle,omitempty"`
 }
 
 type ActiveBusResponse struct {
@@ -152,6 +171,25 @@ func (c *NUSBusClient) Routes(ctx context.Context) ([]BusRoute, error) {
 		return nil, errors.New("nus bus returned no routes")
 	}
 	return routes, nil
+}
+
+func (c *NUSBusClient) PickupPoints(ctx context.Context, routeCode string) ([]BusPickupPoint, error) {
+	routeCode = strings.ToUpper(strings.TrimSpace(routeCode))
+	if routeCode == "" {
+		return nil, errors.New("missing route")
+	}
+	if !c.Configured() {
+		return demoBusPickupPoints(routeCode), nil
+	}
+	var raw map[string]any
+	if err := c.getBusJSON(ctx, "/PickupPoint", url.Values{"route_code": {routeCode}}, 10*time.Minute, &raw); err != nil {
+		return nil, err
+	}
+	points := normalizeBusPickupPoints(routeCode, raw)
+	if len(points) == 0 {
+		return nil, errors.New("nus bus returned no pickup points")
+	}
+	return points, nil
 }
 
 func (c *NUSBusClient) Arrivals(ctx context.Context, stopCode string) (BusArrival, error) {
@@ -468,18 +506,68 @@ func normalizeBusRoutes(raw map[string]any) []BusRoute {
 	return routes
 }
 
+func normalizeBusPickupPoints(routeCode string, raw map[string]any) []BusPickupPoint {
+	items := firstArray(raw, "PickupPointResult", "pickuppoint", "PickupPoint", "pickupPoints", "stops")
+	points := make([]BusPickupPoint, 0, len(items))
+	now := time.Now().UTC()
+	for _, item := range items {
+		stopCode := strings.ToUpper(firstString(item, "busstopcode", "busStopCode", "code", "name", "ShortName"))
+		point := BusPickupPoint{
+			RouteCode:  routeCode,
+			RouteID:    firstInt(item, "routeid", "routeId"),
+			Seq:        firstInt(item, "seq", "sequence"),
+			StopCode:   stopCode,
+			LongName:   firstString(item, "LongName", "longName"),
+			ShortName:  firstString(item, "ShortName", "shortName"),
+			PickupName: firstString(item, "pickupname", "pickupName", "name"),
+			Latitude:   firstFloat(item, "lat", "latitude", "Latitude"),
+			Longitude:  firstFloat(item, "lng", "lon", "longitude", "Longitude"),
+			Source:     "nus",
+			UpdatedAt:  now,
+		}
+		if point.PickupName == "" {
+			point.PickupName = firstNonEmpty(point.LongName, point.ShortName, point.StopCode)
+		}
+		if point.StopCode == "" {
+			point.StopCode = strings.ToUpper(firstNonEmpty(point.ShortName, point.PickupName))
+		}
+		if fallback, ok := knownBusStopCoords[point.StopCode]; ok {
+			if point.Latitude == 0 {
+				point.Latitude = fallback.Latitude
+			}
+			if point.Longitude == 0 {
+				point.Longitude = fallback.Longitude
+			}
+		}
+		if point.Latitude == 0 || point.Longitude == 0 {
+			continue
+		}
+		points = append(points, point)
+	}
+	sort.Slice(points, func(i, j int) bool {
+		return points[i].Seq < points[j].Seq
+	})
+	return points
+}
+
 func normalizeBusArrival(stopCode string, raw map[string]any) BusArrival {
 	result := firstMap(raw, "ShuttleServiceResult")
 	stopName := firstNonEmpty(firstString(result, "caption", "name"), stopCode)
 	items := firstArray(result, "shuttles", "Shuttles")
 	routes := make([]BusArrivalRoute, 0, len(items))
 	for _, item := range items {
+		etas := firstArray(item, "_etas", "etas")
 		route := BusArrivalRoute{
-			RouteCode:      strings.ToUpper(firstString(item, "name", "Name", "route_code", "routeCode")),
-			ArrivalMinutes: compactMinutes(firstString(item, "arrivalTime"), firstString(item, "nextArrivalTime")),
-			CrowdLevel:     normalizeCrowd(firstString(item, "passengers", "nextPassengers", "crowdLevel")),
-			VehiclePlate:   firstString(item, "arrivalTime_veh_plate", "vehiclePlate", "plate"),
+			RouteCode:          strings.ToUpper(firstString(item, "name", "Name", "route_code", "routeCode")),
+			ArrivalTime:        firstString(item, "arrivalTime"),
+			NextArrivalTime:    firstString(item, "nextArrivalTime"),
+			ArrivalTimeAt:      etaTimestamp(etas, 0),
+			NextArrivalTimeAt:  etaTimestamp(etas, 1),
+			CrowdLevel:         normalizeCrowd(firstString(item, "passengers", "nextPassengers", "crowdLevel")),
+			VehiclePlate:       firstString(item, "arrivalTime_veh_plate", "vehiclePlate", "plate"),
+			NextArrivalVehicle: firstString(item, "nextArrivalTime_veh_plate"),
 		}
+		route.ArrivalMinutes = compactMinutes(route.ArrivalTime, route.NextArrivalTime)
 		if route.RouteCode != "" {
 			routes = append(routes, route)
 		}
@@ -546,6 +634,15 @@ func (api *API) listBusRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, routes)
+}
+
+func (api *API) busPickupPoints(w http.ResponseWriter, r *http.Request) {
+	points, err := api.busClient.PickupPoints(r.Context(), r.URL.Query().Get("route"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, points)
 }
 
 func (api *API) busArrivals(w http.ResponseWriter, r *http.Request) {
@@ -645,6 +742,27 @@ func firstString(root map[string]any, keys ...string) string {
 	return ""
 }
 
+func firstInt(root map[string]any, keys ...string) int {
+	for _, key := range keys {
+		value, ok := root[key]
+		if !ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case int:
+			return typed
+		case float64:
+			return int(typed)
+		case string:
+			parsed, err := strconv.Atoi(strings.TrimSpace(typed))
+			if err == nil {
+				return parsed
+			}
+		}
+	}
+	return 0
+}
+
 func firstFloat(root map[string]any, keys ...string) float64 {
 	for _, key := range keys {
 		value, ok := root[key]
@@ -687,6 +805,13 @@ func compactMinutes(values ...string) []int {
 		}
 	}
 	return minutes
+}
+
+func etaTimestamp(etas []map[string]any, index int) string {
+	if index < 0 || index >= len(etas) {
+		return ""
+	}
+	return firstString(etas[index], "ts", "timestamp", "time")
 }
 
 func normalizeCrowd(value string) string {
@@ -811,20 +936,56 @@ func demoBusRoutes() []BusRoute {
 	}
 }
 
+func demoBusPickupPoints(routeCode string) []BusPickupPoint {
+	now := time.Now().UTC()
+	routeCode = strings.ToUpper(routeCode)
+	routeStops := map[string][]string{
+		"A1": {"KR-MRT", "CLB", "YIH", "UTOWN"},
+		"A2": {"UTOWN", "YIH", "CLB", "KR-MRT"},
+		"D1": {"COM2", "CLB", "UTOWN"},
+		"D2": {"PGP", "COM2", "YIH"},
+	}
+	codes := routeStops[routeCode]
+	if len(codes) == 0 {
+		codes = []string{"COM2", "CLB", "UTOWN"}
+	}
+	stopsByCode := map[string]BusStop{}
+	for _, stop := range demoBusStops() {
+		stopsByCode[stop.Code] = stop
+	}
+	points := make([]BusPickupPoint, 0, len(codes))
+	for i, code := range codes {
+		stop := stopsByCode[code]
+		points = append(points, BusPickupPoint{
+			RouteCode:  routeCode,
+			Seq:        i + 1,
+			StopCode:   code,
+			LongName:   stop.Name,
+			ShortName:  code,
+			PickupName: firstNonEmpty(stop.Name, code),
+			Latitude:   stop.Latitude,
+			Longitude:  stop.Longitude,
+			Source:     "demo",
+			UpdatedAt:  now,
+		})
+	}
+	return points
+}
+
 func demoBusArrival(stopCode string) BusArrival {
 	now := time.Now().UTC()
 	routes := map[string][]BusArrivalRoute{
 		"COM2": {
-			{RouteCode: "D1", ArrivalMinutes: []int{2, 8}, CrowdLevel: "medium", VehiclePlate: "PC1234A"},
-			{RouteCode: "A1", ArrivalMinutes: []int{5, 12}, CrowdLevel: "low", VehiclePlate: "PC2345B"},
+			{RouteCode: "D1", ArrivalTime: "2", NextArrivalTime: "8", ArrivalMinutes: []int{2, 8}, CrowdLevel: "medium", VehiclePlate: "PC1234A"},
+			{RouteCode: "A1", ArrivalTime: "5", NextArrivalTime: "12", ArrivalMinutes: []int{5, 12}, CrowdLevel: "low", VehiclePlate: "PC2345B"},
 		},
 		"CLB": {
-			{RouteCode: "A1", ArrivalMinutes: []int{3, 10}, CrowdLevel: "low", VehiclePlate: "PC3456C"},
-			{RouteCode: "A2", ArrivalMinutes: []int{6, 14}, CrowdLevel: "medium", VehiclePlate: "PC4567D"},
+			{RouteCode: "A1", ArrivalTime: "3", NextArrivalTime: "10", ArrivalMinutes: []int{3, 10}, CrowdLevel: "low", VehiclePlate: "PC3456C"},
+			{RouteCode: "A2", ArrivalTime: "6", NextArrivalTime: "14", ArrivalMinutes: []int{6, 14}, CrowdLevel: "medium", VehiclePlate: "PC4567D"},
 		},
 		"UTOWN": {
-			{RouteCode: "D1", ArrivalMinutes: []int{4, 11}, CrowdLevel: "high", VehiclePlate: "PC5678E"},
-			{RouteCode: "A2", ArrivalMinutes: []int{7, 15}, CrowdLevel: "medium", VehiclePlate: "PC6789F"},
+			{RouteCode: "D1", ArrivalTime: "4", NextArrivalTime: "11", ArrivalMinutes: []int{4, 11}, CrowdLevel: "high", VehiclePlate: "PC5678E"},
+			{RouteCode: "A2", ArrivalTime: "7", NextArrivalTime: "15", ArrivalMinutes: []int{7, 15}, CrowdLevel: "medium", VehiclePlate: "PC6789F"},
 		},
 	}
 	return BusArrival{

@@ -63,9 +63,9 @@ def panel(c: canvas.Canvas, x: float, y: float, w: float, h: float, title: str, 
     c.setStrokeColor(color("#ffffff", 0.12))
     c.roundRect(x + 7, y + 7, w - 14, h - 14, 12, fill=0, stroke=1)
     c.restoreState()
-    c.setFont(FONT_BOLD, 22)
+    c.setFont(FONT_BOLD, 28)
     c.setFillColor(color("#f8fdff"))
-    c.drawString(x + 20, y + h - 34, title)
+    c.drawString(x + 20, y + h - 38, title)
     c.setStrokeColor(color(accent, 0.92))
     c.setLineWidth(3)
     c.line(x + 20, y + h - 45, x + 108, y + h - 45)
@@ -88,19 +88,19 @@ def draw_title(c: canvas.Canvas) -> None:
     y = PAGE_H - 78
     c.setFillColor(color("#06111c", 0.50))
     c.roundRect(38, PAGE_H - 284, PAGE_W - 76, 224, 24, fill=1, stroke=0)
-    label(c, x + 590, y, "Orbital 2026 | Artemis M1 Resubmission | Team Atlas", 14, "#8ff5ff")
+    label(c, x + 590, y, "Orbital 2026 | Artemis M1 Resubmission | Team Atlas", 16, "#8ff5ff")
     if TITLE.exists():
         c.drawImage(str(TITLE), x - 8, PAGE_H - 248, 560, 220, preserveAspectRatio=True, mask="auto")
     else:
         c.setFont(FONT_BOLD, 76)
         c.setFillColor(color("#f8fdff"))
         c.drawString(x, PAGE_H - 178, "ATLAS")
-    c.setFont(FONT_BOLD, 30)
+    c.setFont(FONT_BOLD, 36)
     c.setFillColor(color("#ffd276"))
     c.drawString(x + 590, PAGE_H - 150, "AR CAMPUS")
     c.setFillColor(color("#8ff5ff"))
     c.drawString(x + 590, PAGE_H - 188, "ASSISTANT")
-    c.setFont(FONT_REG, 17)
+    c.setFont(FONT_REG, 20)
     c.setFillColor(color("#d7ecf5"))
     c.drawString(x, PAGE_H - 302, "Campus navigation from outdoor routes to indoor facilities, schedules, shuttle context, and future AR guidance.")
     c.setStrokeColor(color("#56e6ff", 0.90))
@@ -110,202 +110,262 @@ def draw_title(c: canvas.Canvas) -> None:
     c.circle(x + 728, PAGE_H - 270, 8, fill=1, stroke=0)
 
 
+LEFT = 46
+GAP = 28
+COL_W = 512
+COL2_X = LEFT + COL_W + GAP
+ROW1_Y, ROW1_H = 1538, 452
+ROW2_Y, ROW2_H = 1020, 492
+ROW3_Y, ROW3_H = 540, 454
+ROW4_Y, ROW4_H = 54, 460
+
+
+def draw_bullet(c: canvas.Canvas, x: float, y: float, text: str, width: int, size=15, leading=19) -> float:
+    c.setFillColor(color("#83f2c6"))
+    c.circle(x, y + 5, 4.5, fill=1, stroke=0)
+    return wrap_text(c, text, x + 18, y, width, size, leading, "#dcecf3")
+
+
 def draw_problem(c: canvas.Canvas) -> None:
-    panel(c, 46, 1646, 360, 346, "Problem")
-    y = 1930
-    y = wrap_text(c, "NUS students often reach the correct building but still struggle to find classrooms, lifts, restrooms, printers, study spaces, and shuttle connections.", 68, y, 43, 12.5, 17)
-    label(c, 68, y - 10, "Milestone 1 scope", 10.5, "#ffd276")
-    y -= 34
-    bullets = [
-        "20 user stories covering students, visitors, accessibility, transport, safety, and map updates.",
-        "10 ideated product and engineering features.",
-        "Full-stack prototype: React frontend, Go backend, SQLite data, JWT auth, deployment.",
-    ]
-    for item in bullets:
-        c.setFillColor(color("#83f2c6"))
-        c.circle(76, y + 4, 4, fill=1, stroke=0)
-        y = wrap_text(c, item, 90, y, 41, 10.8, 14, "#dcecf3")
-        y -= 8
+    panel(c, LEFT, ROW1_Y, COL_W, ROW1_H, "Problem")
+    x = LEFT + 26
+    y = ROW1_Y + ROW1_H - 74
+    y = wrap_text(
+        c,
+        "NUS students can reach a building but still lose time finding rooms, lifts, restrooms, printers, study spaces, and shuttle connections.",
+        x,
+        y,
+        43,
+        17,
+        22,
+    )
+    y -= 18
+    label(c, x, y, "Milestone 1 coverage", 14, "#ffd276")
+    y -= 28
+    for item in [
+        "20 user stories across navigation, access, safety, transport, campus life, and community updates.",
+        "10 ideated features, including AR guidance, facility search, schedules, bus context, and map corrections.",
+        "Project-level SWE: GitHub planning, tests, CI/CD, deployment, diagrams, and walkthrough evidence.",
+    ]:
+        y = draw_bullet(c, x + 8, y, item, 43, 15, 19) - 9
 
 
 def draw_features(c: canvas.Canvas) -> None:
-    panel(c, 426, 1646, 660, 346, "Core Features", accent="#ffd276")
+    panel(c, COL2_X, ROW1_Y, COL_W, ROW1_H, "Core Features", accent="#ffd276")
     features = [
         ("Auth", "email, demo, Google Sign-In, JWT"),
         ("Map", "MapLibre campus rendering"),
         ("Search", "place lookup and route tracing"),
         ("Assistant", "schedule-aware recommendations"),
-        ("Facilities", "buildings, rooms, lifts, printers"),
-        ("Schedule", "view, create, delete items"),
-        ("NUSMods", "sync status and trigger"),
-        ("Bus", "stops, arrivals, active vehicles"),
+        ("Facilities", "rooms, lifts, printers, study spaces"),
+        ("Schedule", "create, view, delete items"),
+        ("NUSMods", "sync trigger and status"),
+        ("Bus", "routes, stops, live arrivals"),
         ("Mobile", "responsive web and iOS shell"),
-        ("SWE", "issues, branches, CI/CD, tests"),
+        ("SWE", "issues, tests, CI/CD, deploy"),
     ]
+    start_x = COL2_X + 30
+    start_y = ROW1_Y + ROW1_H - 92
+    card_w = 222
+    card_h = 54
+    row_gap = 16
     for i, (title, body) in enumerate(features):
-        x = 450 + (i % 2) * 312
-        y = 1896 - (i // 2) * 52
-        c.setFillColor(color("#0d384a", 0.86))
-        c.setStrokeColor(color("#56e6ff", 0.52))
-        c.roundRect(x, y - 36, 278, 40, 10, fill=1, stroke=1)
+        x = start_x + (i % 2) * (card_w + 28)
+        y = start_y - (i // 2) * (card_h + row_gap)
+        c.setFillColor(color("#0d384a", 0.88))
+        c.setStrokeColor(color("#56e6ff", 0.62))
+        c.roundRect(x, y - card_h, card_w, card_h, 10, fill=1, stroke=1)
         c.setFillColor(color("#ffd276" if i % 2 else "#83f2c6"))
-        c.circle(x + 18, y - 16, 10, fill=1, stroke=0)
-        c.setFont(FONT_BOLD, 9.5)
+        c.circle(x + 21, y - 26, 12, fill=1, stroke=0)
+        c.setFont(FONT_BOLD, 11)
         c.setFillColor(color("#07131f"))
-        c.drawCentredString(x + 18, y - 20, str(i + 1))
-        c.setFont(FONT_BOLD, 12.3)
+        c.drawCentredString(x + 21, y - 30, str(i + 1))
+        c.setFont(FONT_BOLD, 16)
         c.setFillColor(color("#f8fdff"))
-        c.drawString(x + 34, y - 10, title)
-        c.setFont(FONT_REG, 9.6)
+        c.drawString(x + 43, y - 20, title)
+        c.setFont(FONT_REG, 12)
         c.setFillColor(color("#cfe5ed"))
-        c.drawString(x + 34, y - 25, body)
+        c.drawString(x + 43, y - 38, body)
 
 
 def draw_architecture(c: canvas.Canvas) -> None:
-    panel(c, 46, 1168, 618, 426, "Architecture", accent="#83f2c6")
+    panel(c, LEFT, ROW2_Y, COL_W, ROW2_H, "Architecture", accent="#83f2c6")
+    x = LEFT + 30
 
-    def node(x, y, w, h, title, body, accent="#56e6ff"):
-        c.setFillColor(color("#0b2d3e", 0.88))
-        c.setStrokeColor(color(accent, 0.82))
-        c.roundRect(x, y, w, h, 13, fill=1, stroke=1)
-        c.setFont(FONT_BOLD, 12)
+    def node(nx, ny, w, h, title, body, accent="#56e6ff"):
+        c.setFillColor(color("#0b2d3e", 0.9))
+        c.setStrokeColor(color(accent, 0.86))
+        c.roundRect(nx, ny, w, h, 12, fill=1, stroke=1)
+        c.setFont(FONT_BOLD, 15)
         c.setFillColor(color("#f8fdff"))
-        c.drawCentredString(x + w / 2, y + h - 18, title)
-        c.setFont(FONT_REG, 8.6)
+        c.drawCentredString(nx + w / 2, ny + h - 19, title)
+        c.setFont(FONT_REG, 11)
         c.setFillColor(color("#cfe5ed"))
-        for idx, line in enumerate(textwrap.wrap(body, 24)):
-            c.drawCentredString(x + w / 2, y + h - 34 - idx * 11, line)
+        for idx, line in enumerate(textwrap.wrap(body, 18)):
+            c.drawCentredString(nx + w / 2, ny + h - 38 - idx * 13, line)
 
     def arrow(x1, y1, x2, y2):
-        c.setStrokeColor(color("#ffb85c", 0.88))
-        c.setLineWidth(1.8)
+        c.setStrokeColor(color("#ffb85c", 0.9))
+        c.setLineWidth(2)
         c.line(x1, y1, x2, y2)
         c.setFillColor(color("#ffb85c"))
-        c.circle(x2, y2, 3.4, fill=1, stroke=0)
+        c.circle(x2, y2, 3.8, fill=1, stroke=0)
 
-    node(82, 1448, 130, 62, "User", "Web / mobile student")
-    node(274, 1448, 150, 62, "React Frontend", "auth, dashboard, map")
-    node(486, 1448, 130, 62, "Go API", "JWT and campus APIs")
-    node(486, 1318, 130, 62, "SQLite", "users, facilities, schedule", "#83f2c6")
-    node(82, 1318, 130, 62, "Map Layer", "search and route tracing")
-    node(274, 1318, 150, 62, "Assistant", "schedule + context")
-    node(486, 1218, 130, 58, "External", "Google, OSM, NUSMods, bus", "#ffd276")
-    arrow(212, 1479, 274, 1479)
-    arrow(424, 1479, 486, 1479)
-    arrow(551, 1448, 551, 1380)
-    arrow(274, 1448, 212, 1362)
-    arrow(349, 1448, 349, 1380)
-    arrow(486, 1448, 424, 1362)
-    arrow(551, 1318, 551, 1276)
-    wrap_text(c, "System-level architecture is intentionally separated into UI, protected API, persistent data, and external service boundaries.", 76, 1262, 68, 11, 15, "#dcecf3")
+    top_y = ROW2_Y + 260
+    mid_y = ROW2_Y + 150
+    bot_y = ROW2_Y + 58
+    node(x, top_y, 118, 62, "User", "web / mobile student")
+    node(x + 172, top_y, 138, 62, "Frontend", "React dashboard and map")
+    node(x + 362, top_y, 116, 62, "Go API", "JWT and campus APIs")
+    node(x, mid_y, 118, 62, "Map", "search and route tracing")
+    node(x + 172, mid_y, 138, 62, "Assistant", "schedule plus context")
+    node(x + 362, mid_y, 116, 62, "SQLite", "users and facilities", "#83f2c6")
+    node(x + 362, bot_y, 116, 58, "External", "Google, OSM, NUSMods, bus", "#ffd276")
+    arrow(x + 118, top_y + 31, x + 172, top_y + 31)
+    arrow(x + 310, top_y + 31, x + 362, top_y + 31)
+    arrow(x + 420, top_y, x + 420, mid_y + 62)
+    arrow(x + 70, top_y, x + 70, mid_y + 62)
+    arrow(x + 242, top_y, x + 242, mid_y + 62)
+    arrow(x + 420, mid_y, x + 420, bot_y + 58)
+    wrap_text(
+        c,
+        "Layered design separates UI, protected API, data, and external campus services.",
+        x,
+        ROW2_Y + 46,
+        48,
+        15,
+        19,
+    )
 
 
 def draw_standard_diagrams(c: canvas.Canvas) -> None:
-    panel(c, 688, 1168, 398, 426, "Standard Diagrams", accent="#ffb85c")
+    panel(c, COL2_X, ROW2_Y, COL_W, ROW2_H, "Standard Diagrams", accent="#ffb85c")
     rows = [
         ("Sequence", "Login -> backend verification -> JWT -> protected dashboard."),
         ("Activity", "Search location -> select place -> center map -> draw route."),
-        ("ER", "users, buildings, facilities, schedule items, sync status."),
+        ("ER", "users, buildings, facilities, schedule_items, sync_status."),
         ("Architecture", "frontend, backend, database, external campus services."),
     ]
-    y = 1506
+    x = COL2_X + 30
+    y = ROW2_Y + ROW2_H - 92
     for idx, (title, body) in enumerate(rows, 1):
-        c.setFillColor(color("#0d384a", 0.86))
-        c.roundRect(718, y - 60, 338, 66, 12, fill=1, stroke=0)
+        c.setFillColor(color("#0d384a", 0.88))
+        c.roundRect(x, y - 62, COL_W - 60, 68, 12, fill=1, stroke=0)
         c.setFillColor(color("#ffb85c"))
-        c.circle(742, y - 26, 13, fill=1, stroke=0)
-        c.setFont(FONT_BOLD, 11)
+        c.circle(x + 24, y - 28, 13, fill=1, stroke=0)
+        c.setFont(FONT_BOLD, 12)
         c.setFillColor(color("#07131f"))
-        c.drawCentredString(742, y - 30, str(idx))
-        c.setFont(FONT_BOLD, 13.5)
+        c.drawCentredString(x + 24, y - 32, str(idx))
+        c.setFont(FONT_BOLD, 17)
         c.setFillColor(color("#f8fdff"))
-        c.drawString(766, y - 15, title)
-        wrap_text(c, body, 766, y - 34, 42, 9.4, 12, "#cfe5ed")
+        c.drawString(x + 54, y - 17, title)
+        wrap_text(c, body, x + 54, y - 39, 43, 13.5, 16, "#cfe5ed")
         y -= 82
 
 
 def draw_screens(c: canvas.Canvas) -> None:
-    panel(c, 46, 734, 618, 388, "Prototype Screens", accent="#56e6ff")
+    panel(c, LEFT, ROW3_Y, COL_W, ROW3_H, "Prototype Screens", accent="#56e6ff")
+    x = LEFT + 26
+    shot_y = ROW3_Y + 168
     shots = [
-        (AUTH_SCREEN, 74, 812, 168, 154, "Authentication"),
-        (MAP_SCREEN, 260, 812, 266, 154, "Campus Map"),
-        (MOBILE_SCREEN, 548, 812, 74, 154, "Mobile"),
+        (AUTH_SCREEN, x, shot_y, 124, 132, "Auth"),
+        (MAP_SCREEN, x + 142, shot_y, 236, 132, "Map"),
+        (MOBILE_SCREEN, x + 398, shot_y, 58, 132, "Mobile"),
     ]
-    for path, x, y, w, h, title in shots:
-        c.setFillColor(color("#0b2d3e", 0.88))
-        c.roundRect(x - 8, y - 22, w + 16, h + 52, 12, fill=1, stroke=0)
+    for path, sx, sy, sw, sh, title in shots:
+        c.setFillColor(color("#0b2d3e", 0.9))
+        c.roundRect(sx - 8, sy - 24, sw + 16, sh + 56, 12, fill=1, stroke=0)
         if path.exists():
-            c.drawImage(str(path), x, y, w, h, preserveAspectRatio=True, mask="auto")
-        c.setFont(FONT_BOLD, 10.5)
+            c.drawImage(str(path), sx, sy, sw, sh, preserveAspectRatio=True, mask="auto")
+        c.setFont(FONT_BOLD, 13)
         c.setFillColor(color("#ffd276"))
-        c.drawCentredString(x + w / 2, y - 10, title)
-    wrap_text(c, "The demo flow shows login, protected dashboard access, schedule context, facility filtering, responsive mobile layout, and campus map interaction.", 74, 778, 77, 11.5, 15, "#dcecf3")
+        c.drawCentredString(sx + sw / 2, sy - 12, title)
+    wrap_text(
+        c,
+        "The walkthrough demonstrates login, protected dashboard access, schedule context, facility filtering, responsive layout, and campus map interaction.",
+        x,
+        ROW3_Y + 118,
+        54,
+        16,
+        20,
+    )
 
 
 def draw_testing_cicd(c: canvas.Canvas) -> None:
-    panel(c, 688, 734, 398, 388, "Testing and CI/CD", accent="#83f2c6")
+    panel(c, COL2_X, ROW3_Y, COL_W, ROW3_H, "Testing and CI/CD", accent="#83f2c6")
     checks = [
         ("Backend", "cd backend && go test ./..."),
         ("Frontend", "cd frontend && npm run build"),
         ("iOS shell", "npm run ios:sync"),
         ("Deploy", "docker compose up -d --build"),
     ]
-    y = 1038
+    x = COL2_X + 30
+    y = ROW3_Y + ROW3_H - 94
     for title, cmd in checks:
-        c.setFillColor(color("#0d384a", 0.86))
-        c.roundRect(718, y - 45, 338, 50, 12, fill=1, stroke=0)
-        c.setFont(FONT_BOLD, 12)
+        c.setFillColor(color("#0d384a", 0.88))
+        c.roundRect(x, y - 45, COL_W - 60, 52, 12, fill=1, stroke=0)
+        c.setFont(FONT_BOLD, 15)
         c.setFillColor(color("#83f2c6"))
-        c.drawString(738, y - 13, title)
-        c.setFont(FONT_REG, 9.4)
+        c.drawString(x + 18, y - 15, title)
+        c.setFont(FONT_REG, 12.5)
         c.setFillColor(color("#dcecf3"))
-        c.drawString(820, y - 13, cmd)
-        y -= 58
-    label(c, 718, y - 8, "Pipeline gates", 10.5, "#ffd276")
-    wrap_text(c, "GitHub Actions plan: checkout, npm ci, frontend build, Go tests, Docker build, then deployment validation on the hosted Render app.", 718, y - 30, 45, 10.5, 14, "#dcecf3")
+        c.drawString(x + 130, y - 15, cmd)
+        y -= 64
+    label(c, x, y - 2, "Pipeline gates", 14, "#ffd276")
+    wrap_text(
+        c,
+        "GitHub Actions plan: checkout, npm ci, frontend build, Go tests, Docker build, then deployment validation on Render.",
+        x,
+        y - 28,
+        45,
+        15,
+        19,
+        "#dcecf3",
+    )
 
 
 def draw_bottom(c: canvas.Canvas) -> None:
-    panel(c, 46, 230, 512, 398, "User Story Coverage", accent="#ffd276")
+    panel(c, LEFT, ROW4_Y, COL_W, ROW4_H, "User Story Coverage", accent="#ffd276")
     story_groups = [
         ("Navigation", "AR map, indoor guidance, travel time, saved locations."),
         ("Campus Life", "study spaces, events, printing, less crowded facilities."),
         ("Access", "wheelchair-friendly routes, lifts, accessible entrances."),
         ("Transport", "nearby shuttle stops, routes, arrivals, bus context."),
         ("Safety", "emergency exits, first-aid points, security offices."),
-        ("Community", "student corrections and administrator review."),
+        ("Community", "student corrections and admin review."),
     ]
-    y = 540
+    x = LEFT + 28
+    y = ROW4_Y + ROW4_H - 94
     for title, body in story_groups:
-        c.setFont(FONT_BOLD, 11.5)
+        c.setFont(FONT_BOLD, 15)
         c.setFillColor(color("#f8fdff"))
-        c.drawString(74, y, title)
-        wrap_text(c, body, 176, y, 43, 9.7, 12, "#cfe5ed")
-        y -= 48
+        c.drawString(x, y, title)
+        wrap_text(c, body, x + 132, y, 37, 13.5, 16, "#cfe5ed")
+        y -= 56
 
-    panel(c, 582, 230, 504, 398, "Walkthrough and Links", accent="#56e6ff")
-    y = 540
+    panel(c, COL2_X, ROW4_Y, COL_W, ROW4_H, "Walkthrough and Links", accent="#56e6ff")
     steps = [
         "Open deployed app and login through demo/auth flow.",
-        "Show protected dashboard, schedule, recommendations, and facility filters.",
-        "Show map rendering, search-oriented interaction, and route tracing.",
-        "Explain repo logs, testing commands, CI/CD plan, and deployment setup.",
+        "Show dashboard, schedule, recommendations, and facility filters.",
+        "Show map rendering, search interaction, and route tracing.",
+        "Explain repo logs, tests, CI/CD plan, and deployment setup.",
     ]
+    x = COL2_X + 30
+    y = ROW4_Y + ROW4_H - 96
     for idx, step in enumerate(steps, 1):
         c.setFillColor(color("#56e6ff" if idx % 2 else "#ffb85c"))
-        c.circle(610, y + 4, 10, fill=1, stroke=0)
-        c.setFont(FONT_BOLD, 9)
+        c.circle(x + 14, y + 5, 12, fill=1, stroke=0)
+        c.setFont(FONT_BOLD, 12)
         c.setFillColor(color("#07131f"))
-        c.drawCentredString(610, y + 1, str(idx))
-        y = wrap_text(c, step, 632, y, 48, 10.2, 13, "#dcecf3")
-        y -= 20
-    c.setFont(FONT_BOLD, 13)
+        c.drawCentredString(x + 14, y + 1, str(idx))
+        y = wrap_text(c, step, x + 42, y, 42, 15, 19, "#dcecf3") - 18
+    c.setFont(FONT_BOLD, 16)
     c.setFillColor(color("#ffd276"))
-    c.drawString(610, 314, "App: orbital-artemis-armap-nus.onrender.com")
-    c.drawString(610, 292, "GitHub: 77chenchen/Orbital_Artemis_ArMap_Nus")
-    c.setFont(FONT_REG, 10)
+    c.drawString(x, ROW4_Y + 82, "App: orbital-artemis-armap-nus.onrender.com")
+    c.drawString(x, ROW4_Y + 56, "GitHub: 77chenchen/Orbital_Artemis_ArMap_Nus")
+    c.setFont(FONT_REG, 12.5)
     c.setFillColor(color("#b9d8e3"))
-    c.drawRightString(1058, 254, "Poster regenerated from current readme.tex content")
+    c.drawRightString(COL2_X + COL_W - 26, ROW4_Y + 28, "Poster regenerated from current readme.tex content")
 
 
 def main() -> None:

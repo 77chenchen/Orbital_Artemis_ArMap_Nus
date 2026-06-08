@@ -6,9 +6,9 @@ export async function geocode(query, size = 1) {
   return res?.[0]?.geometry?.coordinates;
 }
 
-export async function route(start, end) {
+export async function route(start, end, mode = "foot") {
   if (!start || !end) return null;
 
-  const r = await getShortestRoutes(start, end);
+  const r = await getShortestRoutes(start, end, mode);
   return r?.points || null;
 }

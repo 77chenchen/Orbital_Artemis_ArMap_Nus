@@ -9,7 +9,7 @@ import { geocode, route } from "./services";
 import getSuggestions from "./geocoding";
 import RoutingForm from "./(ui)/routingForm";
 import { api } from "../api";
-import { installBusLayers, setActiveBuses } from "./busLayer";
+import { installBusLayers, setActiveBuses, setRoutePickupPoints } from "./busLayer";
 
 export default function MapScreen({ embedded = false }) {
   const mapContainer = useRef(null);
@@ -36,7 +36,10 @@ export default function MapScreen({ embedded = false }) {
   const [busRoutes, setBusRoutes] = useState([]);
   const [selectedRoute, setSelectedRoute] = useState("D1");
   const [selectedStop, setSelectedStop] = useState(null);
-  const [arrival, setArrival] = useState(null);
+  const [pickupPoints, setPickupPoints] = useState([]);
+  const [arrivalRows, setArrivalRows] = useState([]);
+  const [showArrivals, setShowArrivals] = useState(false);
+  const [arrivalLoading, setArrivalLoading] = useState(false);
   const [busError, setBusError] = useState("");
 
   // init map
@@ -82,18 +85,9 @@ export default function MapScreen({ embedded = false }) {
 
     async function handleBusStopSelect(stop) {
       setSelectedStop(stop);
-      setArrival(null);
+      setShowArrivals(false);
+      setArrivalRows([]);
       setBusError("");
-      try {
-        const nextArrival = await api.busArrivals(stop.code);
-        if (!cancelled) {
-          setArrival(nextArrival);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setBusError(err.message);
-        }
-      }
     }
 
     map.on("load", loadBusLayer);
@@ -125,6 +119,28 @@ export default function MapScreen({ embedded = false }) {
       }
     }
 
+    async function loadPickupPoints() {
+      try {
+        const points = await api.busPickupPoints(selectedRoute);
+        if (!cancelled && mapRef.current) {
+          const sortedPoints = [...(points || [])].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+          const routeCoordinates = await buildRoadRoute(sortedPoints);
+          if (cancelled || !mapRef.current) return;
+          setPickupPoints(sortedPoints);
+          setRoutePickupPoints(mapRef.current, sortedPoints, routeCoordinates);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPickupPoints([]);
+          setBusError(err.message);
+          if (mapRef.current) {
+            setRoutePickupPoints(mapRef.current, []);
+          }
+        }
+      }
+    }
+
+    loadPickupPoints();
     refreshActiveBus();
     const timer = window.setInterval(refreshActiveBus, 15000);
     return () => {
@@ -132,6 +148,51 @@ export default function MapScreen({ embedded = false }) {
       window.clearInterval(timer);
     };
   }, [busReady, selectedRoute]);
+
+  async function loadRouteArrivalDashboard() {
+    const stopsToCheck =
+      pickupPoints.length > 0
+        ? pickupPoints
+        : selectedStop
+          ? [{ stopCode: selectedStop.code, pickupName: selectedStop.name }]
+          : [];
+    if (stopsToCheck.length === 0) return;
+
+    setArrivalLoading(true);
+    setBusError("");
+    try {
+      const arrivals = await Promise.all(
+        stopsToCheck.map(async (point) => {
+          const stopCode = point.stopCode || point.code;
+          const arrival = await api.busArrivals(stopCode);
+          return { point, arrival };
+        })
+      );
+      const rows = arrivals.flatMap(({ point, arrival }) =>
+        (arrival.routes || []).map((routeItem) => ({
+          stopCode: arrival.stopCode || point.stopCode || point.code,
+          stopName: arrival.stopName || point.pickupName || point.longName || point.name || point.stopCode,
+          routeCode: routeItem.routeCode,
+          arrivalTime: routeItem.arrivalTime || "",
+          nextArrivalTime: routeItem.nextArrivalTime || "",
+          arrivalTimeAt: routeItem.arrivalTimeAt || "",
+          nextArrivalTimeAt: routeItem.nextArrivalTimeAt || "",
+          arrivalMinutes: routeItem.arrivalMinutes || [],
+          crowdLevel: routeItem.crowdLevel || "",
+          vehiclePlate: routeItem.vehiclePlate || "",
+          nextArrivalVehicle: routeItem.nextArrivalVehicle || "",
+          source: arrival.source || point.source || "unknown",
+          updatedAt: arrival.updatedAt,
+        }))
+      );
+      setArrivalRows(rows);
+      setShowArrivals(true);
+    } catch (err) {
+      setBusError(err.message);
+    } finally {
+      setArrivalLoading(false);
+    }
+  }
 
   
   useEffect(() => {
@@ -312,31 +373,159 @@ export default function MapScreen({ embedded = false }) {
           <p className="bus-muted">Loading campus shuttle stops...</p>
         )}
 
-        <div className="bus-arrivals">
-          {(arrival?.routes || []).map((routeItem) => (
-            <div className="bus-arrival-row" key={routeItem.routeCode}>
-              <strong>{routeItem.routeCode}</strong>
-              <span>{formatEtas(routeItem.arrivalMinutes)}</span>
-              <em className={`crowd crowd-${routeItem.crowdLevel || "live"}`}>
-                {routeItem.crowdLevel || "live"}
-              </em>
+        <button
+          className="bus-arrival-toggle"
+          type="button"
+          disabled={arrivalLoading || (!selectedStop && pickupPoints.length === 0)}
+          onClick={loadRouteArrivalDashboard}
+        >
+          {arrivalLoading ? "Loading arrival dashboard..." : "View bus arrival dashboard"}
+        </button>
+
+        {showArrivals && (
+          <div className="bus-arrival-dashboard">
+            <div className="bus-arrival-dashboard-head">
+              <p className="bus-kicker">Arrival Dashboard</p>
+              <span className={`source-badge source-${arrivalRows[0]?.source || "unknown"}`}>
+                {arrivalRows[0]?.source || "no data"}
+              </span>
             </div>
-          ))}
-          {arrival && arrival.routes?.length === 0 && (
-            <p className="bus-muted">No live arrivals for this stop yet.</p>
+            {arrivalRows.length > 0 ? (
+              <div className="bus-arrival-table" role="table" aria-label="Bus arrival dashboard">
+                <div className="bus-arrival-table-row bus-arrival-table-header" role="row">
+                  <span>Location</span>
+                  <span>Bus</span>
+                  <span>Arrival</span>
+                </div>
+                {arrivalRows.map((row, index) => (
+                  <div
+                    className="bus-arrival-table-row"
+                    role="row"
+                    key={`${row.stopCode}-${row.routeCode}-${index}`}
+                  >
+                    <span>
+                      <strong>{row.stopName || row.stopCode}</strong>
+                      <small>{row.stopCode}</small>
+                    </span>
+                    <span>
+                      <strong>{row.routeCode}</strong>
+                      {row.vehiclePlate && <small>Now {row.vehiclePlate}</small>}
+                      {row.nextArrivalVehicle && <small>Next {row.nextArrivalVehicle}</small>}
+                    </span>
+                    <span>
+                      <strong>
+                        {formatArrivalPair(row)}
+                      </strong>
+                      <em className={`crowd crowd-${row.crowdLevel || "live"}`}>
+                        {row.crowdLevel || "live"}
+                      </em>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="bus-muted">No arrival data returned for this route yet.</p>
+            )}
+            {arrivalRows[0]?.source === "demo" && (
+              <p className="bus-demo-note">
+                Demo ETA shown. Configure NUS bus API credentials to display live NUS arrivals.
+              </p>
+            )}
+          </div>
+        )}
+
+        {!showArrivals && selectedStop && (
+          <p className="bus-muted">
+            Click the button to fetch each bus arrival time at each pickup point in the selected route.
+          </p>
+        )}
+
+        <div className="bus-pickup-list">
+          <p className="bus-kicker">{selectedRoute || "Route"} Pickup Points</p>
+          {pickupPoints.length > 0 ? (
+            <ol>
+              {pickupPoints.slice(0, 6).map((point) => (
+                <li key={`${point.routeCode}-${point.seq}-${point.stopCode}`}>
+                  <span>{point.seq}</span>
+                  {point.pickupName || point.longName || point.stopCode}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="bus-muted">No pickup points loaded for this route.</p>
           )}
         </div>
 
         {busError && <p className="bus-error">{busError}</p>}
         <p className="bus-footer">
-          Source: {arrival?.source || "loading"} · active buses refresh every 15s
+          Source: {arrivalRows[0]?.source || pickupPoints[0]?.source || "loading"} · live when NUS bus credentials are configured
         </p>
       </section>
     </div>
   );
 }
 
+function formatArrivalPair(row = {}) {
+  const first = formatArrival(row.arrivalTime, row.arrivalTimeAt);
+  const next = formatArrival(row.nextArrivalTime, row.nextArrivalTimeAt);
+  const values = [first, next].filter((item) => item.value !== "—");
+
+  if (values.length > 0) {
+    return values.map((item) => `${item.value}${item.unit ? ` ${item.unit}` : ""}`).join(" / ");
+  }
+
+  return formatEtas(row.arrivalMinutes);
+}
+
+function formatArrival(value, timestamp) {
+  if (!value || value === "-") return { value: "—", unit: "" };
+
+  const number = Number(value);
+  if (!Number.isNaN(number)) {
+    if (number === 0) return { value: "Arr", unit: "" };
+    if (number >= 60 && timestamp) return { value: formatClock(timestamp), unit: "" };
+    return { value: String(number), unit: "min" };
+  }
+
+  return { value, unit: "" };
+}
+
 function formatEtas(minutes = []) {
   if (!minutes.length) return "Check app";
   return minutes.map((minute) => (minute === 0 ? "Arr" : `${minute} min`)).join(" / ");
+}
+
+function formatClock(timestamp) {
+  const match = String(timestamp).match(/(\d{1,2}):(\d{2})/);
+  if (!match) return timestamp;
+
+  let hour = Number(match[1]);
+  const suffix = hour < 12 ? "am" : "pm";
+  hour = hour % 12 || 12;
+  return `${hour}:${match[2]}${suffix}`;
+}
+
+async function buildRoadRoute(points = []) {
+  const sortedPoints = points
+    .filter((point) => point.latitude && point.longitude)
+    .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+
+  if (sortedPoints.length < 2) {
+    return [];
+  }
+
+  try {
+    const coordinates = sortedPoints
+      .map((point) => `${point.longitude},${point.latitude}`)
+      .join(";");
+    const response = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&continue_straight=false`
+    );
+    const data = await response.json();
+    const routeCoordinates = data?.routes?.[0]?.geometry?.coordinates;
+    return Array.isArray(routeCoordinates) ? routeCoordinates : [];
+  } catch (err) {
+    console.error("OSRM bus route error:", err);
+    return [];
+  }
 }

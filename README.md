@@ -183,6 +183,7 @@ POST   /api/sync/run
 
 GET    /api/bus/stops
 GET    /api/bus/routes
+GET    /api/bus/pickup-points?route=A1
 GET    /api/bus/arrivals?stop=COM2
 GET    /api/bus/active?route=D1
 GET    /api/bus/alerts
@@ -194,6 +195,28 @@ Most app data routes require:
 ```text
 Authorization: Bearer <app-jwt>
 ```
+
+The `/api/bus/*` routes are public backend proxy routes because they do not expose user-specific data. This allows demo-mode users to still fetch live shuttle data when NUS bus credentials are configured on the backend.
+
+### NUS NextBus Pickup Points
+
+Atlas proxies the unofficial NUS NextBus `GetPickupPoint` endpoint through the backend so the browser never receives the uNivUS/FMS token directly.
+
+External API used by the backend:
+
+```text
+GET https://fms.connectx.com.sg/apiy/NUSETA/PickupPoint?route_code=A1&token=<nextbus_token2>
+```
+
+Atlas endpoint used by the frontend:
+
+```text
+GET /api/bus/pickup-points?route=A1
+```
+
+To enable live NUS data, set `NUS_BUS_X_HTD_API` and `NUS_BUS_X_APP_API`. The backend first gets a public uNivUS access token, then calls the bus widget init endpoint to obtain `nextbus_token2`, then calls `PickupPoint` with `route_code`.
+
+If the bus credentials are empty, Atlas returns clearly labelled demo bus data instead of pretending it is live.
 
 ## Demo Flow
 

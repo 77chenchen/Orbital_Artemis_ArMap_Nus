@@ -111,18 +111,25 @@ const demoBusRoutes = [
   { code: 'D2', name: 'D2', color: '#F2C94C', description: 'PGP and campus connector' },
 ];
 
+const demoRouteStops = {
+  A1: ['KR-MRT', 'CLB', 'YIH', 'UTOWN'],
+  A2: ['UTOWN', 'YIH', 'CLB', 'KR-MRT'],
+  D1: ['COM2', 'CLB', 'UTOWN'],
+  D2: ['PGP', 'COM2', 'YIH'],
+};
+
 const demoBusArrivals = {
   COM2: [
-    { routeCode: 'D1', arrivalMinutes: [2, 8], crowdLevel: 'medium', vehiclePlate: 'PC1234A' },
-    { routeCode: 'A1', arrivalMinutes: [5, 12], crowdLevel: 'low', vehiclePlate: 'PC2345B' },
+    { routeCode: 'D1', arrivalTime: '2', nextArrivalTime: '8', arrivalMinutes: [2, 8], crowdLevel: 'medium', vehiclePlate: 'PC1234A' },
+    { routeCode: 'A1', arrivalTime: '5', nextArrivalTime: '12', arrivalMinutes: [5, 12], crowdLevel: 'low', vehiclePlate: 'PC2345B' },
   ],
   CLB: [
-    { routeCode: 'A1', arrivalMinutes: [3, 10], crowdLevel: 'low', vehiclePlate: 'PC3456C' },
-    { routeCode: 'A2', arrivalMinutes: [6, 14], crowdLevel: 'medium', vehiclePlate: 'PC4567D' },
+    { routeCode: 'A1', arrivalTime: '3', nextArrivalTime: '10', arrivalMinutes: [3, 10], crowdLevel: 'low', vehiclePlate: 'PC3456C' },
+    { routeCode: 'A2', arrivalTime: '6', nextArrivalTime: '14', arrivalMinutes: [6, 14], crowdLevel: 'medium', vehiclePlate: 'PC4567D' },
   ],
   UTOWN: [
-    { routeCode: 'D1', arrivalMinutes: [4, 11], crowdLevel: 'high', vehiclePlate: 'PC5678E' },
-    { routeCode: 'A2', arrivalMinutes: [7, 15], crowdLevel: 'medium', vehiclePlate: 'PC6789F' },
+    { routeCode: 'D1', arrivalTime: '4', nextArrivalTime: '11', arrivalMinutes: [4, 11], crowdLevel: 'high', vehiclePlate: 'PC5678E' },
+    { routeCode: 'A2', arrivalTime: '7', nextArrivalTime: '15', arrivalMinutes: [7, 15], crowdLevel: 'medium', vehiclePlate: 'PC6789F' },
   ],
 };
 
@@ -160,7 +167,7 @@ let demoSyncStatus = {
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("token");
-  if (token === "demo-mode") {
+  if (token === "demo-mode" && !path.startsWith('/bus/')) {
     return demoRequest(path, options);
   }
 
@@ -214,6 +221,28 @@ function demoRequest(path, options = {}) {
   if (path.startsWith('/recommendations')) return Promise.resolve(demoRecommendations);
   if (path === '/bus/stops') return Promise.resolve(demoBusStops);
   if (path === '/bus/routes') return Promise.resolve(demoBusRoutes);
+  if (path.startsWith('/bus/pickup-points')) {
+    const url = new URL(`https://demo.local${path}`);
+    const route = url.searchParams.get('route') || 'D1';
+    const routeStops = demoRouteStops[route] || demoRouteStops.D1;
+    return Promise.resolve(
+      routeStops.map((code, index) => {
+        const stop = demoBusStops.find((item) => item.code === code) || demoBusStops[0];
+        return {
+          routeCode: route,
+          seq: index + 1,
+          stopCode: stop.code,
+          longName: stop.name,
+          shortName: stop.code,
+          pickupName: stop.name,
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+          source: 'demo',
+          updatedAt: new Date().toISOString(),
+        };
+      }),
+    );
+  }
   if (path.startsWith('/bus/arrivals')) {
     const url = new URL(`https://demo.local${path}`);
     const stop = url.searchParams.get('stop');
@@ -264,6 +293,7 @@ export const api = {
   recommendations: () => request('/recommendations?lat=1.2966&lng=103.7764'),
   busStops: () => request('/bus/stops'),
   busRoutes: () => request('/bus/routes'),
+  busPickupPoints: (route) => request(`/bus/pickup-points?route=${encodeURIComponent(route)}`),
   busArrivals: (stop) => request(`/bus/arrivals?stop=${encodeURIComponent(stop)}`),
   activeBus: (route) => request(`/bus/active?route=${encodeURIComponent(route)}`),
   busAlerts: () => request('/bus/alerts'),
