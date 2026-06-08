@@ -1,5 +1,6 @@
 # Fdb version 4
-["pdflatex"] 1780280751.4472 "readme.tex" "readme.pdf" "readme" 1780280753.31359 0
+["pdflatex"] 1780904747.60423 "/Users/wangqichen/Desktop/Orbital_Artemis_ArMap_Nus/readme.tex" "readme.pdf" "readme" 1780904749.57434 0
+  "/Users/wangqichen/Desktop/Orbital_Artemis_ArMap_Nus/readme.tex" 1780904747.16555 46912 3d837f705bbbc4ab9f6b2f60e336271e ""
   "/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/local/texlive/2025/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2025/texmf-dist/fonts/tfm/adobe/helvetic/phvb7t.tfm" 1136768653 2240 eb56c13537f4d8a0bd3fafc25572b1bd ""
@@ -103,6 +104,7 @@
   "/usr/local/texlive/2025/texmf-dist/tex/latex/base/size11.clo" 1738182759 8464 e73911cdcc738e82d6adccd28e654bb1 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/caption/caption.sty" 1696191071 56128 c2ccf1a29d78c33bc553880402e4fb9a ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/caption/caption3.sty" 1696191071 72619 ee90b6612147680fd73c3b1406a74245 ""
+  "/usr/local/texlive/2025/texmf-dist/tex/latex/caption/ltcaption.sty" 1645391520 7418 021d7c4eb11bde94592761855a3d046e ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/enumitem/enumitem.sty" 1738874546 52272 63d293bc0d496619edb57585740861a2 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty" 1579991033 13886 d1306dcf79a944f6988e688c1785f9ce ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/etoolbox/etoolbox.sty" 1739306980 46850 d87daedc2abdc653769a6f1067849fe0 ""
@@ -142,6 +144,7 @@
   "/usr/local/texlive/2025/texmf-dist/tex/latex/refcount/refcount.sty" 1576624809 9878 9e94e8fa600d95f9c7731bb21dfb67a4 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/rerunfilecheck/rerunfilecheck.sty" 1657483315 9714 ba3194bd52c8499b3f1e3eb91d409670 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/tools/array.sty" 1730496337 14552 27664839421e418b87f56fa4c6f66b1a ""
+  "/usr/local/texlive/2025/texmf-dist/tex/latex/tools/longtable.sty" 1730496337 15900 3cb191e576c7a313634d2813c55d4bf1 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/tools/tabularx.sty" 1717359999 7243 e5dac1240636811edb77568b81818372 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/url/url.sty" 1388531844 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
   "/usr/local/texlive/2025/texmf-dist/tex/latex/xcolor/xcolor.sty" 1727642399 55384 b454dec21c2d9f45ec0b793f0995b992 ""
@@ -149,10 +152,10 @@
   "/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1763797094 5467155 19efa205003f9ecad95fbbaa6ff24da1 ""
   "/usr/local/texlive/2025/texmf-var/web2c/pdftex/pdflatex.fmt" 1763797027 3345742 a9a75702d513b8c2373c0e59c40570d8 ""
   "/usr/local/texlive/2025/texmf.cnf" 1741450484 577 418a7058ec8e006d8704f60ecd22c938 ""
-  "readme.aux" 1780280753.26432 2377 779fc7a579b20b1e287ea04c19407052 "pdflatex"
-  "readme.out" 1780280753.26482 3284 3059fc2d22f08ca7f7c748d1a8f437fd "pdflatex"
-  "readme.tex" 1780280741.91466 20808 64bec783da7eb46142ef525c8c0ac0e5 ""
-  "readme.toc" 1780280753.265 1353 41a9123c786355a6da047b0464a53991 "pdflatex"
+  "readme.aux" 1780904749.52872 4706 86c2226e85d01f5b9f6858c228ff93b7 "pdflatex"
+  "readme.out" 1780904749.52932 6688 0ab565613eb0372554d8a2219df84b9f "pdflatex"
+  "readme.tex" 1780904747.16555 46912 3d837f705bbbc4ab9f6b2f60e336271e ""
+  "readme.toc" 1780904749.52949 2724 d44e3dacc6be108f583128a906ec7442 "pdflatex"
   "readme_assets/authentication-login-page.png" 1780280360.911 2692115 8d58927097421a71bcf89ee9fb9a5220 ""
   "readme_assets/campus-map-screen.png" 1780280360.91836 4921647 5edec5aba12780a4ed81ce11b4e09c0e ""
   "readme_assets/mobile-app-1.png" 1780280360.92131 723019 d4ad41c067901d6b70090737806664bf ""

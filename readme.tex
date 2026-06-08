@@ -9,6 +9,7 @@
 \usepackage{helvet}
 \usepackage{xcolor}
 \usepackage{tabularx}
+\usepackage{longtable}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning, shapes.geometric}
 
@@ -97,6 +98,36 @@
 The deployed web application is available at:
 \href{https://orbital-artemis-armap-nus.onrender.com}{orbital-artemis-armap-nus.onrender.com}
 
+\section*{Artemis M1 Resubmission Coverage}
+\addcontentsline{toc}{section}{Artemis M1 Resubmission Coverage}
+
+This revised Milestone 01 report is prepared as an Artemis-level resubmission. It explicitly addresses the evaluation feedback by expanding the product scope, documenting project-level software engineering practices, recording automated testing and CI/CD plans, and linking the implementation to a video walkthrough.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|C{0.08\textwidth}|L{0.34\textwidth}|X|}
+\hline
+\textbf{S/N} & \textbf{Artemis Expectation} & \textbf{Where Addressed in This Report} \\
+\hline
+1 & 20--23 user stories & The User Stories section now contains 20 user stories covering students, visitors, accessibility needs, campus transport, facilities, safety, and community map updates. \\
+\hline
+2 & Ideation for at least 9 features & The Core Features and Feature Ideation sections document 10 product and engineering features with user value, implementation direction, and M1 status. \\
+\hline
+3 & Software engineering at project level & The Project-Level Software Engineering section documents GitHub-based project management, branching, module boundaries, API contracts, deployment discipline, and risk management. \\
+\hline
+4 & Artemis M1 report depth & The report is expanded beyond a basic prototype summary to cover architecture, feature ideation, testing, CI/CD, deployment, and planned iteration. \\
+\hline
+5 & Automated testing documentation & The Automated Testing and QA section documents current automated checks, planned unit/API/UI tests, and the manual test matrix used for M1 validation. \\
+\hline
+6 & CI/CD pipeline documentation & The CI/CD Pipeline section documents the intended GitHub Actions workflow, build gates, Docker deployment path, and Render production deployment. \\
+\hline
+7 & Video walkthrough & The Video Walkthrough section describes the submitted walkthrough flow and maps it to the current app features. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\newpage
+
 \section*{Motivation}
 \addcontentsline{toc}{section}{Motivation}
 
@@ -115,9 +146,26 @@ For Milestone 01, our goal is to establish a working full-stack prototype: authe
 \addcontentsline{toc}{section}{User Stories}
 
 \begin{enumerate}[leftmargin=*]
-    \item As an NUS student who wants to get to class on time, I want to use Atlas to navigate from my current location to the correct building and classroom so that I can reach lessons with less confusion.
-    \item As an NUS student who is unfamiliar with a campus building, I want to find indoor facilities such as restrooms, lifts, study spaces, and printing services so that I can quickly locate useful services.
-    \item As an NUS student managing a busy day, I want schedule-aware reminders and location-based suggestions so that I know where to go next and when to leave.
+    \item As an NUS student, I can use the AR map to navigate from my current location to the correct building and classroom so that I can arrive at class on time.
+    \item As an NUS student unfamiliar with a campus building, I can locate indoor facilities such as restrooms, lifts, study spaces, and printing services so that I can navigate the building more easily.
+    \item As an NUS student, I can receive location-aware reminders and suggestions based on my schedule and current position so that I can manage my day more smoothly.
+    \item As a freshman unfamiliar with NUS, I can search for lecture theatres, tutorial rooms, and laboratories so that I can navigate the campus confidently.
+    \item As an exchange student visiting NUS for the first time, I can follow AR navigation instructions instead of static maps so that navigation feels more intuitive.
+    \item As a student rushing between consecutive classes, I can estimate travel time between buildings so that I know when to leave for class.
+    \item As a student studying late on campus, I can locate nearby study spaces and facilities through AR guidance so that I can find suitable places quickly.
+    \item As a wheelchair user, I can find wheelchair-friendly routes, accessible entrances, and lifts so that I can travel across campus more comfortably.
+    \item As a student unfamiliar with NUS bus routes, I can locate nearby shuttle bus stops and view available shuttle services so that I can travel more efficiently.
+    \item As a student attending events on campus, I can receive recommendations for nearby ongoing events and activities so that I can participate more conveniently.
+    \item As a student looking for a quiet place to study, I can receive recommendations for less crowded study areas and facilities so that I can study more effectively.
+    \item As a student entering a large building for the first time, I can receive indoor AR guidance to classrooms, offices, and facilities so that I do not need to rely on physical signboards.
+    \item As a student who frequently prints documents on campus, I can quickly locate nearby printing services so that I can save time.
+    \item As a student concerned about safety, I can locate emergency exits, first-aid points, and security offices within campus buildings so that I can respond quickly during emergencies.
+    \item As a student contributing to the campus community, I can add or update map information such as facilities, pathways, and corrections so that the map remains accurate and useful.
+    \item As a student with back-to-back classes, I can receive reminders on when to leave my current location so that I can arrive on time for my next lesson.
+    \item As a visitor attending an event at NUS, I can navigate to specific venues and facilities so that I can find locations without prior knowledge of the campus layout.
+    \item As a student using the system daily, I can save frequently visited locations so that I can access navigation more quickly.
+    \item As a student who wants to avoid crowded routes, I can view alternative paths and facility options so that I can choose a route that matches my comfort and time constraints.
+    \item As a campus administrator maintaining navigation data, I can review user-submitted map corrections before they are published so that the system remains accurate and trustworthy.
 \end{enumerate}
 
 \newpage
@@ -165,7 +213,7 @@ The architecture follows the proposal's modular design: a user-facing interface,
 \section*{Core Features}
 \addcontentsline{toc}{section}{Core Features}
 
-The feature list below is based on the GitHub issue tracker. Sprint 3 issues are intentionally excluded from the Milestone 01 core feature count, including OpenTripPlanner backend setup, NUS bus API setup, multimodal route integration, and route color coding.
+The feature list below is based on the GitHub issue tracker, current repository implementation, and the product direction described in the original proposal. For Artemis Milestone 01, Atlas is treated as more than a small demo: it is a full-stack foundation for campus navigation, schedule-aware assistance, and future AR/indoor extensions.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.35}
@@ -179,17 +227,63 @@ The feature list below is based on the GitHub issue tracker. Sprint 3 issues are
 \hline
 2 & Authentication and protected access & Milestone 01 & Issues \#2 and \#8 cover email/password login, Google Sign-In, JWT issuing, and protected dashboard routing. \\
 \hline
-3 & Campus map rendering & Milestone 01 & Issues \#7 and \#17 cover OpenStreetMap/MapLibre rendering and fixing building polygon display. \\
+3 & Campus map rendering & Milestone 01 & Issues \#7 and \#17 cover OpenStreetMap/MapLibre rendering, marker display, and fixing building polygon display. \\
 \hline
 4 & Location search and route tracing & Milestone 01 & Issue \#12 adds a searchable map interface with suggestions, map centering, and route-oriented interaction. \\
 \hline
 5 & Daily assistant and campus data UI & Milestone 01 & Issue \#11 connects schedule, recommendations, buildings, facilities, and sync status into a student-facing assistant dashboard. \\
 \hline
+6 & Facility discovery and filtering & Milestone 01 & The dashboard exposes seeded campus buildings and facilities with filters for building code and facility type. \\
+\hline
+7 & Schedule management & Milestone 01 & Users can view, create, and delete schedule items, allowing later recommendation logic to reason about upcoming locations. \\
+\hline
+8 & NUSMods and campus data sync & Milestone 01 & Backend sync status and manual sync endpoints prepare the app for external academic timetable and campus-data integration. \\
+\hline
+9 & Campus bus and transit context & Milestone 01 / Extension & Backend bus modules and API routes support bus stops, routes, arrivals, active vehicles, alerts, and nearby transit context. \\
+\hline
 \multicolumn{4}{|c|}{\textbf{Supporting / Usability Features}} \\
 \hline
-6 & Mobile frontend experience & Milestone 01 & Issue \#10 tracks responsive layout and mobile usability checks for auth, dashboard, map, schedule, and recommendations. \\
+10 & Mobile frontend and iOS shell & Milestone 01 & Issue \#10 tracks responsive layout and manual viewport checks; the Capacitor iOS shell loads the deployed HTTPS app for mobile demo purposes. \\
 \hline
 \end{tabularx}
+\end{center}
+
+\newpage
+
+\section*{Feature Ideation}
+\addcontentsline{toc}{section}{Feature Ideation}
+
+The ideation below records the user problem, proposed solution, and engineering direction for all 10 planned features. This makes the scope explicit and prevents the implementation from becoming a collection of unrelated screens.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\small
+\begin{longtable}{|C{0.06\textwidth}|L{0.20\textwidth}|L{0.25\textwidth}|L{0.32\textwidth}|}
+\hline
+\textbf{S/N} & \textbf{Feature} & \textbf{User Problem / Ideation} & \textbf{M1 Engineering Direction} \\
+\hline
+1 & Repository and project foundation & The team needs a shared base for code, documentation, issue tracking, deployment, and mentor review. & Maintain a monorepo with separated frontend, backend, deployment, and report files; use GitHub issues as logs and link implementation work to milestone evidence. \\
+\hline
+2 & Authentication and protected access & A campus assistant may eventually contain schedule and preference data, so users need a trusted entry point. & Implement email/password login, registration, demo mode, Google Sign-In verification, JWT issuing, and protected routes. \\
+\hline
+3 & Campus map rendering & Students need an interactive spatial view of campus rather than static text instructions. & Use MapLibre with OpenStreetMap tiles, a map engine helper, markers, route layers, and modular map services. \\
+\hline
+4 & Location search and route tracing & Users should not need to pan manually across campus to find places or preview a trip. & Provide search suggestions, selected-place centering, route line drawing, and a route-oriented UI that can later connect to richer pathfinding. \\
+\hline
+5 & Daily assistant dashboard & Navigation decisions depend on schedule, next destination, facility availability, and sync state. & Build a dashboard combining schedule cards, recommendation cards, building context, facilities, and sync status. \\
+\hline
+6 & Facility discovery and filtering & Indoor needs such as toilets, lifts, printers, and study areas are often discovered only after entering a building. & Seed building and facility data in SQLite, expose protected API routes, and filter results by building and facility type. \\
+\hline
+7 & Schedule management & Schedule-aware navigation requires structured upcoming events rather than hard-coded demo text. & Provide API and UI support for reading, adding, and deleting schedule items, with location fields tied to campus building codes. \\
+\hline
+8 & NUSMods and campus data sync & A real NUS assistant should eventually update from official academic data instead of relying only on static seed data. & Add NUSMods client configuration, sync status endpoints, manual sync trigger, and scheduler configuration for later automation. \\
+\hline
+9 & Bus and transit context & Campus movement is multimodal: students choose between walking and shuttle buses depending on time and location. & Add backend bus modules and endpoints for stops, routes, arrivals, active buses, alerts, and nearby bus context, with demo fallback data when live keys are absent. \\
+\hline
+10 & Mobile frontend and iOS shell & Campus navigation is primarily mobile, so desktop-only usability is insufficient. & Improve responsive layouts, test small viewport behavior manually, and provide a Capacitor iOS shell that loads the deployed app for mobile demonstration. \\
+\hline
+\end{longtable}
+\normalsize
 \end{center}
 
 \newpage
@@ -232,6 +326,72 @@ Atlas is organized into a frontend, backend, deployment configuration, and suppo
 The repository uses GitHub issues and pull requests as progress logs. Issue \#1 initialized the repository and documentation baseline, while later issues track authentication, map rendering, search, dashboard integration, and mobile usability. This supports the proposal's branch-based workflow: tasks are decomposed into issues, implemented on feature branches, reviewed through pull requests, and eventually integrated into \texttt{main}.
 
 The main trade-off of this structure is that it creates more files and coordination overhead than a single-folder prototype. However, the benefit is significant for an Artemis-level project: each module can evolve independently, deployment can be reproduced, and later AR/navigation extensions can be added without rewriting the whole codebase.
+
+\section*{Project-Level Software Engineering}
+\addcontentsline{toc}{section}{Project-Level Software Engineering}
+
+Atlas applies software engineering practices at the project level, not only inside individual files. The goal is to make the project trackable, reviewable, testable, and deployable throughout Orbital.
+
+\subsection*{GitHub Project Management}
+\addcontentsline{toc}{subsection}{GitHub Project Management}
+
+GitHub issues are used as the team progress log. Each issue represents a concrete feature, defect, or engineering task, such as authentication, protected routing, map rendering, mobile layout, dashboard integration, and map polygon fixes. The public issue tracker functions as both a task board and an audit trail for mentor review.
+
+The intended workflow is:
+
+\begin{enumerate}[leftmargin=*]
+    \item Break milestone requirements into GitHub issues with clear acceptance criteria.
+    \item Assign work to a team member and connect it to the relevant feature area.
+    \item Implement changes on a focused branch instead of mixing unrelated work.
+    \item Review the change through a pull request before merging to \texttt{main}.
+    \item Use the issue and pull request history as progress logs for milestone submission.
+\end{enumerate}
+
+This workflow is intentionally heavier than a quick prototype workflow. It is justified because Artemis projects are expected to demonstrate consistent engineering discipline and maintainability, not only visible screens.
+
+\subsection*{Engineering Principles}
+\addcontentsline{toc}{subsection}{Engineering Principles}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.28\textwidth}|X|}
+\hline
+\textbf{Principle} & \textbf{How Atlas Applies It} \\
+\hline
+Separation of concerns & Frontend pages and UI components are separated from backend API handlers, authentication logic, storage logic, and deployment configuration. \\
+\hline
+API-first integration & Frontend features call documented backend endpoints such as \texttt{/api/buildings}, \texttt{/api/facilities}, \texttt{/api/schedule}, \texttt{/api/recommendations}, and bus endpoints. \\
+\hline
+Progressive delivery & The team implements a reliable 2D map and schedule-aware dashboard before adding higher-risk AR and indoor navigation layers. \\
+\hline
+Security by default & Protected pages require authentication, backend data routes are guarded with JWT middleware, and Google ID token verification happens server-side. \\
+\hline
+Reproducibility & Local setup, environment variables, Docker build, Docker Compose deployment, and production Caddy configuration are documented in the repository. \\
+\hline
+Graceful degradation & Demo credentials, seeded data, and bus demo fallback data allow reviewers to evaluate the project even without private external API keys. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\subsection*{Risk Management}
+\addcontentsline{toc}{subsection}{Risk Management}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.24\textwidth}|L{0.28\textwidth}|X|}
+\hline
+\textbf{Risk} & \textbf{Impact} & \textbf{Mitigation} \\
+\hline
+Incomplete campus/indoor data & The assistant may not cover every building or facility at M1. & Use seeded demo data for core flows, design APIs around building/facility models, and expand coverage in later milestones. \\
+\hline
+External API reliability & NUSMods, Google verification, map tiles, or bus APIs may fail or require credentials. & Keep configuration in environment variables and provide demo/fallback behavior where possible. \\
+\hline
+AR complexity & Full AR navigation may exceed M1 implementation capacity. & Build a stable map, routing, and data foundation first, then integrate AR overlays after core navigation behavior is reliable. \\
+\hline
+Mobile usability defects & Navigation apps are frequently used on phones, where cramped layouts can break flows. & Track responsive layout as a feature, include mobile screenshots, and test common auth/dashboard/map flows on small viewports. \\
+\hline
+\end{tabularx}
+\end{center}
 
 \newpage
 
@@ -285,6 +445,102 @@ The engineering trade-off is that route tracing is currently web-map based rathe
 
 \newpage
 
+\section*{Daily Assistant, Facilities, and Schedule}
+\addcontentsline{toc}{section}{Daily Assistant, Facilities, and Schedule}
+
+The daily assistant dashboard connects campus navigation to student routines. Instead of treating the map as a standalone feature, Atlas combines schedule items, next-location context, building data, facility filters, and recommendation cards into one student-facing workflow.
+
+\subsection*{Facility Discovery}
+\addcontentsline{toc}{subsection}{Facility Discovery}
+
+Facility discovery focuses on practical indoor and near-indoor needs: study areas, lifts, restrooms, and printing locations. In Milestone 01, the backend seeds representative NUS building and facility data in SQLite and exposes it through protected API endpoints.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.28\textwidth}|X|}
+\hline
+\textbf{Endpoint / Data} & \textbf{Purpose} \\
+\hline
+\texttt{GET /api/buildings} & Returns campus buildings with code, name, description, coordinates, floor count, and indoor support status. \\
+\hline
+\texttt{GET /api/facilities} & Returns facilities and supports filters such as \texttt{building=COM1} and \texttt{type=study\_space}. \\
+\hline
+Seeded demo data & Allows evaluators to test building and facility discovery without requiring private production data. \\
+\hline
+\end{tabularx}
+\end{center}
+
+The main design decision is to model facilities separately from buildings. This allows Atlas to add many facility records under one building and later attach richer indoor information such as floor plans, accessibility paths, or AR markers.
+
+\subsection*{Schedule Management}
+\addcontentsline{toc}{subsection}{Schedule Management}
+
+Schedule management is included because a campus assistant becomes more useful when it understands where the student needs to go next. The current prototype supports viewing, creating, and deleting schedule items. Each item can include a location code, allowing recommendation cards to connect time-based context with campus data.
+
+This feature also prepares the app for future NUSMods integration. Rather than hard-coding a static timetable into the frontend, the backend exposes schedule APIs and stores schedule data in SQLite. This gives the team a stable place to add timetable sync, conflict warnings, and route preparation in later milestones.
+
+\subsection*{Recommendation Cards}
+\addcontentsline{toc}{subsection}{Recommendation Cards}
+
+Recommendation cards summarize useful actions such as where the next class is, which building context matters now, or which facilities are likely relevant. In M1, the recommendations are intentionally simple and explainable. This helps the team test the user workflow before adding more advanced ranking or personalization.
+
+\newpage
+
+\section*{NUSMods Sync and Bus Context}
+\addcontentsline{toc}{section}{NUSMods Sync and Bus Context}
+
+Atlas includes early integration points for external campus systems. These are important Artemis extensions because they move the project beyond a static campus map and toward a live assistant.
+
+\subsection*{NUSMods Sync}
+\addcontentsline{toc}{subsection}{NUSMods Sync}
+
+The backend contains configuration for academic year, sync interval, HTTP timeout, and NUSMods integration. The dashboard exposes sync status and a manual sync trigger so users can see whether external data integration is healthy.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.28\textwidth}|X|}
+\hline
+\textbf{Endpoint / Setting} & \textbf{Purpose} \\
+\hline
+\texttt{GET /api/sync/status} & Shows the latest sync state for campus or timetable data. \\
+\hline
+\texttt{POST /api/sync/run} & Allows a manual sync trigger during development and demonstration. \\
+\hline
+\texttt{NUSMODS\_ACAD\_YEAR} & Selects the academic year used by the NUSMods client. \\
+\hline
+\texttt{SYNC\_INTERVAL} & Controls the scheduler interval for future automatic syncing. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\subsection*{Bus and Transit Context}
+\addcontentsline{toc}{subsection}{Bus and Transit Context}
+
+Campus movement often involves a choice between walking, waiting for a shuttle, or combining both. Atlas therefore includes bus context as an Artemis extension feature. The backend supports endpoints for bus stops, routes, arrivals, active vehicles, alerts, and context near a latitude/longitude point.
+
+The current design keeps bus data server-side. This avoids exposing private API keys in the browser and allows the backend to cache, normalize, or fall back to demo data. For M1, this establishes the integration boundary even if later milestones refine the frontend presentation and multimodal routing logic.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.30\textwidth}|X|}
+\hline
+\textbf{Bus API} & \textbf{Use Case} \\
+\hline
+\texttt{GET /api/bus/stops} & List campus shuttle stops. \\
+\hline
+\texttt{GET /api/bus/routes} & List available NUS shuttle routes. \\
+\hline
+\texttt{GET /api/bus/arrivals?stop=COM2} & Show estimated arrivals for a selected stop. \\
+\hline
+\texttt{GET /api/bus/active?route=D1} & Show active vehicles for a route. \\
+\hline
+\texttt{GET /api/bus/context?lat=...} & Provide nearby transit context for assistant recommendations. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\newpage
+
 \section*{Mobile Frontend Experience}
 \addcontentsline{toc}{section}{Mobile Frontend Experience}
 
@@ -313,70 +569,304 @@ The main engineering principle here is progressive enhancement: the application 
 
 \newpage
 
-\section*{UML Diagram}
-\addcontentsline{toc}{section}{UML Diagram}
+\section*{Standardised Software Diagrams}
+\addcontentsline{toc}{section}{Standardised Software Diagrams}
 
-The diagrams below summarize two important interactions in the current prototype: authentication and map search/routing.
+In addition to the high-level architecture diagram, the following standardised diagrams describe different aspects of Atlas: database relationships, authentication interaction order, and the map/search user journey.
 
-\subsection*{Authentication Flow}
-\addcontentsline{toc}{subsection}{Authentication Flow}
+\subsection*{ER Diagram}
+\addcontentsline{toc}{subsection}{ER Diagram}
 
-\begin{figure}[h]
-    \centering
-    \resizebox{0.88\textwidth}{!}{%
-    \begin{tikzpicture}[
-        node distance=0.9cm and 1.3cm,
-        actor/.style={rectangle, draw=black, thick, align=center, minimum width=3.0cm, minimum height=0.8cm, fill=gray!8},
-        proc/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.8cm, minimum height=0.85cm, fill=blue!7},
-        arrow/.style={-{Latex[length=3mm]}, thick}
-    ]
-        \node[actor] (student) {Student};
-        \node[proc, below=of student] (frontend) {Frontend Auth Page};
-        \node[proc, below=of frontend] (backend) {Go Auth API};
-        \node[proc, below left=of backend] (local) {Email / Demo Validation};
-        \node[proc, below right=of backend] (google) {Google ID Token Verification};
-        \node[proc, below=2.0cm of backend] (jwt) {Application JWT Issued};
-        \node[proc, below=of jwt] (protected) {Protected Dashboard and Map};
-
-        \draw[arrow] (student) -- node[right]{submit login request} (frontend);
-        \draw[arrow] (frontend) -- node[right]{send credentials or ID token} (backend);
-        \draw[arrow] (backend) -- (local);
-        \draw[arrow] (backend) -- (google);
-        \draw[arrow] (local) -- (jwt);
-        \draw[arrow] (google) -- (jwt);
-        \draw[arrow] (jwt) -- node[right]{store token} (protected);
-    \end{tikzpicture}
-    }
-    \caption*{Authentication sequence for protected access}
-\end{figure}
-
-\subsection*{Map Search and Routing Flow}
-\addcontentsline{toc}{subsection}{Map Search and Routing Flow}
+The ER diagram models the core persistent data needed for Milestone 01 and later Artemis extensions. Users own schedule items, buildings contain facilities, and sync status records document external data updates.
 
 \begin{figure}[h]
     \centering
     \resizebox{\textwidth}{!}{%
     \begin{tikzpicture}[
-        node distance=1.1cm and 1.2cm,
-        box/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.8cm, fill=green!8},
-        arrow/.style={-{Latex[length=3mm]}, thick}
+        node distance=1.25cm and 1.9cm,
+        entity/.style={rectangle, draw=black, thick, align=left, minimum width=3.8cm, minimum height=1.25cm, fill=blue!6, inner sep=0.18cm},
+        rel/.style={-{Latex[length=3mm]}, thick}
     ]
-        \node[box] (input) {User enters search text};
-        \node[box, right=of input] (suggest) {Debounced suggestions};
-        \node[box, right=of suggest] (select) {Place selected};
-        \node[box, below=of select] (marker) {MapEngine places marker};
-        \node[box, left=of marker] (route) {Route service returns path};
-        \node[box, left=of route] (draw) {MapEngine draws route};
+        \node[entity] (users) {
+            \textbf{users}\\
+            \texttt{id} PK\\
+            \texttt{email}\\
+            \texttt{password\_hash}\\
+            \texttt{created\_at}
+        };
+        \node[entity, right=of users] (schedule) {
+            \textbf{schedule\_items}\\
+            \texttt{id} PK\\
+            \texttt{user\_id} FK\\
+            \texttt{module\_code}\\
+            \texttt{location}\\
+            \texttt{start\_time}
+        };
+        \node[entity, below=of users] (buildings) {
+            \textbf{buildings}\\
+            \texttt{id} PK\\
+            \texttt{code}\\
+            \texttt{name}\\
+            \texttt{latitude}\\
+            \texttt{longitude}\\
+            \texttt{supported\_indoor}
+        };
+        \node[entity, right=of buildings] (facilities) {
+            \textbf{facilities}\\
+            \texttt{id} PK\\
+            \texttt{building\_id} FK\\
+            \texttt{floor}\\
+            \texttt{name}\\
+            \texttt{type}\\
+            \texttt{crowd\_level}
+        };
+        \node[entity, below=of facilities] (sync) {
+            \textbf{sync\_status}\\
+            \texttt{id} PK\\
+            \texttt{source}\\
+            \texttt{status}\\
+            \texttt{message}\\
+            \texttt{updated\_at}
+        };
 
-        \draw[arrow] (input) -- (suggest);
-        \draw[arrow] (suggest) -- (select);
-        \draw[arrow] (select) -- (marker);
-        \draw[arrow] (select) -- (route);
-        \draw[arrow] (route) -- (draw);
+        \draw[rel] (users) -- node[above]{1 owns many} (schedule);
+        \draw[rel] (buildings) -- node[above]{1 contains many} (facilities);
+        \draw[rel, dashed] (schedule) -- node[right]{location code references} (buildings);
+        \draw[rel, dashed] (sync) -- node[right]{updates campus data} (facilities);
     \end{tikzpicture}
     }
-    \caption*{Map search and route drawing workflow}
+    \caption*{ER diagram for users, buildings, facilities, schedule items, and sync status}
 \end{figure}
+
+\newpage
+
+\subsection*{Sequence Diagram}
+\addcontentsline{toc}{subsection}{Sequence Diagram}
+
+The sequence diagram shows the login, Google Sign-In, JWT issuing, and protected route access flow. The frontend may send either email/password credentials or a Google ID token, but the backend remains the authority that verifies identity and issues the application JWT.
+
+\begin{figure}[h]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        participant/.style={rectangle, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.65cm, fill=gray!8},
+        msg/.style={-{Latex[length=3mm]}, thick},
+        return/.style={-{Latex[length=3mm]}, thick, dashed}
+    ]
+        \node[participant] (user) at (0,0) {Student};
+        \node[participant] (frontend) at (4.2,0) {React Frontend};
+        \node[participant] (backend) at (8.4,0) {Go Auth API};
+        \node[participant] (google) at (12.6,0) {Google Identity};
+        \node[participant] (protected) at (16.8,0) {Protected API};
+
+        \foreach \x in {0,4.2,8.4,12.6,16.8} {
+            \draw[dashed, gray] (\x,-0.45) -- (\x,-7.2);
+        }
+
+        \draw[msg] (0,-1.0) -- node[above]{enter email login or Google Sign-In} (4.2,-1.0);
+        \draw[msg] (4.2,-1.8) -- node[above]{POST credentials or Google ID token} (8.4,-1.8);
+        \draw[msg] (8.4,-2.6) -- node[above]{verify Google ID token if needed} (12.6,-2.6);
+        \draw[return] (12.6,-3.4) -- node[above]{token valid / invalid} (8.4,-3.4);
+        \draw[return] (8.4,-4.2) -- node[above]{return application JWT} (4.2,-4.2);
+        \draw[msg] (4.2,-5.0) -- node[above]{store JWT and navigate} (0,-5.0);
+        \draw[msg] (4.2,-5.8) -- node[above]{GET protected route with Authorization header} (16.8,-5.8);
+        \draw[msg] (16.8,-6.6) -- node[above]{validate JWT and return data} (8.4,-6.6);
+    \end{tikzpicture}
+    }
+    \caption*{Sequence diagram for login, Google Sign-In, JWT issuing, and protected route access}
+\end{figure}
+
+\newpage
+
+\subsection*{Activity Diagram}
+\addcontentsline{toc}{subsection}{Activity Diagram}
+
+The activity diagram describes the user journey for map search and route-oriented recommendations. The flow starts from a location search, moves through destination selection and route rendering, and ends with contextual recommendations.
+
+\begin{figure}[h]
+    \centering
+    \resizebox{0.9\textwidth}{!}{%
+    \begin{tikzpicture}[
+        node distance=1.05cm,
+        action/.style={rectangle, rounded corners, draw=black, thick, align=center, minimum width=5.3cm, minimum height=0.78cm, fill=green!8},
+        decision/.style={diamond, draw=black, thick, align=center, aspect=2.2, minimum width=4.0cm, fill=yellow!18},
+        startend/.style={circle, draw=black, thick, minimum size=0.48cm, fill=black},
+        final/.style={circle, draw=black, thick, minimum size=0.62cm, fill=white},
+        arrow/.style={-{Latex[length=3mm]}, thick}
+    ]
+        \node[startend] (start) {};
+        \node[action, below=of start] (search) {Search location};
+        \node[decision, below=of search] (found) {Valid destination?};
+        \node[action, below left=1.0cm and 1.35cm of found] (refine) {Refine search query};
+        \node[action, below right=1.0cm and 1.35cm of found] (select) {Select destination};
+        \node[action, below=of select] (route) {Draw route on map};
+        \node[action, below=of route] (recommend) {Show schedule-aware recommendation};
+        \node[final, below=of recommend] (endouter) {};
+        \node[startend, minimum size=0.34cm, below=of recommend] (endinner) {};
+
+        \draw[arrow] (start) -- (search);
+        \draw[arrow] (search) -- (found);
+        \draw[arrow] (found) -- node[above left]{No} (refine);
+        \draw[arrow] (refine) |- (search);
+        \draw[arrow] (found) -- node[above right]{Yes} (select);
+        \draw[arrow] (select) -- (route);
+        \draw[arrow] (route) -- (recommend);
+        \draw[arrow] (recommend) -- (endouter);
+    \end{tikzpicture}
+    }
+    \caption*{Activity diagram for search location, destination selection, route drawing, and recommendation display}
+\end{figure}
+
+\newpage
+
+\section*{Automated Testing and QA}
+\addcontentsline{toc}{section}{Automated Testing and QA}
+
+Testing for Milestone 01 is split into automated checks and manual usability checks. Automated checks are used for repeatable engineering confidence, while manual checks are used where the current prototype depends on browser behavior, map rendering, OAuth, and mobile layout.
+
+\subsection*{Automated Checks}
+\addcontentsline{toc}{subsection}{Automated Checks}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.24\textwidth}|L{0.28\textwidth}|X|}
+\hline
+\textbf{Check} & \textbf{Command} & \textbf{What It Validates} \\
+\hline
+Backend package tests & \texttt{cd backend \&\& go test ./...} & Compiles backend packages and runs Go test files when present. This protects API handlers, store logic, auth logic, scheduler logic, and integration helpers from compile-time regressions. \\
+\hline
+Frontend production build & \texttt{cd frontend \&\& npm run build} & Verifies that React, Vite, routing, TypeScript/JSX modules, and imported assets can produce a production bundle. \\
+\hline
+iOS shell sync build & \texttt{cd frontend \&\& npm run ios:sync} & Runs the frontend build and synchronizes it with Capacitor iOS configuration for mobile demo validation. \\
+\hline
+Docker production build & \texttt{docker compose up -d --build} & Validates that the frontend and backend can be built into the production container and served through the configured deployment stack. \\
+\hline
+\end{tabularx}
+\end{center}
+
+At this milestone, the strongest automated coverage is build-level and package-level validation. The next planned improvement is to add explicit unit tests for backend store/API behavior and frontend component tests for authentication, dashboard loading, schedule actions, and map UI state.
+
+\subsection*{Manual Test Matrix}
+\addcontentsline{toc}{subsection}{Manual Test Matrix}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.25\textwidth}|L{0.32\textwidth}|X|}
+\hline
+\textbf{Flow Tested} & \textbf{Method} & \textbf{Expected Result} \\
+\hline
+Demo login & Use seeded demo account \texttt{test1@gmail.com} / \texttt{cp2106}. & User reaches the protected dashboard and receives an application JWT. \\
+\hline
+Registration & Register a new account through the auth screen. & New credentials are accepted and can be used to access protected pages. \\
+\hline
+Google Sign-In & Sign in with a configured Google OAuth client. & Backend verifies the ID token and returns the same app JWT format. \\
+\hline
+Dashboard loading & Open protected dashboard after login. & Health, buildings, schedule, recommendations, facilities, and sync status appear. \\
+\hline
+Facility filtering & Change building and type filters. & Facility list updates without breaking dashboard layout. \\
+\hline
+Schedule actions & Add and delete schedule items. & Schedule list updates and recommendation context remains consistent. \\
+\hline
+Campus map & Open map page, search location, and draw route. & Map loads, marker/route interactions work, and the UI remains usable. \\
+\hline
+Mobile viewport & Test auth, dashboard, map, and mobile screenshots at narrow widths. & Text, cards, buttons, and map panels remain readable without horizontal scrolling. \\
+\hline
+Production app & Visit the Render deployment URL. & The deployed app loads over HTTPS and supports the same demonstration flow. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\newpage
+
+\section*{CI/CD Pipeline}
+\addcontentsline{toc}{section}{CI/CD Pipeline}
+
+The CI/CD pipeline is designed around GitHub as the source of truth and Render/Docker as the deployment path. Its purpose is to prevent unverified changes from reaching production and to make deployment reproducible.
+
+\subsection*{Continuous Integration Gates}
+\addcontentsline{toc}{subsection}{Continuous Integration Gates}
+
+For pull requests and pushes to \texttt{main}, the intended GitHub Actions workflow runs the following jobs:
+
+\begin{enumerate}[leftmargin=*]
+    \item Checkout repository.
+    \item Install frontend dependencies with \texttt{npm ci}.
+    \item Build frontend with \texttt{npm run build}.
+    \item Install backend dependencies through Go modules.
+    \item Run backend checks with \texttt{go test ./...}.
+    \item Build the production Docker image.
+\end{enumerate}
+
+The corresponding workflow structure is:
+
+\begin{figure}[h]
+    \centering
+    \fbox{
+        \begin{minipage}{0.88\textwidth}
+            \vspace{0.4em}
+            {\small\ttfamily
+            name: Atlas CI\\
+            on: [push, pull\_request]\\
+            jobs:\\
+            \hspace*{1em}frontend-build: npm ci + npm run build\\
+            \hspace*{1em}backend-test: go test ./...\\
+            \hspace*{1em}docker-build: docker build .
+            }
+            \vspace{0.4em}
+        \end{minipage}
+    }
+    \caption*{CI workflow gates for pull requests and main branch updates}
+\end{figure}
+
+\subsection*{Continuous Deployment Path}
+\addcontentsline{toc}{subsection}{Continuous Deployment Path}
+
+Atlas currently uses a production deployment path built from the repository's \texttt{Dockerfile}, \texttt{docker-compose.yml}, Caddy configuration, and Render-hosted application URL. The deployment flow is:
+
+\begin{enumerate}[leftmargin=*]
+    \item Merge reviewed changes into \texttt{main}.
+    \item Build the frontend with Vite.
+    \item Build the Go backend binary.
+    \item Package the production app through the multi-stage Dockerfile.
+    \item Serve the app over HTTPS through the configured deployment host.
+    \item Validate the deployed app using the manual test matrix and video walkthrough flow.
+\end{enumerate}
+
+Environment variables such as \texttt{JWT\_SECRET}, \texttt{GOOGLE\_CLIENT\_ID}, \texttt{DB\_PATH}, \texttt{ALLOWED\_ORIGIN}, and bus API credentials are kept outside source code. This keeps deployment configurable while avoiding accidental exposure of private credentials.
+
+\newpage
+
+\section*{Video Walkthrough}
+\addcontentsline{toc}{section}{Video Walkthrough}
+
+The submitted video is linked on the cover page and demonstrates the current usability of Atlas rather than only describing planned features. The walkthrough is structured to show a reviewer the app from first contact to core navigation workflows.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|C{0.08\textwidth}|L{0.30\textwidth}|X|}
+\hline
+\textbf{Step} & \textbf{Walkthrough Segment} & \textbf{Feature Evidence} \\
+\hline
+1 & App opening and deployment URL & Shows that the project is deployed and accessible through the submitted app link. \\
+\hline
+2 & Authentication screen & Demonstrates email/demo login and explains Google Sign-In support. \\
+\hline
+3 & Protected dashboard & Shows that unauthenticated access is separated from student-facing app content. \\
+\hline
+4 & Schedule and recommendations & Demonstrates schedule-aware assistant behavior and next-location context. \\
+\hline
+5 & Building and facility discovery & Shows campus data, filters, and facility cards. \\
+\hline
+6 & Map screen and route interaction & Demonstrates map rendering, search-oriented interaction, and route tracing. \\
+\hline
+7 & Mobile usability screenshots / iOS shell & Shows that the interface has been considered for phone use, not only desktop. \\
+\hline
+8 & Engineering overview & Briefly points to repository structure, GitHub logs, testing commands, and deployment setup. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\newpage
 
 \section*{Milestone 01 Progress}
 \addcontentsline{toc}{section}{Milestone 01 Progress}

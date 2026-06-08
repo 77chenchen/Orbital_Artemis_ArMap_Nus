@@ -1,21 +1,42 @@
-\contentsline {section}{Deployment}{3}{section*.2}%
-\contentsline {section}{Motivation}{3}{section*.3}%
-\contentsline {section}{Our Aim}{3}{section*.4}%
-\contentsline {section}{User Stories}{3}{section*.5}%
-\contentsline {section}{Overall Architecture Diagram}{4}{section*.6}%
-\contentsline {section}{Core Features}{5}{section*.8}%
-\contentsline {section}{Repository and Project Foundation}{6}{section*.9}%
-\contentsline {subsection}{Project Structure and Version Control}{6}{section*.10}%
-\contentsline {section}{Authentication and Protected Access}{7}{section*.12}%
-\contentsline {subsection}{Email, Demo, and Google Sign-In}{7}{section*.13}%
-\contentsline {subsection}{Protected Routes}{7}{section*.15}%
-\contentsline {section}{Campus Map Rendering}{9}{section*.16}%
-\contentsline {subsection}{MapLibre and OSM Tiles}{9}{section*.17}%
-\contentsline {subsection}{Route Tracing}{9}{section*.19}%
-\contentsline {section}{Mobile Frontend Experience}{11}{section*.20}%
-\contentsline {subsection}{Responsive Layout}{11}{section*.21}%
-\contentsline {section}{UML Diagram}{12}{section*.23}%
-\contentsline {subsection}{Authentication Flow}{12}{section*.24}%
-\contentsline {subsection}{Map Search and Routing Flow}{12}{section*.26}%
-\contentsline {section}{Milestone 01 Progress}{12}{section*.28}%
-\contentsline {section}{Planned Next Steps}{13}{section*.29}%
+\contentsline {section}{Deployment}{4}{section*.2}%
+\contentsline {section}{Artemis M1 Resubmission Coverage}{4}{section*.3}%
+\contentsline {section}{Motivation}{5}{section*.4}%
+\contentsline {section}{Our Aim}{5}{section*.5}%
+\contentsline {section}{User Stories}{5}{section*.6}%
+\contentsline {section}{Overall Architecture Diagram}{7}{section*.7}%
+\contentsline {section}{Core Features}{8}{section*.9}%
+\contentsline {section}{Feature Ideation}{10}{section*.10}%
+\contentsline {section}{Repository and Project Foundation}{12}{section*.11}%
+\contentsline {subsection}{Project Structure and Version Control}{12}{section*.12}%
+\contentsline {section}{Project-Level Software Engineering}{12}{section*.14}%
+\contentsline {subsection}{GitHub Project Management}{13}{section*.15}%
+\contentsline {subsection}{Engineering Principles}{13}{section*.16}%
+\contentsline {subsection}{Risk Management}{14}{section*.17}%
+\contentsline {section}{Authentication and Protected Access}{15}{section*.18}%
+\contentsline {subsection}{Email, Demo, and Google Sign-In}{15}{section*.19}%
+\contentsline {subsection}{Protected Routes}{15}{section*.21}%
+\contentsline {section}{Campus Map Rendering}{17}{section*.22}%
+\contentsline {subsection}{MapLibre and OSM Tiles}{17}{section*.23}%
+\contentsline {subsection}{Route Tracing}{17}{section*.25}%
+\contentsline {section}{Daily Assistant, Facilities, and Schedule}{19}{section*.26}%
+\contentsline {subsection}{Facility Discovery}{19}{section*.27}%
+\contentsline {subsection}{Schedule Management}{19}{section*.28}%
+\contentsline {subsection}{Recommendation Cards}{19}{section*.29}%
+\contentsline {section}{NUSMods Sync and Bus Context}{20}{section*.30}%
+\contentsline {subsection}{NUSMods Sync}{20}{section*.31}%
+\contentsline {subsection}{Bus and Transit Context}{20}{section*.32}%
+\contentsline {section}{Mobile Frontend Experience}{21}{section*.33}%
+\contentsline {subsection}{Responsive Layout}{21}{section*.34}%
+\contentsline {section}{Standardised Software Diagrams}{22}{section*.36}%
+\contentsline {subsection}{ER Diagram}{22}{section*.37}%
+\contentsline {subsection}{Sequence Diagram}{23}{section*.39}%
+\contentsline {subsection}{Activity Diagram}{24}{section*.41}%
+\contentsline {section}{Automated Testing and QA}{25}{section*.43}%
+\contentsline {subsection}{Automated Checks}{25}{section*.44}%
+\contentsline {subsection}{Manual Test Matrix}{26}{section*.45}%
+\contentsline {section}{CI/CD Pipeline}{27}{section*.46}%
+\contentsline {subsection}{Continuous Integration Gates}{27}{section*.47}%
+\contentsline {subsection}{Continuous Deployment Path}{27}{section*.49}%
+\contentsline {section}{Video Walkthrough}{29}{section*.50}%
+\contentsline {section}{Milestone 01 Progress}{30}{section*.51}%
+\contentsline {section}{Planned Next Steps}{30}{section*.52}%
