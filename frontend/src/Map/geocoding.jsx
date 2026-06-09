@@ -12,7 +12,7 @@ export default async function getSuggestions(inputString, { opts = 5 } = {}) {
   try {
     
     const response = await OrsGeocode.geocode({
-      text: inputString, // triggers the Pelias type-ahead logic
+      text: inputString, 
       size: opts,
       boundary_country: "SG",
     });

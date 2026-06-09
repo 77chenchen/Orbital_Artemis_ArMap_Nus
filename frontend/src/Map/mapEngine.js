@@ -4,6 +4,28 @@ export class MapEngine {
   constructor(map) {
     this.map = map;
     this.markers = [];
+    this.locationMarker = null;
+  }
+
+  setLocation(coord) {
+    this.locationMarker = new maplibregl.Marker()
+      .setLngLat(coord)
+      .addTo(this.map);
+  }
+
+  track(coord, { fly = true } = {}) {
+    if (!this.locationMarker) {
+      this.setLocation(coord);
+      if (fly) this.flyTo(coord); // only the first time gps is on then it flies to the coord
+      return;
+    }
+    this.locationMarker.setLngLat(coord);
+  }
+
+  closeLocation() {
+    if (!this.locationMarker) return;
+    this.locationMarker.remove();
+    this.locationMarker = null;
   }
 
   flyTo(coord) {
@@ -15,11 +37,11 @@ export class MapEngine {
       marker.remove();
     }
     this.markers = [];
+    this.closeLocation();
   }
 
   setMarker(coord, { fly = true } = {}) {
-
-    let marker = new maplibregl.Marker()
+    const marker = new maplibregl.Marker()
       .setLngLat(coord)
       .addTo(this.map);
 
@@ -29,8 +51,6 @@ export class MapEngine {
   }
 
   drawRoute(coordinates) {
-    const map = this.map;
-
     const data = {
       type: "Feature",
       geometry: {
@@ -39,19 +59,19 @@ export class MapEngine {
       },
     };
 
-    const source = map.getSource("route");
+    const source = this.map.getSource("route");
 
     if (source) {
       source.setData(data);
       return;
     }
 
-    map.addSource("route", {
+    this.map.addSource("route", {
       type: "geojson",
       data,
     });
 
-    map.addLayer({
+    this.map.addLayer({
       id: "route-line",
       type: "line",
       source: "route",
