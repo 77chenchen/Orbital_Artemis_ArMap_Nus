@@ -12,3 +12,21 @@ export async function route(start, end) {
   const r = await getShortestRoutes(start, end);
   return r?.points || null;
 }
+
+export function watchLocation(onUpdate) {
+  const watchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+
+      onUpdate([lon, lat]);
+    },
+    (err) => console.error(err),
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+    }
+  );
+
+  return watchId;
+}

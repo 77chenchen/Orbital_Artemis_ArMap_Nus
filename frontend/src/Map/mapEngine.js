@@ -4,6 +4,28 @@ export class MapEngine {
   constructor(map) {
     this.map = map;
     this.markers = [];
+    this.location = null;
+  }
+
+  setLocation(coord) {
+    this.location = new maplibregl.Marker()
+      .setLngLat(coord)
+      .addTo(this.map);
+  }
+
+  track(coord, { fly = true } = {}) {
+    if (!this.location) {
+      this.setLocation(coord);
+      return;
+    }
+    this.location.setLngLat(coord);
+    if (fly) this.flyTo(coord);
+  }
+
+  closeLocation() {
+    if (!this.location) return;
+    this.location.remove();
+    this.location = null;
   }
 
   flyTo(coord) {
