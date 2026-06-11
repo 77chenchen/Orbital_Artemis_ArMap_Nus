@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.11.22)  8 JUN 2026 16:10
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.11.22)  9 JUN 2026 17:32
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -710,11 +710,11 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 al/texlive/2025/texmf-dist/fonts/enc/dvips/base/8r.enc} <./team_logo.jpg>]
 (./readme.toc
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <10.95> on input line 10.
+(Font)              <10.95> on input line 9.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <8> on input line 10.
+(Font)              <8> on input line 9.
 LaTeX Font Info:    External font `cmex10' loaded for size
-(Font)              <6> on input line 10.
+(Font)              <6> on input line 9.
 
 
 [2])
@@ -724,179 +724,180 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 
 
 [3]
-Underfull \hbox (badness 1009) in paragraph at lines 126--126
-\OT1/phv/m/n/10.95 to-type sum-mary to cover ar-chi-tec-ture, fea-
- []
-
-
 
 [4]
 
 [5]
 
 [6]
+Underfull \hbox (badness 10000) in paragraph at lines 216--216
+[]|\OT1/phv/m/n/10.95 Users can en-ter At-las through
+ []
+
+
+Underfull \hbox (badness 4518) in paragraph at lines 216--216
+\OT1/phv/m/n/10.95 email/password lo-gin, demo lo-gin,
+ []
+
+
+Underfull \hbox (badness 3547) in paragraph at lines 216--216
+[]|\OT1/phv/m/n/10.95 Users can view an NUS-centered
+ []
+
+
+Underfull \hbox (badness 2302) in paragraph at lines 216--216
+\OT1/phv/m/n/10.95 and trig-ger a man-ual sync dur-ing
+ []
+
+
 
 [7]
-Underfull \hbox (badness 10000) in paragraph at lines 248--248
-[]|\OT1/phv/m/n/10.95 Issues #2 and #8 cover
- []
 
+[8] [9]
 
-Underfull \hbox (badness 4872) in paragraph at lines 248--248
-[]|\OT1/phv/m/n/10.95 Issues #7 and #17 cover Open-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 248--248
-\OT1/phv/m/n/10.95 StreetMap/MapLibre ren-der-ing,
- []
-
-
-Underfull \hbox (badness 2409) in paragraph at lines 248--248
-\OT1/phv/m/n/10.95 marker dis-play, and fix-ing build-ing
- []
-
-
-
-[8]
-
-[9] [10]
+[10]
 
 [11]
-
-[12]
-Underfull \hbox (badness 7326) in paragraph at lines 373--373
+Underfull \hbox (badness 7326) in paragraph at lines 361--361
 []|\OT1/phv/m/n/10.95 Frontend fea-tures call doc-u-mented back-end end-points
  []
 
 
-Underfull \hbox (badness 1852) in paragraph at lines 393--393
+
+[12]
+Underfull \hbox (badness 1852) in paragraph at lines 381--381
 []|\OT1/phv/m/n/10.95 Keep con-fig-u-ra-tion in en-vi-ron-ment
  []
 
 
-Underfull \hbox (badness 1112) in paragraph at lines 393--393
+Underfull \hbox (badness 1112) in paragraph at lines 381--381
 \OT1/phv/m/n/10.95 foun-da-tion first, then in-te-grate AR
  []
 
 
 
 [13]
-
-[14]
-<readme_assets/authentication-login-page.png, id=316, 1475.5125pt x 811.03pt>
+<readme_assets/authentication-login-page.png, id=313, 1475.5125pt x 811.03pt>
 File: readme_assets/authentication-login-page.png Graphic file (type png)
 <use readme_assets/authentication-login-page.png>
 Package pdftex.def Info: readme_assets/authentication-login-page.png  used on i
-nput line 408.
+nput line 396.
 (pdftex.def)             Requested size: 434.85222pt x 239.01665pt.
 
 
-[15 <./readme_assets/authentication-login-page.png>]
+[14 <./readme_assets/authentication-login-page.png>]
 
-[16]
-<readme_assets/campus-map-screen.png, id=328, 1475.5125pt x 815.045pt>
+[15]
+<readme_assets/campus-map-screen.png, id=326, 1475.5125pt x 815.045pt>
 File: readme_assets/campus-map-screen.png Graphic file (type png)
 <use readme_assets/campus-map-screen.png>
 Package pdftex.def Info: readme_assets/campus-map-screen.png  used on input lin
-e 433.
+e 459.
 (pdftex.def)             Requested size: 434.85222pt x 240.19989pt.
 
 
-[17 <./readme_assets/campus-map-screen.png>]
+[16 <./readme_assets/campus-map-screen.png>]
+
+[17]
 
 [18]
+Overfull \hbox (1.70422pt too wide) in paragraph at lines 517--518
+[]\OT1/phv/m/n/10.95 The cur-rent rec-om-men-da-tion de-sign favours de-ter-min
+-is-tic rules over a black-box rank-ing model.
+ []
+
+
 
 [19]
-Overfull \hbox (19.32283pt too wide) in paragraph at lines 539--539
+Overfull \hbox (19.32283pt too wide) in paragraph at lines 575--575
 \OT1/cmtt/m/n/10.95 /api/bus/arrivals?stop=COM2|  
  []
 
 
-Overfull \hbox (2.07677pt too wide) in paragraph at lines 539--539
+Overfull \hbox (2.07677pt too wide) in paragraph at lines 575--575
 \OT1/cmtt/m/n/10.95 /api/bus/active?route=D1|  
  []
 
 
-Overfull \hbox (2.07677pt too wide) in paragraph at lines 539--539
+Overfull \hbox (2.07677pt too wide) in paragraph at lines 575--575
 \OT1/cmtt/m/n/10.95 /api/bus/context?lat=...|  
  []
 
 
 
 [20]
-<readme_assets/mobile-app-1.png, id=348, 411.5375pt x 786.94pt>
+
+[21]
+<readme_assets/mobile-app-1.png, id=354, 411.5375pt x 786.94pt>
 File: readme_assets/mobile-app-1.png Graphic file (type png)
 <use readme_assets/mobile-app-1.png>
-Package pdftex.def Info: readme_assets/mobile-app-1.png  used on input line 558
+Package pdftex.def Info: readme_assets/mobile-app-1.png  used on input line 594
 .
 (pdftex.def)             Requested size: 187.52705pt x 358.5866pt.
-<readme_assets/mobile-app-2.png, id=349, 442.65375pt x 810.02625pt>
+<readme_assets/mobile-app-2.png, id=355, 442.65375pt x 810.02625pt>
 File: readme_assets/mobile-app-2.png Graphic file (type png)
 <use readme_assets/mobile-app-2.png>
-Package pdftex.def Info: readme_assets/mobile-app-2.png  used on input line 563
+Package pdftex.def Info: readme_assets/mobile-app-2.png  used on input line 599
 .
 (pdftex.def)             Requested size: 187.52705pt x 343.16273pt.
 
 
-[21 <./readme_assets/mobile-app-1.png> <./readme_assets/mobile-app-2.png>]
-
-[22]
+[22 <./readme_assets/mobile-app-1.png> <./readme_assets/mobile-app-2.png>]
 
 [23]
 
 [24]
-Underfull \hbox (badness 4353) in paragraph at lines 744--744
+Underfull \hbox (badness 4353) in paragraph at lines 742--742
 []|\OT1/phv/m/n/10.95 Compiles back-end pack-ages and
  []
 
 
-Underfull \hbox (badness 2418) in paragraph at lines 744--744
+Underfull \hbox (badness 2418) in paragraph at lines 742--742
 []|\OT1/phv/m/n/10.95 Verifies that Re-act, Vite, rout-ing,
  []
 
 
-Underfull \hbox (badness 3148) in paragraph at lines 744--744
+Underfull \hbox (badness 3148) in paragraph at lines 742--742
 \OT1/phv/m/n/10.95 Type-Script/JSX mod-ules, and im-
  []
 
 
-Underfull \hbox (badness 1014) in paragraph at lines 744--744
+Underfull \hbox (badness 1014) in paragraph at lines 742--742
 \OT1/phv/m/n/10.95 end can be built into the pro-duc-
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 776--776
+Underfull \hbox (badness 10000) in paragraph at lines 774--774
 []|\OT1/phv/m/n/10.95 User reaches the pro-tected
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 776--776
+Underfull \hbox (badness 10000) in paragraph at lines 774--774
 \OT1/phv/m/n/10.95 dash-board and re-ceives an
  []
 
 
-Underfull \hbox (badness 1400) in paragraph at lines 776--776
+Underfull \hbox (badness 1400) in paragraph at lines 774--774
 []|\OT1/phv/m/n/10.95 New cre-den-tials are ac-cepted
  []
 
 
-Underfull \hbox (badness 4899) in paragraph at lines 776--776
+Underfull \hbox (badness 4899) in paragraph at lines 774--774
 \OT1/phv/m/n/10.95 om-men-da-tions, fa-cil-i-ties, and
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 776--776
+Underfull \hbox (badness 10000) in paragraph at lines 774--774
 []|\OT1/phv/m/n/10.95 Facility list up-dates with-out
  []
 
 
-Underfull \hbox (badness 2644) in paragraph at lines 776--776
+Underfull \hbox (badness 2644) in paragraph at lines 774--774
 \OT1/phv/m/n/10.95 om-men-da-tion con-text re-mains
  []
 
 
-Underfull \hbox (badness 1264) in paragraph at lines 776--776
+Underfull \hbox (badness 1264) in paragraph at lines 774--774
 []|\OT1/phv/m/n/10.95 The de-ployed app loads over
  []
 
@@ -905,46 +906,142 @@ Underfull \hbox (badness 1264) in paragraph at lines 776--776
 [25]
 
 [26]
+Underfull \hbox (badness 3407) in paragraph at lines 807--807
+[]|\OT1/phv/m/n/10.95 Catches Re-act/Vite im-port er-rors,
+ []
 
-[27]
 
-[28]
-Underfull \hbox (badness 4156) in paragraph at lines 866--866
-[]|\OT1/phv/m/n/10.95 Demonstrates email/demo lo-gin and ex-plains
+Underfull \hbox (badness 10000) in paragraph at lines 807--807
+\OT1/phv/m/n/10.95 bro-ken as-sets, and pro-duc-tion
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 807--807
+\OT1/phv/m/n/10.95 sup-ports the ac-tual demo flow,
+ []
+
+
+Underfull \hbox (badness 5622) in paragraph at lines 807--807
+\OT1/phv/m/n/10.95 in-clud-ing auth, dash-board, map,
  []
 
 
 
+[27]
+Underfull \hbox (badness 1019) in paragraph at lines 874--875
+[]|\OT1/phv/m/n/10.95 Function does not crash and han-dles
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 885--885
+[]|\OT1/phv/m/n/10.95 Mocked API/network
+ []
+
+
+Overfull \hbox (11.4234pt too wide) in paragraph at lines 856--894
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 904--904
+[]|\OT1/cmtt/m/n/10.95 ["apple", "orange",
+ []
+
+
+Overfull \hbox (11.4234pt too wide) in paragraph at lines 899--933
+ [][] 
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+
+[28]
+Overfull \hbox (6.62074pt too wide) in paragraph at lines 949--949
+[]|\OT1/cmtt/m/n/10.95 getSuggestions()| 
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 950--950
+[]|\OT1/phv/m/n/10.95 Single Re-spon-si-bil-ity,
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 958--958
+[]|\OT1/phv/m/n/10.95 Separation of Con-
+ []
+
+
+Underfull \hbox (badness 5260) in paragraph at lines 962--962
+[]|\OT1/phv/m/n/10.95 Encapsulation, Sin-gle
+ []
+
+
+Underfull \hbox (badness 1097) in paragraph at lines 963--964
+[]|\OT1/phv/m/n/10.95 Centralises all map-related op-er-a-tions,
+ []
+
+
+Underfull \hbox (badness 2012) in paragraph at lines 967--968
+[]|\OT1/phv/m/n/10.95 Provides a sim-ple in-ter-face for route
+ []
+
+
+Underfull \hbox (badness 1983) in paragraph at lines 967--968
+\OT1/phv/m/n/10.95 ren-der-ing with-out ex-pos-ing un-der-ly-ing
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 969--969
+[]|\OT1/cmtt/m/n/10.95 track() \OT1/phv/m/n/10.95 and
+ []
+
+
+Underfull \hbox (badness 1087) in paragraph at lines 971--972
+\OT1/phv/m/n/10.95 up-dates, hid-ing im-ple-men-ta-tion de-tails
+ []
+
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+
+
 [29]
-LaTeX Font Info:    Trying to load font information for TS1+phv on input line 8
-81.
+LaTeX Font Info:    Trying to load font information for TS1+phv on input line 9
+87.
  (/usr/local/texlive/2025/texmf-dist/tex/latex/psnfss/ts1phv.fd
 File: ts1phv.fd 2020/03/25 scalable font definitions for TS1/phv.
 )
 
-[30] (./readme.aux)
+[30]
+
+[31] (./readme.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `readme.out' has not changed.
-(rerunfilecheck)             Checksum: 1E3D00D705E34917D80B9817DA7F971D;6817.
+(rerunfilecheck)             Checksum: A2F70310AFF2F2E9058936BA2F1F5534;6865.
  ) 
 Here is how much of TeX's memory you used:
- 22813 strings out of 473190
- 434476 string characters out of 5715799
- 827548 words of memory out of 5000000
- 45599 multiletter control sequences out of 15000+600000
+ 22823 strings out of 473190
+ 434817 string characters out of 5715799
+ 829764 words of memory out of 5000000
+ 45610 multiletter control sequences out of 15000+600000
  579976 words of font info for 71 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,10n,87p,545b,893s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,10n,87p,637b,893s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/urw/helvetic/uhvb8a.pfb></usr/
 local/texlive/2025/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb>
-Output written on readme.pdf (30 pages, 7633175 bytes).
+Output written on readme.pdf (31 pages, 7642366 bytes).
 PDF statistics:
- 456 PDF objects out of 1000 (max. 8388607)
- 404 compressed objects within 5 object streams
- 121 named destinations out of 1000 (max. 500000)
+ 459 PDF objects out of 1000 (max. 8388607)
+ 406 compressed objects within 5 object streams
+ 120 named destinations out of 1000 (max. 500000)
  374 words of extra memory for PDF output out of 10000 (max. 10000000)
 

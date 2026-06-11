@@ -20,6 +20,7 @@ type API struct {
 	store     *Store
 	client    *NUSModsClient
 	busClient *NUSBusClient
+	agent     *DailyAssistantAgent
 	secretKey []byte
 }
 
@@ -28,7 +29,7 @@ func NewAPI(cfg Config, store *Store, client *NUSModsClient) *API {
 	if secret == "" {
 		secret = "8f4c1d9a73be52f6c1a8e4b97d3f62a1e5c8b0d7f4a9c2e6b1d3f8a7c5e9b2d4"
 	}
-	return &API{cfg: cfg, store: store, client: client, busClient: NewNUSBusClient(cfg),
+	return &API{cfg: cfg, store: store, client: client, busClient: NewNUSBusClient(cfg), agent: NewDailyAssistantAgent(NewLLMClient(cfg)),
 		secretKey: []byte(secret),
 	}
 }
@@ -43,6 +44,7 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/schedule", api.Protect(api.createSchedule))
 	mux.HandleFunc("DELETE /api/schedule/{id}", api.Protect(api.deleteSchedule))
 	mux.HandleFunc("GET /api/recommendations", api.Protect(api.recommendations))
+	mux.HandleFunc("POST /api/agent/daily-assistant", api.Protect(api.dailyAssistantAgent))
 	mux.HandleFunc("GET /api/sync/status", api.Protect(api.syncStatus))
 	mux.HandleFunc("POST /api/sync/run", api.Protect(api.runSync))
 	mux.HandleFunc("GET /api/bus/stops", api.listBusStops)
@@ -327,6 +329,25 @@ func (api *API) recommendations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, recs)
+}
+
+func (api *API) dailyAssistantAgent(w http.ResponseWriter, r *http.Request) {
+	var payload DailyAssistantAgentRequest
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, DailyAssistantAgentResponse{
+			Success: false,
+			Reply:   fallbackDailyAssistantReply("general"),
+			Error:   "invalid JSON body",
+		})
+		return
+	}
+
+	response := api.agent.Run(r.Context(), payload)
+	status := http.StatusOK
+	if response.Error == "message is required" {
+		status = http.StatusBadRequest
+	}
+	writeJSON(w, status, response)
 }
 
 func (api *API) syncStatus(w http.ResponseWriter, r *http.Request) {

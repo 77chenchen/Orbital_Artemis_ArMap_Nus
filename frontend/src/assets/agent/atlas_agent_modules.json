@@ -1,0 +1,69 @@
+{
+  "agent": {
+    "name": "Artemis",
+    "role": "Campus map companion",
+    "model": "atlas_agent_model.svg",
+    "version": "1.0.0"
+  },
+  "docked": {
+    "label": "Docked",
+    "reply": "Artemis is resting in the page corner."
+  },
+  "actions": [
+    {
+      "id": "wake",
+      "label": "Wake",
+      "mood": "online",
+      "durationMs": 1800,
+      "replies": [
+        "我在。正在把校园地图、日程和推荐路线接起来。",
+        "唤醒成功。今天想先看路线、课程，还是附近设施？",
+        "Artemis 已上线。我可以帮你规划下一步去哪里。"
+      ]
+    },
+    {
+      "id": "wave",
+      "label": "Wave",
+      "mood": "friendly",
+      "durationMs": 1700,
+      "replies": [
+        "你好，我会待在角落，需要时再跳出来。",
+        "收到你的召唤。地图助手准备就绪。",
+        "嗨，我在这里。点一个动作，我就切换状态。"
+      ]
+    },
+    {
+      "id": "think",
+      "label": "Think",
+      "mood": "planning",
+      "durationMs": 2200,
+      "replies": [
+        "我正在思考最省力的路径和时间安排。",
+        "让我扫一下当前日程，再给你更稳的建议。",
+        "分析中：课程、地点、步行距离都会一起考虑。"
+      ]
+    },
+    {
+      "id": "route",
+      "label": "Route",
+      "mood": "navigation",
+      "durationMs": 2100,
+      "replies": [
+        "路线模式启动。下一步可以把目的地交给地图页面。",
+        "我会优先考虑少绕路、少换楼层的走法。",
+        "导航状态已打开。需要的话我可以配合地图搜索。"
+      ]
+    },
+    {
+      "id": "celebrate",
+      "label": "Done",
+      "mood": "complete",
+      "durationMs": 1800,
+      "replies": [
+        "完成。这个安排看起来清爽多了。",
+        "任务收束好了。下一步可以继续细化日程。",
+        "漂亮，当前计划已经整理完成。"
+      ]
+    }
+  ]
+}

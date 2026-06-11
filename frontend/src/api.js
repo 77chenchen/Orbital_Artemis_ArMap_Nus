@@ -95,6 +95,25 @@ const demoRecommendations = [
   },
 ];
 
+const demoAssistantReply = {
+  success: false,
+  reply:
+    'Assistant fallback:\n1. Review your next scheduled item.\n2. Pick one priority that fits the available time.\n3. Leave a travel buffer before moving across campus.\n4. Add the suggested focus block if it fits.',
+  scheduleItems: [
+    {
+      title: 'Focus block',
+      moduleCode: 'TASK',
+      location: 'CLB',
+      startAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      endAt: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+      notes: 'Demo fallback schedule suggestion',
+    },
+  ],
+  provider: 'demo',
+  model: 'local-fallback',
+  error: 'Demo mode uses a local fallback response',
+};
+
 const demoBusStops = [
   { code: 'COM2', name: 'COM 2', latitude: 1.29486, longitude: 103.77388, source: 'demo' },
   { code: 'CLB', name: 'Central Library', latitude: 1.29661, longitude: 103.77234, source: 'demo' },
@@ -275,6 +294,9 @@ function demoRequest(path, options = {}) {
     };
     return Promise.resolve(demoSyncStatus);
   }
+  if (path === '/agent/daily-assistant' && options.method === 'POST') {
+    return Promise.resolve(demoAssistantReply);
+  }
   return Promise.reject(new Error('Unsupported demo request'));
 }
 export const api = {
@@ -299,4 +321,6 @@ export const api = {
   busAlerts: () => request('/bus/alerts'),
   syncStatus: () => request('/sync/status'),
   runSync: () => request('/sync/run', { method: 'POST' }),
+  dailyAssistant: (payload) =>
+    request('/agent/daily-assistant', { method: 'POST', body: JSON.stringify(payload) }),
 };

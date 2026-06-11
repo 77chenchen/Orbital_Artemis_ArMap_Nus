@@ -65,9 +65,9 @@
     \vspace{0.8cm}
 
     {\Large
-    \underline{\href{https://drive.google.com/file/d/1kHCFBJZEATOGSeAxe3MZQu1tjgT1XCv5/view?usp=share_link}{Poster}}
+    \underline{\href{https://drive.google.com/file/d/1B5UcRCGAcAKyVRbcdidahgzijwi5iCXE/view?usp=share_link}{Poster}}
     \hspace{0.2cm}
-    \underline{\href{https://drive.google.com/file/d/1g0qcSA1oe-XH0mgNVUuB4pHMQPBQDxpa/view?usp=share_link}{Video}}
+    \underline{\href{https://drive.google.com/file/d/1aUfzc596i2nhHfXi-s5pa_5XlELzf0YZ/view?usp=share_link}{Video}}
     \hspace{0.2cm}
     \underline{\href{https://orbital-artemis-armap-nus.onrender.com}{App}}
     \hspace{0.2cm}
@@ -76,7 +76,7 @@
 
     \vspace{1cm}
 
-    \textbf{\LARGE Atlas (Team ID: \hspace{2.2cm})}\\
+    \textbf{\LARGE Atlas (Team ID:7660)}\\
     {\large Wang Qichen (A0337219B)}\\
     {\large Feng Yi (A0322277E)}
 
@@ -97,36 +97,6 @@
 
 The deployed web application is available at:
 \href{https://orbital-artemis-armap-nus.onrender.com}{orbital-artemis-armap-nus.onrender.com}
-
-\section*{Artemis M1 Resubmission Coverage}
-\addcontentsline{toc}{section}{Artemis M1 Resubmission Coverage}
-
-This revised Milestone 01 report is prepared as an Artemis-level resubmission. It explicitly addresses the evaluation feedback by expanding the product scope, documenting project-level software engineering practices, recording automated testing and CI/CD plans, and linking the implementation to a video walkthrough.
-
-\begin{center}
-\renewcommand{\arraystretch}{1.35}
-\begin{tabularx}{\textwidth}{|C{0.08\textwidth}|L{0.34\textwidth}|X|}
-\hline
-\textbf{S/N} & \textbf{Artemis Expectation} & \textbf{Where Addressed in This Report} \\
-\hline
-1 & 20--23 user stories & The User Stories section now contains 20 user stories covering students, visitors, accessibility needs, campus transport, facilities, safety, and community map updates. \\
-\hline
-2 & Ideation for at least 9 features & The Core Features and Feature Ideation sections document 10 product and engineering features with user value, implementation direction, and M1 status. \\
-\hline
-3 & Software engineering at project level & The Project-Level Software Engineering section documents GitHub-based project management, branching, module boundaries, API contracts, deployment discipline, and risk management. \\
-\hline
-4 & Artemis M1 report depth & The report is expanded beyond a basic prototype summary to cover architecture, feature ideation, testing, CI/CD, deployment, and planned iteration. \\
-\hline
-5 & Automated testing documentation & The Automated Testing and QA section documents current automated checks, planned unit/API/UI tests, and the manual test matrix used for M1 validation. \\
-\hline
-6 & CI/CD pipeline documentation & The CI/CD Pipeline section documents the intended GitHub Actions workflow, build gates, Docker deployment path, and Render production deployment. \\
-\hline
-7 & Video walkthrough & The Video Walkthrough section describes the submitted walkthrough flow and maps it to the current app features. \\
-\hline
-\end{tabularx}
-\end{center}
-
-\newpage
 
 \section*{Motivation}
 \addcontentsline{toc}{section}{Motivation}
@@ -173,7 +143,9 @@ For Milestone 01, our goal is to establish a working full-stack prototype: authe
 \section*{Overall Architecture Diagram}
 \addcontentsline{toc}{section}{Overall Architecture Diagram}
 
-The architecture follows the proposal's modular design: a user-facing interface, an authentication layer, a campus assistant/dashboard layer, a navigation and map layer, backend APIs, persistent data, and external campus services.
+Atlas uses a \textbf{client-server layered architecture}. The client is a React/Vite frontend responsible for user interaction, map display, authentication screens, dashboard workflows, and mobile-responsive layouts. The server is a Go API responsible for authentication, JWT issuing and validation, campus data access, schedule APIs, external API integration, and database persistence. Within the client and server, responsibilities are further separated into layers such as UI components, map services, API handlers, storage, and external-service clients.
+
+This architecture is used because Atlas is expected to grow beyond a small prototype. A campus assistant needs to combine user-facing workflows, protected user data, campus data, maps, and external services. Keeping these concerns in separate layers makes the system easier to test, easier to deploy, and safer to extend in later milestones. For example, future AR or indoor-navigation modules can be added to the map/navigation layer without rewriting authentication or database code.
 
 \begin{figure}[h]
     \centering
@@ -207,14 +179,12 @@ The architecture follows the proposal's modular design: a user-facing interface,
     }
     \caption*{Atlas overall architecture for Milestone 01 and planned Artemis extensions}
 \end{figure}
-
 \newpage
 
 \section*{Core Features}
 \addcontentsline{toc}{section}{Core Features}
 
 The feature list below is based on the GitHub issue tracker, current repository implementation, and the product direction described in the original proposal. For Artemis Milestone 01, Atlas is treated as more than a small demo: it is a full-stack foundation for campus navigation, schedule-aware assistance, and future AR/indoor extensions.
-
 \begin{center}
 \renewcommand{\arraystretch}{1.35}
 \begin{tabularx}{\textwidth}{|C{0.08\textwidth}|L{0.24\textwidth}|C{0.16\textwidth}|X|}
@@ -223,64 +193,64 @@ The feature list below is based on the GitHub issue tracker, current repository 
 \hline
 \multicolumn{4}{|c|}{\textbf{Core Features}} \\
 \hline
-1 & Repository and project foundation & Milestone 01 & Issue \#1 established the repository, README skeleton, license, and basic development structure. \\
+1 & Authentication and protected access & Milestone 01 & Users can enter Atlas through email/password login, demo login, or Google Sign-In, then access protected dashboard and map workflows. \\
 \hline
-2 & Authentication and protected access & Milestone 01 & Issues \#2 and \#8 cover email/password login, Google Sign-In, JWT issuing, and protected dashboard routing. \\
+2 & Interactive campus map & Milestone 01 & Users can view an NUS-centered MapLibre map with campus markers and route layers. \\
 \hline
-3 & Campus map rendering & Milestone 01 & Issues \#7 and \#17 cover OpenStreetMap/MapLibre rendering, marker display, and fixing building polygon display. \\
+3 & Location search & Milestone 01 & Users can search for places, select a result, and center the map on the chosen destination. \\
 \hline
-4 & Location search and route tracing & Milestone 01 & Issue \#12 adds a searchable map interface with suggestions, map centering, and route-oriented interaction. \\
+4 & Route tracing & Milestone 01 & Users can preview a route line between selected start and end points on the web map. \\
 \hline
-5 & Daily assistant and campus data UI & Milestone 01 & Issue \#11 connects schedule, recommendations, buildings, facilities, and sync status into a student-facing assistant dashboard. \\
+5 & Daily assistant recommendations & Milestone 01 & Users can view recommendation cards that connect schedule context, campus data, and likely next actions. \\
 \hline
-6 & Facility discovery and filtering & Milestone 01 & The dashboard exposes seeded campus buildings and facilities with filters for building code and facility type. \\
+6 & Facility discovery and filtering & Milestone 01 & Users can filter seeded buildings and facilities by building code and facility type, such as study spaces, restrooms, and printers. \\
 \hline
-7 & Schedule management & Milestone 01 & Users can view, create, and delete schedule items, allowing later recommendation logic to reason about upcoming locations. \\
+7 & Schedule management & Milestone 01 & Users can view, create, and delete schedule items so the assistant can reason about upcoming locations. \\
 \hline
-8 & NUSMods and campus data sync & Milestone 01 & Backend sync status and manual sync endpoints prepare the app for external academic timetable and campus-data integration. \\
+8 & Campus data sync status & Milestone 01 & Users can see whether external campus/timetable data has been synced and trigger a manual sync during demonstration. \\
 \hline
-9 & Campus bus and transit context & Milestone 01 / Extension & Backend bus modules and API routes support bus stops, routes, arrivals, active vehicles, alerts, and nearby transit context. \\
+9 & Shuttle bus arrival dashboard & Milestone 01 / Extension & Users can view shuttle stops, route pickup points, arrival times, and active bus context through backend-proxied bus APIs. \\
 \hline
-\multicolumn{4}{|c|}{\textbf{Supporting / Usability Features}} \\
-\hline
-10 & Mobile frontend and iOS shell & Milestone 01 & Issue \#10 tracks responsive layout and manual viewport checks; the Capacitor iOS shell loads the deployed HTTPS app for mobile demo purposes. \\
+10 & Mobile-responsive usage & Milestone 01 & Users can access the same authentication, dashboard, and map workflows on smaller mobile viewports without horizontal scrolling. \\
 \hline
 \end{tabularx}
 \end{center}
+
+Repository setup, monorepo structure, GitHub issues, and the iOS shell are treated as \textbf{engineering support}, not user-facing features. They are documented later under project-level software engineering because they explain how the team builds and maintains the app.
 
 \newpage
 
 \section*{Feature Ideation}
 \addcontentsline{toc}{section}{Feature Ideation}
 
-The ideation below records the user problem, proposed solution, and engineering direction for all 10 planned features. This makes the scope explicit and prevents the implementation from becoming a collection of unrelated screens.
+The ideation below records the user problem, proposed solution, and engineering direction for all 10 user-facing features. The engineering direction column also explains \textbf{why} the direction fits Atlas, since the aim is not only to list technologies but to justify design choices.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.25}
 \small
-\begin{longtable}{|C{0.06\textwidth}|L{0.20\textwidth}|L{0.25\textwidth}|L{0.32\textwidth}|}
+\begin{longtable}{|C{0.06\textwidth}|L{0.18\textwidth}|L{0.25\textwidth}|L{0.34\textwidth}|}
 \hline
-\textbf{S/N} & \textbf{Feature} & \textbf{User Problem / Ideation} & \textbf{M1 Engineering Direction} \\
+\textbf{S/N} & \textbf{Feature} & \textbf{User Problem / Ideation} & \textbf{M1 Engineering Direction and Rationale} \\
 \hline
-1 & Repository and project foundation & The team needs a shared base for code, documentation, issue tracking, deployment, and mentor review. & Maintain a monorepo with separated frontend, backend, deployment, and report files; use GitHub issues as logs and link implementation work to milestone evidence. \\
+1 & Authentication and protected access & A campus assistant may eventually contain schedule and preference data, so users need a trusted entry point. & Implement email/password login, demo mode, Google Sign-In verification, JWT issuing, and protected routes. JWT is suitable because the backend can issue a signed token after verification and later validate protected requests without storing a server-side session for every page visit. \\
 \hline
-2 & Authentication and protected access & A campus assistant may eventually contain schedule and preference data, so users need a trusted entry point. & Implement email/password login, registration, demo mode, Google Sign-In verification, JWT issuing, and protected routes. \\
+2 & Interactive campus map & Students need an interactive spatial view of campus rather than static text instructions. & Use MapLibre with OpenStreetMap tiles because it gives an open-source map renderer that can accept custom campus layers. This matters because later AR/indoor work will need Atlas-owned overlays rather than only a fixed third-party map screen. \\
 \hline
-3 & Campus map rendering & Students need an interactive spatial view of campus rather than static text instructions. & Use MapLibre with OpenStreetMap tiles, a map engine helper, markers, route layers, and modular map services. \\
+3 & Location search & Users should not need to pan manually across campus to find lecture theatres, tutorial rooms, or buildings. & Separate geocoding/search services from the UI. This keeps search logic reusable for the map page, dashboard recommendations, and future saved-location features. \\
 \hline
-4 & Location search and route tracing & Users should not need to pan manually across campus to find places or preview a trip. & Provide search suggestions, selected-place centering, route line drawing, and a route-oriented UI that can later connect to richer pathfinding. \\
+4 & Route tracing & Students rushing between classes need to preview how movement between places may look. & Draw route lines through a map-engine abstraction. This is important because route display, bus routes, and future AR overlays all need to modify map layers without duplicating MapLibre source/layer setup code. \\
 \hline
-5 & Daily assistant dashboard & Navigation decisions depend on schedule, next destination, facility availability, and sync state. & Build a dashboard combining schedule cards, recommendation cards, building context, facilities, and sync status. \\
+5 & Daily assistant recommendations & Navigation decisions depend on schedule, next destination, facility availability, and sync state. & Combine schedule cards, recommendation cards, building context, facilities, and sync status in one dashboard. This is the best M1 direction because the team can test the daily workflow before adding more complex ranking or personalization. \\
 \hline
-6 & Facility discovery and filtering & Indoor needs such as toilets, lifts, printers, and study areas are often discovered only after entering a building. & Seed building and facility data in SQLite, expose protected API routes, and filter results by building and facility type. \\
+6 & Facility discovery and filtering & Indoor needs such as toilets, lifts, printers, and study areas are often discovered only after entering a building. & Store buildings and facilities as separate SQLite entities and expose protected API filters. This avoids duplicating building data for every facility and prepares the schema for richer indoor/floor data later. \\
 \hline
-7 & Schedule management & Schedule-aware navigation requires structured upcoming events rather than hard-coded demo text. & Provide API and UI support for reading, adding, and deleting schedule items, with location fields tied to campus building codes. \\
+7 & Schedule management & Schedule-aware navigation requires structured upcoming events rather than hard-coded demo text. & Provide API and UI support for reading, adding, and deleting schedule items. Storing schedule items on the backend makes them available to recommendations, route preparation, and future NUSMods sync. \\
 \hline
-8 & NUSMods and campus data sync & A real NUS assistant should eventually update from official academic data instead of relying only on static seed data. & Add NUSMods client configuration, sync status endpoints, manual sync trigger, and scheduler configuration for later automation. \\
+8 & Campus data sync status & A real NUS assistant should eventually update from official academic data instead of relying only on static seed data. & Add sync status endpoints, a manual sync trigger, and scheduler configuration. This makes external-data health visible to users and gives the team a controlled way to test sync behavior before full automation. \\
 \hline
-9 & Bus and transit context & Campus movement is multimodal: students choose between walking and shuttle buses depending on time and location. & Add backend bus modules and endpoints for stops, routes, arrivals, active buses, alerts, and nearby bus context, with demo fallback data when live keys are absent. \\
+9 & Shuttle bus arrival dashboard & Campus movement is multimodal: students choose between walking and shuttle buses depending on time and location. & Keep bus API calls on the backend and normalize stops, routes, pickup points, and arrival times before sending data to the frontend. Server-side proxying is preferred because it avoids exposing bus credentials and allows caching/fallback behavior. \\
 \hline
-10 & Mobile frontend and iOS shell & Campus navigation is primarily mobile, so desktop-only usability is insufficient. & Improve responsive layouts, test small viewport behavior manually, and provide a Capacitor iOS shell that loads the deployed app for mobile demonstration. \\
+10 & Mobile-responsive usage & Campus navigation is primarily mobile, so desktop-only usability is insufficient. & Use responsive layouts and manual viewport testing for auth, dashboard, map, and mobile screenshots. This is important because the core use case happens while students are moving around campus, often on phones. \\
 \hline
 \end{longtable}
 \normalsize
@@ -291,12 +261,14 @@ The ideation below records the user problem, proposed solution, and engineering 
 \section*{Repository and Project Foundation}
 \addcontentsline{toc}{section}{Repository and Project Foundation}
 
-This feature establishes the engineering foundation for Atlas. From the user's point of view, it makes the project accessible as a real deployed application rather than a static proposal: the repository contains reproducible setup instructions, a clear project structure, and a production deployment path.
+This section is not counted as a user-facing feature. It documents the engineering foundation that allows the team to build the user-facing features in a maintainable way: reproducible setup instructions, a clear project structure, issue tracking, and deployment configuration.
 
 \subsection*{Project Structure and Version Control}
 \addcontentsline{toc}{subsection}{Project Structure and Version Control}
 
 Atlas is organized into a frontend, backend, deployment configuration, and supporting documentation. This mirrors the modular design described in the proposal and keeps responsibility boundaries clear. The frontend owns user interaction, the backend owns authentication and campus data APIs, and the deployment files define how the system runs in production.
+
+Atlas uses a monorepo because the frontend, backend, deployment files, poster, and milestone report are tightly connected during M1. For a small two-person team, a monorepo reduces coordination overhead: one issue or pull request can show the full change across UI, API, documentation, and deployment. The trade-off is that the repository contains several types of work in one place, but this is acceptable because the project is still small and the folder boundaries are explicit.
 
 \begin{figure}[h]
     \centering
@@ -348,6 +320,22 @@ The intended workflow is:
 \end{enumerate}
 
 This workflow is intentionally heavier than a quick prototype workflow. It is justified because Artemis projects are expected to demonstrate consistent engineering discipline and maintainability, not only visible screens.
+
+\begin{figure}[h]
+    \centering
+    \IfFileExists{readme_assets/github-projects-tab.png}{
+        \includegraphics[width=0.95\textwidth]{readme_assets/github-projects-tab.png}
+    }{
+        \fbox{
+            \begin{minipage}[c][0.18\textheight][c]{0.86\textwidth}
+                \centering
+                \textbf{GitHub Projects Tab Screenshot Placeholder}\\[0.6em]
+                Add screenshot at \texttt{readme\_assets/github-projects-tab.png}
+            \end{minipage}
+        }
+    }
+    \caption*{GitHub Projects tab used to track milestone tasks, statuses, and review progress}
+\end{figure}
 
 \subsection*{Engineering Principles}
 \addcontentsline{toc}{subsection}{Engineering Principles}
@@ -409,7 +397,9 @@ The login system supports multiple entry paths. Email/password login provides a 
 
 On the backend, Atlas verifies credentials and issues a JWT. For Google Sign-In, the frontend obtains a Google ID token and sends it to the backend, where it is verified against the configured Google client ID. If verification succeeds, the backend returns the same application JWT format used by email login. This keeps the rest of the application independent of the authentication method.
 
-From a software engineering perspective, this follows separation of concerns. The frontend handles user interaction and token storage, while the backend performs trust-sensitive verification and token signing. This is safer than trusting the frontend alone, because the backend remains the authority for protected access. The trade-off is that local development requires OAuth configuration and network access to Google's verification service, but the design is closer to a production-ready authentication system.
+JWT is used because it is a signed token format with a header, payload, and signature. In Atlas, the payload can carry basic claims such as the authenticated user's identity and expiry time, while the signature allows the backend to detect tampering. This fits the project because protected API routes can validate a request from the \texttt{Authorization} header without requiring the frontend to resend the password or requiring every API handler to implement its own login logic.
+
+From a software engineering perspective, the design demonstrates separation of concerns and a form of security boundary. The frontend handles user interaction and stores the returned application token, while the backend performs trust-sensitive verification, password checking, Google ID token verification, and JWT signing. The main trade-off is external dependency: Google Sign-In requires OAuth configuration and network access to Google's verification service during development and deployment. To reduce this friction for M1 evaluation, Atlas also keeps email/password and demo login paths available.
 
 \subsection*{Protected Routes}
 \addcontentsline{toc}{subsection}{Protected Routes}
@@ -417,6 +407,42 @@ From a software engineering perspective, this follows separation of concerns. Th
 Protected routes guard the dashboard and map pages. If a user is not authenticated, the frontend redirects them to the login screen. API requests also attach the JWT in the \texttt{Authorization} header, allowing the backend to reject unauthenticated access consistently.
 
 This pattern reduces duplicated access checks. Instead of manually checking login state inside every page component, protected routing creates a reusable access boundary. It also makes later feature additions easier, because new protected pages can reuse the same wrapper.
+
+\subsection*{Authentication Sequence Diagram}
+\addcontentsline{toc}{subsection}{Authentication Sequence Diagram}
+
+The sequence diagram below is placed in the authentication section because it explains the exact interaction order for email login, Google Sign-In, JWT issuing, and protected route access. The key design point is that the frontend may collect credentials or a Google ID token, but the backend remains the authority that verifies identity and issues the Atlas application JWT.
+
+\begin{figure}[h]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        participant/.style={rectangle, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.65cm, fill=gray!8},
+        msg/.style={-{Latex[length=3mm]}, thick},
+        return/.style={-{Latex[length=3mm]}, thick, dashed}
+    ]
+        \node[participant] (user) at (0,0) {Student};
+        \node[participant] (frontend) at (4.2,0) {React Frontend};
+        \node[participant] (backend) at (8.4,0) {Go Auth API};
+        \node[participant] (google) at (12.6,0) {Google Identity};
+        \node[participant] (protected) at (16.8,0) {Protected API};
+
+        \foreach \x in {0,4.2,8.4,12.6,16.8} {
+            \draw[dashed, gray] (\x,-0.45) -- (\x,-7.2);
+        }
+
+        \draw[msg] (0,-1.0) -- node[above]{enter email login or Google Sign-In} (4.2,-1.0);
+        \draw[msg] (4.2,-1.8) -- node[above]{POST credentials or Google ID token} (8.4,-1.8);
+        \draw[msg] (8.4,-2.6) -- node[above]{verify Google ID token if needed} (12.6,-2.6);
+        \draw[return] (12.6,-3.4) -- node[above]{token valid / invalid} (8.4,-3.4);
+        \draw[return] (8.4,-4.2) -- node[above]{return signed Atlas JWT} (4.2,-4.2);
+        \draw[msg] (4.2,-5.0) -- node[above]{store JWT and navigate} (0,-5.0);
+        \draw[msg] (4.2,-5.8) -- node[above]{GET protected route with Authorization header} (16.8,-5.8);
+        \draw[msg] (16.8,-6.6) -- node[above]{validate JWT and return data} (8.4,-6.6);
+    \end{tikzpicture}
+    }
+    \caption*{Sequence diagram for login, Google Sign-In, JWT issuing, and protected route access}
+\end{figure}
 
 \newpage
 
@@ -428,20 +454,20 @@ The map feature gives users an interactive visual interface for campus navigatio
 \subsection*{MapLibre and OSM Tiles}
 \addcontentsline{toc}{subsection}{MapLibre and OSM Tiles}
 
-The frontend uses MapLibre to render map tiles and manage markers, routes, and future geospatial overlays. This gives the project an open-source map engine that can be extended with custom campus data instead of relying only on a closed map UI.
+The frontend uses MapLibre to render map tiles and manage markers, routes, and future campus overlays. OpenStreetMap (OSM) tiles are small map pieces that together form the visible base map, similar to how a large map is loaded as many smaller grid sections. MapLibre is used because it is an open-source renderer that lets Atlas add custom layers such as campus markers, bus routes, and future indoor/AR overlays.
 
 \screenimage{Campus Map Screen}{readme_assets/campus-map-screen.png}{0.96}
 
 The map logic is separated into a map initialization module, a \texttt{MapEngine} helper, routing services, and UI components. This modular approach prevents the main map page from becoming a single large component. It also makes it easier to add bus layers, indoor facility overlays, or AR-style markers later.
 
-The bug tracked in issue \#17 showed why this separation matters. Rendering geospatial polygons and map layers can fail due to data format mismatches, layer ordering, or source initialization timing. By separating map engine actions from UI state, Atlas can debug and update rendering logic without changing authentication or dashboard code.
+The bug tracked in issue \#17 showed why this separation matters. The issue involved map building outlines and layer rendering. Such map bugs can come from coordinate format differences, layer ordering, or adding a layer before its data source is ready. By separating map engine actions from UI state, Atlas can debug and update rendering logic without changing authentication or dashboard code.
 
 \subsection*{Route Tracing}
 \addcontentsline{toc}{subsection}{Route Tracing}
 
-Route tracing allows selected start and end points to be drawn on the map. In Milestone 01, this is implemented as a route line on the MapLibre layer. It is an early prototype of the proposal's broader navigation goal.
+Route tracing allows selected start and end points to be drawn on the map. In Milestone 01, this is implemented as a 2D route line on the MapLibre layer. This is an implementation stage toward the proposal's broader AR navigation goal rather than a complete AR feature.
 
-The engineering trade-off is that route tracing is currently web-map based rather than full AR. This is intentional for Milestone 01: a reliable map and routing foundation reduces risk before adding heavier AR components in later milestones.
+The engineering reason for implementing 2D tracing first is risk control. Before adding camera-based AR guidance, the team needs reliable location search, route data, marker placement, and map-layer management. If these foundations are unstable, an AR overlay would only make debugging harder.
 
 \newpage
 
@@ -472,6 +498,8 @@ Seeded demo data & Allows evaluators to test building and facility discovery wit
 
 The main design decision is to model facilities separately from buildings. This allows Atlas to add many facility records under one building and later attach richer indoor information such as floor plans, accessibility paths, or AR markers.
 
+This design follows a simple data-normalisation principle: building information such as code, name, coordinates, and floor count should not be repeated inside every facility record. Facilities keep only facility-specific fields such as name, type, floor, crowd level, and the building reference. This makes filtering easier and reduces the risk that one building is described inconsistently across multiple facility rows.
+
 \subsection*{Schedule Management}
 \addcontentsline{toc}{subsection}{Schedule Management}
 
@@ -479,10 +507,14 @@ Schedule management is included because a campus assistant becomes more useful w
 
 This feature also prepares the app for future NUSMods integration. Rather than hard-coding a static timetable into the frontend, the backend exposes schedule APIs and stores schedule data in SQLite. This gives the team a stable place to add timetable sync, conflict warnings, and route preparation in later milestones.
 
+The engineering boundary is intentionally API-first. The frontend does not directly manipulate the database; it sends create/delete/read requests to backend schedule endpoints. This keeps validation and persistence in one place and allows future recommendation logic to reuse the same schedule data without duplicating state in separate frontend components.
+
 \subsection*{Recommendation Cards}
 \addcontentsline{toc}{subsection}{Recommendation Cards}
 
 Recommendation cards summarize useful actions such as where the next class is, which building context matters now, or which facilities are likely relevant. In M1, the recommendations are intentionally simple and explainable. This helps the team test the user workflow before adding more advanced ranking or personalization.
+
+The current recommendation design favours deterministic rules over a black-box ranking model. This is appropriate for M1 because the team needs to verify whether the dashboard workflow is useful before optimising recommendation quality. It also makes testing easier: if the schedule or building context changes, the expected recommendation can be reasoned about directly.
 
 \newpage
 
@@ -495,6 +527,8 @@ Atlas includes early integration points for external campus systems. These are i
 \addcontentsline{toc}{subsection}{NUSMods Sync}
 
 The backend contains configuration for academic year, sync interval, HTTP timeout, and NUSMods integration. The dashboard exposes sync status and a manual sync trigger so users can see whether external data integration is healthy.
+
+Sync status is modelled separately from schedule items and facilities because it describes the health of external data integration, not the data itself. This separation lets the dashboard tell users whether the app is using fresh, stale, failed, or manually seeded data without mixing operational metadata into user schedule records.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.35}
@@ -519,6 +553,8 @@ The backend contains configuration for academic year, sync interval, HTTP timeou
 Campus movement often involves a choice between walking, waiting for a shuttle, or combining both. Atlas therefore includes bus context as an Artemis extension feature. The backend supports endpoints for bus stops, routes, arrivals, active vehicles, alerts, and context near a latitude/longitude point.
 
 The current design keeps bus data server-side. This avoids exposing private API keys in the browser and allows the backend to cache, normalize, or fall back to demo data. For M1, this establishes the integration boundary even if later milestones refine the frontend presentation and multimodal routing logic.
+
+The bus module uses the same engineering principle as other external integrations: the frontend consumes Atlas backend endpoints, while the backend handles third-party API credentials, response normalisation, caching, and fallback behavior. This makes the user-facing dashboard more stable because it does not need to understand every raw bus API response shape.
 
 \begin{center}
 \renewcommand{\arraystretch}{1.35}
@@ -572,40 +608,42 @@ The main engineering principle here is progressive enhancement: the application 
 \section*{Standardised Software Diagrams}
 \addcontentsline{toc}{section}{Standardised Software Diagrams}
 
-In addition to the high-level architecture diagram, the following standardised diagrams describe different aspects of Atlas: database relationships, authentication interaction order, and the map/search user journey.
+In addition to the high-level architecture diagram and the authentication sequence diagram, the following standardised diagrams describe persistent data relationships and the map/search user journey.
 
 \subsection*{ER Diagram}
 \addcontentsline{toc}{subsection}{ER Diagram}
 
-The ER diagram models the core persistent data needed for Milestone 01 and later Artemis extensions. Users own schedule items, buildings contain facilities, and sync status records document external data updates.
+The ER diagram models the core persistent data needed for Milestone 01 and later Artemis extensions. The notation below uses entity boxes with primary keys (PK), foreign keys (FK), and relationship cardinalities such as \texttt{1} and \texttt{0..*}. Users own schedule items, buildings contain facilities, and sync status records document external data updates.
+
+The database is designed to reduce unnecessary duplication. Building data is stored once in \texttt{buildings}, while facility-specific data is stored in \texttt{facilities}. User schedule records are stored separately from user credentials. This is close to Third Normal Form (3NF): each table stores facts about one main entity, and non-key attributes depend on the table's key rather than on another non-key attribute. This makes the schema easier to extend when later milestones add more facilities, indoor maps, timetable sync, or user preferences.
 
 \begin{figure}[h]
     \centering
     \resizebox{\textwidth}{!}{%
     \begin{tikzpicture}[
         node distance=1.25cm and 1.9cm,
-        entity/.style={rectangle, draw=black, thick, align=left, minimum width=3.8cm, minimum height=1.25cm, fill=blue!6, inner sep=0.18cm},
-        rel/.style={-{Latex[length=3mm]}, thick}
+        entity/.style={rectangle, draw=black, thick, align=left, minimum width=4.2cm, minimum height=1.25cm, fill=blue!6, inner sep=0.18cm},
+        rel/.style={thick}
     ]
         \node[entity] (users) {
             \textbf{users}\\
-            \texttt{id} PK\\
+            \underline{\texttt{id}} PK\\
             \texttt{email}\\
             \texttt{password\_hash}\\
             \texttt{created\_at}
         };
         \node[entity, right=of users] (schedule) {
             \textbf{schedule\_items}\\
-            \texttt{id} PK\\
+            \underline{\texttt{id}} PK\\
             \texttt{user\_id} FK\\
             \texttt{module\_code}\\
-            \texttt{location}\\
+            \texttt{location\_code}\\
             \texttt{start\_time}
         };
         \node[entity, below=of users] (buildings) {
             \textbf{buildings}\\
-            \texttt{id} PK\\
-            \texttt{code}\\
+            \underline{\texttt{id}} PK\\
+            \texttt{code} UNIQUE\\
             \texttt{name}\\
             \texttt{latitude}\\
             \texttt{longitude}\\
@@ -613,7 +651,7 @@ The ER diagram models the core persistent data needed for Milestone 01 and later
         };
         \node[entity, right=of buildings] (facilities) {
             \textbf{facilities}\\
-            \texttt{id} PK\\
+            \underline{\texttt{id}} PK\\
             \texttt{building\_id} FK\\
             \texttt{floor}\\
             \texttt{name}\\
@@ -622,61 +660,21 @@ The ER diagram models the core persistent data needed for Milestone 01 and later
         };
         \node[entity, below=of facilities] (sync) {
             \textbf{sync\_status}\\
-            \texttt{id} PK\\
+            \underline{\texttt{id}} PK\\
             \texttt{source}\\
             \texttt{status}\\
             \texttt{message}\\
             \texttt{updated\_at}
         };
 
-        \draw[rel] (users) -- node[above]{1 owns many} (schedule);
-        \draw[rel] (buildings) -- node[above]{1 contains many} (facilities);
-        \draw[rel, dashed] (schedule) -- node[right]{location code references} (buildings);
-        \draw[rel, dashed] (sync) -- node[right]{updates campus data} (facilities);
+        \draw[rel] (users) -- node[above]{\texttt{1}} node[below]{owns} node[above, near end]{\texttt{0..*}} (schedule);
+        \draw[rel] (buildings) -- node[above]{\texttt{1}} node[below]{contains} node[above, near end]{\texttt{0..*}} (facilities);
+        \draw[rel, dashed] (schedule) -- node[right]{\texttt{0..*} schedule locations reference \texttt{1} building code} (buildings);
+        \draw[rel, dashed] (sync) -- node[right]{records external updates for campus data} (facilities);
     \end{tikzpicture}
     }
     \caption*{ER diagram for users, buildings, facilities, schedule items, and sync status}
 \end{figure}
-
-\newpage
-
-\subsection*{Sequence Diagram}
-\addcontentsline{toc}{subsection}{Sequence Diagram}
-
-The sequence diagram shows the login, Google Sign-In, JWT issuing, and protected route access flow. The frontend may send either email/password credentials or a Google ID token, but the backend remains the authority that verifies identity and issues the application JWT.
-
-\begin{figure}[h]
-    \centering
-    \resizebox{\textwidth}{!}{%
-    \begin{tikzpicture}[
-        participant/.style={rectangle, draw=black, thick, align=center, minimum width=3.1cm, minimum height=0.65cm, fill=gray!8},
-        msg/.style={-{Latex[length=3mm]}, thick},
-        return/.style={-{Latex[length=3mm]}, thick, dashed}
-    ]
-        \node[participant] (user) at (0,0) {Student};
-        \node[participant] (frontend) at (4.2,0) {React Frontend};
-        \node[participant] (backend) at (8.4,0) {Go Auth API};
-        \node[participant] (google) at (12.6,0) {Google Identity};
-        \node[participant] (protected) at (16.8,0) {Protected API};
-
-        \foreach \x in {0,4.2,8.4,12.6,16.8} {
-            \draw[dashed, gray] (\x,-0.45) -- (\x,-7.2);
-        }
-
-        \draw[msg] (0,-1.0) -- node[above]{enter email login or Google Sign-In} (4.2,-1.0);
-        \draw[msg] (4.2,-1.8) -- node[above]{POST credentials or Google ID token} (8.4,-1.8);
-        \draw[msg] (8.4,-2.6) -- node[above]{verify Google ID token if needed} (12.6,-2.6);
-        \draw[return] (12.6,-3.4) -- node[above]{token valid / invalid} (8.4,-3.4);
-        \draw[return] (8.4,-4.2) -- node[above]{return application JWT} (4.2,-4.2);
-        \draw[msg] (4.2,-5.0) -- node[above]{store JWT and navigate} (0,-5.0);
-        \draw[msg] (4.2,-5.8) -- node[above]{GET protected route with Authorization header} (16.8,-5.8);
-        \draw[msg] (16.8,-6.6) -- node[above]{validate JWT and return data} (8.4,-6.6);
-    \end{tikzpicture}
-    }
-    \caption*{Sequence diagram for login, Google Sign-In, JWT issuing, and protected route access}
-\end{figure}
-
-\newpage
 
 \subsection*{Activity Diagram}
 \addcontentsline{toc}{subsection}{Activity Diagram}
@@ -786,16 +784,28 @@ The CI/CD pipeline is designed around GitHub as the source of truth and Render/D
 \subsection*{Continuous Integration Gates}
 \addcontentsline{toc}{subsection}{Continuous Integration Gates}
 
-For pull requests and pushes to \texttt{main}, the intended GitHub Actions workflow runs the following jobs:
+For pull requests and pushes to \texttt{main}, the intended GitHub Actions workflow runs stages that each protect against a specific project risk:
 
-\begin{enumerate}[leftmargin=*]
-    \item Checkout repository.
-    \item Install frontend dependencies with \texttt{npm ci}.
-    \item Build frontend with \texttt{npm run build}.
-    \item Install backend dependencies through Go modules.
-    \item Run backend checks with \texttt{go test ./...}.
-    \item Build the production Docker image.
-\end{enumerate}
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|L{0.24\textwidth}|L{0.28\textwidth}|X|}
+\hline
+\textbf{Pipeline Stage} & \textbf{Command / Action} & \textbf{Why This Stage Is Included} \\
+\hline
+Checkout & Fetch repository source & Ensures CI tests the same version of frontend, backend, deployment, and documentation files that will be reviewed or merged. \\
+\hline
+Frontend dependency install & \texttt{npm ci} & Uses the lockfile to install repeatable dependencies, reducing ``works on my machine'' differences between teammates and CI. \\
+\hline
+Frontend build & \texttt{npm run build} & Catches React/Vite import errors, broken assets, and production bundling failures before deployment. \\
+\hline
+Backend tests & \texttt{go test ./...} & Checks Go package compilation and backend test coverage for API, auth, storage, scheduler, and integration helpers. \\
+\hline
+Docker build & \texttt{docker build .} & Confirms the app can be packaged in the same production-style environment used for deployment. \\
+\hline
+Deployment validation & Manual Render walkthrough & Confirms the deployed HTTPS app supports the actual demo flow, including auth, dashboard, map, schedule, and bus contexts. \\
+\hline
+\end{tabularx}
+\end{center}
 
 The corresponding workflow structure is:
 
@@ -834,40 +844,136 @@ Atlas currently uses a production deployment path built from the repository's \t
 
 Environment variables such as \texttt{JWT\_SECRET}, \texttt{GOOGLE\_CLIENT\_ID}, \texttt{DB\_PATH}, \texttt{ALLOWED\_ORIGIN}, and bus API credentials are kept outside source code. This keeps deployment configurable while avoiding accidental exposure of private credentials.
 
+\subsection{Unit Testing}
+
+Unit testing verifies that individual functions and components behave correctly in isolation. It is important because it helps detect bugs early, improves software reliability, and ensures that future changes do not break existing functionality. In this project, unit tests were designed using testing heuristics such as boundary value analysis and error guessing to cover normal cases, edge cases, and invalid inputs.
+
+For this project, testing was carried out by verifying each component and function separately using unit tests. The tests checked normal behavior, edge cases, and invalid inputs to ensure the application responded correctly and did not crash. For example, \texttt{getSuggestions()} was tested to confirm that it returns location suggestions for valid queries and handles API errors safely, while \texttt{SelectList()} was tested to ensure that items are rendered correctly and the selected item is passed back through the callback.
+
+\begin{table}[h]
+\centering
+\caption{Unit Testing Summary for \texttt{getSuggestions()}}
+\begin{tabular}{|p{4cm}|p{4cm}|p{7cm}|}
+\hline
+\textbf{Test Case} & \textbf{Input} & \textbf{Expected Outcome} \\
+\hline
+Valid Query &
+``NUS Computing'' &
+Function returns a non-empty list of location suggestions and coordinates. \\
+\hline
+Empty String &
+``'' &
+Function returns an empty array or no suggestions without crashing. \\
+\hline
+Invalid Location Name &
+``asdfghjkl'' &
+Function handles no-match results gracefully and returns an empty array. \\
+\hline
+Special Characters &
+``!!!@@@'' &
+Function does not crash and handles malformed input safely. \\
+\hline
+Large Input String &
+Very long search text &
+Function remains stable and returns either valid results or an empty array. \\
+\hline
+Custom Result Size &
+\texttt{opts = 10} &
+Function requests and returns up to the specified number of suggestions. \\
+\hline
+API Failure &
+Mocked API/network error &
+Function catches the exception, logs the error, and returns an empty array. \\
+\hline
+Missing Features Field &
+Mocked response without \texttt{features} &
+Function returns an empty array via the fallback \texttt{features || []}. \\
+\hline
+\end{tabular}
+\label{tab:getsuggestions_tests}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Unit Testing Summary for \texttt{SelectList()}}
+\begin{tabular}{|p{4cm}|p{4cm}|p{7cm}|}
+\hline
+\textbf{Test Case} & \textbf{Input} & \textbf{Expected Outcome} \\
+\hline
+Valid Item List &
+\texttt{["apple", "orange", "banana"]} &
+All items are rendered as separate menu entries. \\
+\hline
+Single Item List &
+\texttt{["apple"]} &
+Exactly one menu entry is rendered correctly. \\
+\hline
+Empty Item List &
+\texttt{[]} &
+No menu entries are displayed and the component remains stable. \\
+\hline
+Item Selection &
+User clicks an item &
+The corresponding item is passed to the parent \texttt{onClick} callback. \\
+\hline
+Large Item List &
+50+ items &
+All items are rendered correctly without missing entries. \\
+\hline
+Undefined Item List &
+\texttt{items = undefined} &
+Testing reveals potential runtime errors due to the use of \texttt{items.map()}; identifies need for defensive handling. \\
+\hline
+Missing Callback &
+\texttt{onClick = undefined} &
+Testing reveals potential runtime errors when an item is clicked; identifies need for optional callback handling. \\
+\hline
+\end{tabular}
+\label{tab:selectlist_tests}
+\end{table}
+
 \newpage
 
-\section*{Video Walkthrough}
-\addcontentsline{toc}{section}{Video Walkthrough}
+\subsection{Software Design Principles}
 
-The submitted video is linked on the cover page and demonstrates the current usability of Atlas rather than only describing planned features. The walkthrough is structured to show a reviewer the app from first contact to core navigation workflows.
+The application was developed using established software design principles to improve maintainability, readability, reusability, and scalability. Table~\ref{tab:design_principles} summarizes how key features of the system apply these principles.
 
-\begin{center}
-\renewcommand{\arraystretch}{1.35}
-\begin{tabularx}{\textwidth}{|C{0.08\textwidth}|L{0.30\textwidth}|X|}
+\begin{table}[h]
+\centering
+\caption{Application of Software Design Principles}
+\label{tab:design_principles}
+\begin{tabular}{|p{3cm}|p{4cm}|p{7cm}|}
 \hline
-\textbf{Step} & \textbf{Walkthrough Segment} & \textbf{Feature Evidence} \\
+\textbf{Feature} & \textbf{Design Principle} & \textbf{Description} \\
 \hline
-1 & App opening and deployment URL & Shows that the project is deployed and accessible through the submitted app link. \\
+\texttt{getSuggestions()} &
+Single Responsibility, Abstraction &
+Handles only the retrieval of location suggestions from the geocoding API, while hiding API implementation details from other components. \\
 \hline
-2 & Authentication screen & Demonstrates email/demo login and explains Google Sign-In support. \\
+\texttt{SelectList} &
+Modularity, Reusability &
+Provides a reusable component for displaying selectable suggestions independently of the data source. \\
 \hline
-3 & Protected dashboard & Shows that unauthenticated access is separated from student-facing app content. \\
+\texttt{RoutingForm} &
+Separation of Concerns, Modularity &
+Manages user inputs and routing interactions while delegating suggestion display and map functionality to dedicated components. \\
 \hline
-4 & Schedule and recommendations & Demonstrates schedule-aware assistant behavior and next-location context. \\
+\texttt{MapEngine} &
+Encapsulation, Single Responsibility &
+Centralises all map-related operations, such as marker placement, route drawing, and map navigation, within a single class. \\
 \hline
-5 & Building and facility discovery & Shows campus data, filters, and facility cards. \\
+\texttt{drawRoute()} &
+Abstraction &
+Provides a simple interface for route rendering without exposing underlying MapLibre source and layer management details. \\
 \hline
-6 & Map screen and route interaction & Demonstrates map rendering, search-oriented interaction, and route tracing. \\
+\texttt{track()} and \texttt{setLocation()} &
+Encapsulation &
+Encapsulate location marker creation and updates, hiding implementation details from the rest of the application. \\
 \hline
-7 & Mobile usability screenshots / iOS shell & Shows that the interface has been considered for phone use, not only desktop. \\
-\hline
-8 & Engineering overview & Briefly points to repository structure, GitHub logs, testing commands, and deployment setup. \\
-\hline
-\end{tabularx}
-\end{center}
+\end{tabular}
+\end{table}
 
 \newpage
-
 \section*{Milestone 01 Progress}
 \addcontentsline{toc}{section}{Milestone 01 Progress}
 
