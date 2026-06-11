@@ -15,10 +15,16 @@ type MapPoint = {
 };
 
 type Props = {
-  buildings: Building[];
-  selectedCode: string;
-  onSelect: (code: string) => void;
+  buildings?: Building[];
+  selectedCode?: string;
+  onSelect?: (code: string) => void;
 };
+
+const previewBuildings: Building[] = [
+  { code: "COM1", name: "School of Computing", supportedIndoor: true },
+  { code: "CLB", name: "Central Library", supportedIndoor: true },
+  { code: "UTOWN", name: "University Town", supportedIndoor: false },
+];
 
 const defaultPoints: Record<string, MapPoint> = {
   COM1: { left: "20%", top: "68%", tone: colors.green },
@@ -38,7 +44,11 @@ const routeSegments = [
   { left: "47%", top: "43%", width: "31%", rotate: "-20deg" },
 ];
 
-export default function CampusMap2D({ buildings, selectedCode, onSelect }: Props) {
+export default function CampusMap2D({
+  buildings = previewBuildings,
+  selectedCode = "COM1",
+  onSelect = () => undefined,
+}: Props) {
   const [hoveredCode, setHoveredCode] = useState("");
   const [pointer, setPointer] = useState({ x: 50, y: 50, visible: false });
 
@@ -88,7 +98,6 @@ export default function CampusMap2D({ buildings, selectedCode, onSelect }: Props
 
       {pointer.visible && (
         <View
-          pointerEvents="none"
           style={[
             styles.pointerGlow,
             {
@@ -186,6 +195,7 @@ const styles = StyleSheet.create({
   },
   pointerGlow: {
     position: "absolute",
+    pointerEvents: "none",
     width: 124,
     height: 124,
     marginLeft: -62,

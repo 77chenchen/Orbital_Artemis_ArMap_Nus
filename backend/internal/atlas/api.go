@@ -1,6 +1,7 @@
 package atlas
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -14,6 +15,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/api/idtoken"
 )
+
+const googleVerificationTimeout = 10 * time.Second
 
 type API struct {
 	cfg       Config
@@ -188,9 +191,16 @@ func (api *API) googleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	verified, err := idtoken.Validate(r.Context(), payload.Credential, api.cfg.GoogleClientID)
+	verifyCtx, cancel := context.WithTimeout(r.Context(), googleVerificationTimeout)
+	defer cancel()
+
+	verified, err := idtoken.Validate(verifyCtx, payload.Credential, api.cfg.GoogleClientID)
 	if err != nil {
 		log.Printf("google id token validation failed: %v", err)
+		if errors.Is(verifyCtx.Err(), context.DeadlineExceeded) {
+			writeError(w, http.StatusGatewayTimeout, errors.New("google sign-in verification timed out"))
+			return
+		}
 		writeError(w, http.StatusUnauthorized, errors.New("invalid google credential"))
 		return
 	}

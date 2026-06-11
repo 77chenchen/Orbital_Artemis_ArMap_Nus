@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { Pressable, StyleSheet, Text, TextInput, View, findNodeHandle } from "react-native";
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../api";
 
 const GOOGLE_SCRIPT_URL = "https://accounts.google.com/gsi/client";
+const GOOGLE_SCRIPT_TIMEOUT_MS = 10000;
+const GOOGLE_AUTH_TIMEOUT_MS = 12000;
 let googleScriptPromise: Promise<void> | null = null;
 
 type GoogleCredentialResponse = {
@@ -50,7 +52,7 @@ export default function Login({
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleConfigLoaded, setGoogleConfigLoaded] = useState(Boolean(import.meta.env.VITE_GOOGLE_CLIENT_ID));
   const [googleClientId, setGoogleClientId] = useState(import.meta.env.VITE_GOOGLE_CLIENT_ID || "");
-  const googleButtonRef = useRef<HTMLDivElement | null>(null);
+  const googleButtonRef = useRef<unknown>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function Login({
       return;
     }
 
-    fetch(`${API_BASE}/config`)
+    requestWithTimeout(`${API_BASE}/config`, {}, 8000)
       .then((response) => (response.ok ? response.json() : {}))
       .then((config) => {
         if (!cancelled && typeof config.googleClientId === "string") {
@@ -93,17 +95,18 @@ export default function Login({
 
     loadGoogleScript()
       .then(() => {
-        if (cancelled || !window.google || !googleButtonRef.current) {
+        const element = resolveGoogleButtonElement(googleButtonRef.current);
+        if (cancelled || !window.google || !element) {
           return;
         }
 
-        const buttonWidth = Math.max(240, Math.round(googleButtonRef.current.getBoundingClientRect().width));
-        googleButtonRef.current.innerHTML = "";
+        const buttonWidth = Math.max(240, Math.round(element.getBoundingClientRect().width || 320));
+        element.innerHTML = "";
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           callback: handleGoogleCredential,
         });
-        window.google.accounts.id.renderButton(googleButtonRef.current, {
+        window.google.accounts.id.renderButton(element, {
           theme: "outline",
           size: "large",
           text: "continue_with",
@@ -112,9 +115,9 @@ export default function Login({
           width: buttonWidth,
         });
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
-          setGoogleError("Google sign-in could not be loaded.");
+          setGoogleError(error instanceof Error ? error.message : "Google sign-in could not be loaded.");
         }
       });
 
@@ -123,9 +126,13 @@ export default function Login({
     };
   }, [googleClientId]);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submit() {
     setLoginFailed(false);
+
+    if (!email.trim() || !password) {
+      setLoginFailed(true);
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/login`, {
@@ -159,13 +166,17 @@ export default function Login({
     setGoogleError("");
 
     try {
-      const res = await fetch(`${API_BASE}/auth/google`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const res = await requestWithTimeout(
+        `${API_BASE}/auth/google`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ credential: response.credential }),
         },
-        body: JSON.stringify({ credential: response.credential }),
-      });
+        GOOGLE_AUTH_TIMEOUT_MS,
+      );
 
       const data = await res.json().catch(() => ({}));
 
@@ -176,77 +187,117 @@ export default function Login({
       localStorage.setItem("token", data.token);
       navigate("/Dashboard");
     } catch (error) {
-      setGoogleError(error instanceof Error ? error.message : "Google sign-in failed.");
+      const message =
+        error instanceof DOMException && error.name === "AbortError"
+          ? "Google sign-in timed out. Please try again or use demo mode."
+          : error instanceof Error
+            ? error.message
+            : "Google sign-in failed.";
+      setGoogleError(message);
     } finally {
       setGoogleLoading(false);
     }
   }
 
   return (
-    <form className="auth-form" onSubmit={submit}>
-      <label className="field">
-        <span>Email</span>
-        <input
-          type="email"
+    <View style={styles.form}>
+      <View style={styles.field}>
+        <Text style={styles.label}>Email</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          onChangeText={(value) => {
+            setEmail(value);
+            setLoginFailed(false);
+          }}
+          onSubmitEditing={submit}
           placeholder="you@example.com"
+          placeholderTextColor="#72817b"
+          style={styles.input}
           value={email}
-          required
-          onChange={(event) => {
-            setEmail(event.target.value);
+        />
+      </View>
+
+      <View style={styles.field}>
+        <Text style={styles.label}>Password</Text>
+        <TextInput
+          onChangeText={(value) => {
+            setPassword(value);
             setLoginFailed(false);
           }}
-        />
-      </label>
-
-      <label className="field">
-        <span>Password</span>
-        <input
-          type="password"
+          onSubmitEditing={submit}
           placeholder="Enter password"
+          placeholderTextColor="#72817b"
+          secureTextEntry
+          style={styles.input}
           value={password}
-          required
-          onChange={(event) => {
-            setPassword(event.target.value);
-            setLoginFailed(false);
-          }}
         />
-      </label>
+      </View>
 
-      {loginFailed ? <p className="form-error">Login failed. Please try again.</p> : null}
+      {loginFailed ? <Text style={styles.error}>Login failed. Please try again.</Text> : null}
 
-      <motion.button
-        type="submit"
-        className="login-button"
-        whileHover={{ y: -2, scale: 1.01 }}
-        whileTap={{ scale: 0.985 }}
+      <Pressable
+        accessibilityRole="button"
+        onPress={submit}
+        style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
       >
-        Login
-      </motion.button>
+        <Text style={styles.primaryButtonText}>Login</Text>
+      </Pressable>
 
       {googleClientId ? (
-        <div className="google-button-shell" aria-busy={googleLoading}>
-          <div ref={googleButtonRef} />
-          {googleLoading ? <span className="google-loading">Signing in...</span> : null}
-        </div>
+        <View style={styles.googleShell} aria-busy={googleLoading}>
+          <View ref={googleButtonRef as never} style={styles.googleMount} />
+          {googleLoading ? (
+            <View style={styles.googleLoading}>
+              <Text style={styles.googleLoadingText}>Signing in...</Text>
+            </View>
+          ) : null}
+        </View>
       ) : (
-        <button className="google-button" type="button" disabled>
-          <span>G</span>
-          {googleConfigLoaded ? "Google sign-in unavailable" : "Loading Google sign-in..."}
-        </button>
+        <Pressable accessibilityRole="button" disabled style={[styles.googleFallback, styles.disabledButton]}>
+          <Text style={styles.googleBadge}>G</Text>
+          <Text style={styles.googleFallbackText}>
+            {googleConfigLoaded ? "Google sign-in unavailable" : "Loading Google sign-in..."}
+          </Text>
+        </Pressable>
       )}
 
-      {googleError ? <p className="form-error">{googleError}</p> : null}
+      {googleError ? <Text style={styles.error}>{googleError}</Text> : null}
 
-      <div className="form-links">
-        <button type="button" onClick={toRegister}>
-          Sign up
-        </button>
-        <button type="button" onClick={onDemoMode}>
-          Enter demo mode
-        </button>
-      </div>
-    </form>
+      <View style={styles.links}>
+        <Pressable accessibilityRole="button" onPress={toRegister} style={styles.linkButton}>
+          <Text style={styles.linkText}>Sign up</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onDemoMode} style={styles.linkButton}>
+          <Text style={styles.linkText}>Enter demo mode</Text>
+        </Pressable>
+      </View>
+    </View>
   );
+}
+
+function resolveGoogleButtonElement(node: unknown) {
+  if (typeof HTMLElement !== "undefined" && node instanceof HTMLElement) {
+    return node;
+  }
+
+  const hostNode = findNodeHandle(node as never);
+  if (typeof HTMLElement !== "undefined" && hostNode instanceof HTMLElement) {
+    return hostNode;
+  }
+
+  return null;
+}
+
+function requestWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(input, {
+    ...init,
+    signal: controller.signal,
+  }).finally(() => window.clearTimeout(timer));
 }
 
 function loadGoogleScript() {
@@ -258,20 +309,177 @@ function loadGoogleScript() {
     googleScriptPromise = new Promise((resolve, reject) => {
       const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${GOOGLE_SCRIPT_URL}"]`);
       if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(), { once: true });
-        existingScript.addEventListener("error", () => reject(), { once: true });
+        const timer = window.setTimeout(() => {
+          reject(new Error("Google sign-in took too long to load."));
+        }, GOOGLE_SCRIPT_TIMEOUT_MS);
+
+        existingScript.addEventListener(
+          "load",
+          () => {
+            window.clearTimeout(timer);
+            resolve();
+          },
+          { once: true },
+        );
+        existingScript.addEventListener(
+          "error",
+          () => {
+            window.clearTimeout(timer);
+            reject(new Error("Google sign-in could not be loaded."));
+          },
+          { once: true },
+        );
         return;
       }
 
       const script = document.createElement("script");
+      const timer = window.setTimeout(() => {
+        script.remove();
+        googleScriptPromise = null;
+        reject(new Error("Google sign-in took too long to load."));
+      }, GOOGLE_SCRIPT_TIMEOUT_MS);
+
       script.src = GOOGLE_SCRIPT_URL;
       script.async = true;
       script.defer = true;
-      script.onload = () => resolve();
-      script.onerror = () => reject();
+      script.onload = () => {
+        window.clearTimeout(timer);
+        resolve();
+      };
+      script.onerror = () => {
+        window.clearTimeout(timer);
+        googleScriptPromise = null;
+        reject(new Error("Google sign-in could not be loaded."));
+      };
       document.head.appendChild(script);
     });
   }
 
   return googleScriptPromise;
 }
+
+const styles = StyleSheet.create({
+  form: {
+    width: "min(400px, 100%)" as never,
+    alignSelf: "center",
+    gap: 14,
+  },
+  field: {
+    gap: 8,
+  },
+  label: {
+    color: "#16312c",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  input: {
+    width: "100%",
+    minHeight: 48,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#d5e2dd",
+    borderRadius: 8,
+    outlineStyle: "none" as never,
+    color: "#16312c",
+    backgroundColor: "#ffffff",
+    fontSize: 16,
+  },
+  error: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(169, 71, 71, 0.22)",
+    borderRadius: 8,
+    color: "#a94747",
+    backgroundColor: "rgba(169, 71, 71, 0.08)",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  primaryButton: {
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    backgroundImage: "linear-gradient(135deg, #2f7159, #3f70a8)",
+    boxShadow: "0 16px 28px rgba(47, 113, 89, 0.18)",
+  },
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  pressed: {
+    transform: [{ scale: 0.985 }],
+  },
+  googleShell: {
+    position: "relative",
+    minHeight: 40,
+    width: "100%",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 8,
+  },
+  googleMount: {
+    width: "100%",
+    minHeight: 40,
+    justifyContent: "center",
+  },
+  googleLoading: {
+    ...StyleSheet.absoluteFillObject,
+    pointerEvents: "none",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#d5e2dd",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.86)",
+  },
+  googleLoadingText: {
+    color: "#16312c",
+    fontWeight: "800",
+  },
+  googleFallback: {
+    minHeight: 40,
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#d5e2dd",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  disabledButton: {
+    opacity: 0.72,
+    backgroundColor: "#f4f7f6",
+  },
+  googleBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    color: "#3f70a8",
+    backgroundColor: "#eef3fb",
+    fontWeight: "900",
+    lineHeight: 24,
+    textAlign: "center",
+  },
+  googleFallbackText: {
+    color: "#72817b",
+    fontWeight: "800",
+  },
+  links: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  linkButton: {
+    paddingVertical: 4,
+  },
+  linkText: {
+    color: "#2f7159",
+    fontWeight: "800",
+  },
+});

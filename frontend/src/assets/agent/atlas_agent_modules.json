@@ -16,9 +16,9 @@
       "mood": "online",
       "durationMs": 1800,
       "replies": [
-        "我在。正在把校园地图、日程和推荐路线接起来。",
-        "唤醒成功。今天想先看路线、课程，还是附近设施？",
-        "Artemis 已上线。我可以帮你规划下一步去哪里。"
+        "I'm here, connecting the campus map, schedule, and route suggestions.",
+        "Artemis is online. Would you like to start with routes, classes, or nearby facilities?",
+        "Ready. I can help you plan where to go next."
       ]
     },
     {
@@ -27,9 +27,9 @@
       "mood": "friendly",
       "durationMs": 1700,
       "replies": [
-        "你好，我会待在角落，需要时再跳出来。",
-        "收到你的召唤。地图助手准备就绪。",
-        "嗨，我在这里。点一个动作，我就切换状态。"
+        "Hello. I'll stay in the corner until you need me.",
+        "Campus assistant ready.",
+        "Hi, I'm here. Pick an action when you want me to help."
       ]
     },
     {
@@ -38,9 +38,9 @@
       "mood": "planning",
       "durationMs": 2200,
       "replies": [
-        "我正在思考最省力的路径和时间安排。",
-        "让我扫一下当前日程，再给你更稳的建议。",
-        "分析中：课程、地点、步行距离都会一起考虑。"
+        "Thinking through the easiest route and timing.",
+        "Reviewing your schedule before suggesting the next move.",
+        "Analyzing classes, locations, and walking distance together."
       ]
     },
     {
@@ -49,9 +49,9 @@
       "mood": "navigation",
       "durationMs": 2100,
       "replies": [
-        "路线模式启动。下一步可以把目的地交给地图页面。",
-        "我会优先考虑少绕路、少换楼层的走法。",
-        "导航状态已打开。需要的话我可以配合地图搜索。"
+        "Route mode is ready. Send a destination to the map when you are set.",
+        "I'll prioritize simpler paths with fewer detours.",
+        "Navigation support is on. I can work with map search when needed."
       ]
     },
     {
@@ -60,9 +60,9 @@
       "mood": "complete",
       "durationMs": 1800,
       "replies": [
-        "完成。这个安排看起来清爽多了。",
-        "任务收束好了。下一步可以继续细化日程。",
-        "漂亮，当前计划已经整理完成。"
+        "Done. The plan looks cleaner now.",
+        "Task wrapped. You can refine the schedule next.",
+        "Nice, the current plan is organized."
       ]
     }
   ]
