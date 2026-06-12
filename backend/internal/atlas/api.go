@@ -60,6 +60,8 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/login", api.login)
 	mux.HandleFunc("POST /api/auth/google", api.googleLogin)
 	mux.HandleFunc("POST /api/register", api.register)
+	mux.HandleFunc("POST /api/password/security-question", api.passwordSecurityQuestion)
+	mux.HandleFunc("POST /api/password/reset", api.resetPassword)
 	if api.cfg.StaticDir != "" {
 		mux.HandleFunc("/", api.serveStaticApp)
 	}
@@ -124,6 +126,13 @@ func (api *API) register(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
 		return
 	}
+	cred.Email = strings.TrimSpace(cred.Email)
+	cred.SecurityQuestion = strings.TrimSpace(cred.SecurityQuestion)
+	cred.SecurityAnswer = strings.TrimSpace(cred.SecurityAnswer)
+	if cred.Email == "" || len(cred.Password) < 6 || cred.SecurityQuestion == "" || cred.SecurityAnswer == "" {
+		writeError(w, http.StatusBadRequest, errors.New("invalid credentials"))
+		return
+	}
 
 	// search in db whether user alr exists
 	exists, err := api.store.userExists(r.Context(), cred)
@@ -146,6 +155,59 @@ func (api *API) register(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (api *API) passwordSecurityQuestion(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
+		return
+	}
+	email := strings.TrimSpace(payload.Email)
+	if email == "" {
+		writeError(w, http.StatusBadRequest, errors.New("email is required"))
+		return
+	}
+	question, err := api.store.securityQuestionForEmail(r.Context(), email)
+	if err != nil {
+		writeError(w, http.StatusNotFound, errors.New("no security question found for this account"))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"question": question,
+	})
+}
+
+func (api *API) resetPassword(w http.ResponseWriter, r *http.Request) {
+	var cred Credentials
+	if err := json.NewDecoder(r.Body).Decode(&cred); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
+		return
+	}
+	cred.Email = strings.TrimSpace(cred.Email)
+	cred.SecurityAnswer = strings.TrimSpace(cred.SecurityAnswer)
+	if cred.Email == "" || cred.SecurityAnswer == "" || len(cred.Password) < 6 {
+		writeError(w, http.StatusBadRequest, errors.New("invalid reset request"))
+		return
+	}
+	ok, err := api.store.resetPasswordWithSecurityAnswer(r.Context(), cred)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, ErrNotFound) {
+			status = http.StatusNotFound
+		}
+		writeError(w, status, errors.New("password reset failed"))
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("security answer did not match"))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "password reset ok",
+	})
+}
+
 func (api *API) login(w http.ResponseWriter, r *http.Request) {
 	var cred Credentials
 
@@ -165,15 +227,21 @@ func (api *API) login(w http.ResponseWriter, r *http.Request) {
 
 	tokenString, err := api.issueLoginToken(jwt.MapClaims{
 		"email": cred.Email,
+		"name":  displayNameFromEmail(cred.Email),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"message": "login ok",
 		"token":   tokenString,
+		"user": map[string]string{
+			"email":    cred.Email,
+			"name":     displayNameFromEmail(cred.Email),
+			"provider": "password",
+		},
 	})
 }
 
@@ -220,8 +288,15 @@ func (api *API) googleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	subject, _ := verified.Claims["sub"].(string)
+	name, _ := verified.Claims["name"].(string)
+	picture, _ := verified.Claims["picture"].(string)
+	if strings.TrimSpace(name) == "" {
+		name = displayNameFromEmail(email)
+	}
 	tokenString, err := api.issueLoginToken(jwt.MapClaims{
 		"email":         email,
+		"name":          name,
+		"picture":       picture,
 		"auth_provider": "google",
 		"google_sub":    subject,
 	})
@@ -230,9 +305,15 @@ func (api *API) googleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"message": "google login ok",
 		"token":   tokenString,
+		"user": map[string]string{
+			"email":    email,
+			"name":     name,
+			"picture":  picture,
+			"provider": "google",
+		},
 	})
 }
 
@@ -251,6 +332,25 @@ func googleEmailVerified(value any) bool {
 	default:
 		return false
 	}
+}
+
+func displayNameFromEmail(email string) string {
+	localPart, _, ok := strings.Cut(email, "@")
+	if !ok || strings.TrimSpace(localPart) == "" {
+		return "Atlas User"
+	}
+	localPart = strings.NewReplacer(".", " ", "_", " ", "-", " ").Replace(localPart)
+	words := strings.Fields(localPart)
+	for i, word := range words {
+		if word == "" {
+			continue
+		}
+		words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
+	}
+	if len(words) == 0 {
+		return "Atlas User"
+	}
+	return strings.Join(words, " ")
 }
 
 func (api *API) health(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,26 @@ import {
 } from "react-native";
 import { api } from "./api.js";
 import MapScreen from "./Map/map";
-import { colors, shadows } from "./theme";
+import teamLogo from "../../team_logo.jpg";
+
+const navItems = [
+  { key: "dashboard", label: "Dashboard", icon: "home" },
+  { key: "map", label: "AR Map", icon: "route" },
+  { key: "recommendations", label: "Daily Assistant", icon: "spark" },
+  { key: "schedule", label: "Schedule", icon: "calendar" },
+  { key: "facilities", label: "Facilities", icon: "building" },
+  { key: "inbox", label: "Inbox", icon: "inbox" },
+  { key: "tasks", label: "Tasks", icon: "check" },
+  { key: "resources", label: "Resources", icon: "book" },
+  { key: "clubs", label: "Clubs & Events", icon: "people" },
+  { key: "sync", label: "Settings", icon: "settings" },
+];
+
+const assistantModes = [
+  { value: "daily_plan", label: "Study Plan" },
+  { value: "general", label: "Campus Guide" },
+  { value: "task_summary", label: "Task Summary" },
+];
 
 const facilityTypes = [
   { value: "", label: "All" },
@@ -20,28 +40,7 @@ const facilityTypes = [
   { value: "printing", label: "Printing" },
 ];
 
-const sections = [
-  { key: "map", label: "Map", kicker: "Search, route, bus", marker: "01" },
-  { key: "recommendations", label: "Daily Assistant", kicker: "Plans and suggestions", marker: "02" },
-  { key: "facilities", label: "Facilities", kicker: "Indoor support", marker: "03" },
-  { key: "schedule", label: "Schedule", kicker: "Student day plan", marker: "04" },
-  { key: "sync", label: "Sync", kicker: "NUSMods status", marker: "05" },
-];
-
-const assistantModes = [
-  { value: "daily_plan", label: "Daily plan" },
-  { value: "reflection", label: "Reflection" },
-  { value: "task_summary", label: "Task summary" },
-  { value: "general", label: "General" },
-];
-
-const assistantPrompts = [
-  "Find my best study window today.",
-  "Summarise what I should do next.",
-  "Where should I go between classes?",
-];
-
-const emptyForm = {
+const defaultForm = {
   title: "",
   moduleCode: "",
   location: "COM1",
@@ -50,8 +49,15 @@ const emptyForm = {
   notes: "",
 };
 
+const fallbackProfile = {
+  email: "demo@atlas.local",
+  name: "Atlas User",
+  picture: "",
+  provider: "demo",
+};
+
 export default function Dashboard() {
-  const [activeSection, setActiveSection] = useState("map");
+  const [activeSection, setActiveSection] = useState("dashboard");
   const [health, setHealth] = useState(null);
   const [buildings, setBuildings] = useState([]);
   const [facilities, setFacilities] = useState([]);
@@ -59,40 +65,38 @@ export default function Dashboard() {
   const [recommendations, setRecommendations] = useState([]);
   const [syncStatus, setSyncStatus] = useState(null);
   const [filters, setFilters] = useState({ building: "", type: "" });
-  const [form, setForm] = useState(emptyForm);
-  const [assistantMessage, setAssistantMessage] = useState("Plan my day around my current schedule.");
+  const [form, setForm] = useState(defaultForm);
   const [assistantMode, setAssistantMode] = useState("daily_plan");
+  const [assistantMessage, setAssistantMessage] = useState("");
   const [assistantResponse, setAssistantResponse] = useState(null);
   const [assistantLoading, setAssistantLoading] = useState(false);
-  const [assistantAddingKey, setAssistantAddingKey] = useState("");
   const [assistantError, setAssistantError] = useState("");
+  const [assistantAddingKey, setAssistantAddingKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [profile, setProfile] = useState(() => readStoredProfile());
   const { width } = useWindowDimensions();
-  const compact = width < 920;
+
+  const compact = width < 980;
+  const phone = width < 680;
 
   const buildingByCode = useMemo(
     () => Object.fromEntries(buildings.map((building) => [building.code, building])),
     [buildings],
   );
 
-  const activeBuilding =
-    buildings.find((building) => building.code === filters.building) || buildings[0];
-
-  const indoorReadyCount = buildings.filter((building) => building.supportedIndoor).length;
-  const activeSectionMeta = sections.find((section) => section.key === activeSection) || sections[0];
   const sortedSchedule = useMemo(
     () =>
       [...schedule].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()),
     [schedule],
   );
-  const nextScheduleItem = sortedSchedule.find((item) => new Date(item.endAt).getTime() >= Date.now()) || sortedSchedule[0];
-  const topRecommendation = recommendations[0];
-  const nearestRecommendation = recommendations.reduce(
-    (nearest, rec) => (!nearest || rec.distanceM < nearest.distanceM ? rec : nearest),
-    null,
-  );
+
+  const nextScheduleItem =
+    sortedSchedule.find((item) => new Date(item.endAt).getTime() >= Date.now()) || sortedSchedule[0];
+  const indoorReadyCount = buildings.filter((building) => building.supportedIndoor).length;
+  const dashboardTasks = useMemo(() => buildDashboardTasks(sortedSchedule), [sortedSchedule]);
+  const dashboardWeekEvents = useMemo(() => buildWeekEvents(sortedSchedule), [sortedSchedule]);
 
   async function loadAll() {
     setError("");
@@ -133,11 +137,15 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    setProfile(readStoredProfile());
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
     function handleAgentSection(event) {
       const section = event.detail?.section;
-      if (sections.some((item) => item.key === section)) {
-        setActiveSection(section);
-      }
+      if (navItems.some((item) => item.key === section)) setActiveSection(section);
     }
 
     window.addEventListener("atlas:dashboard-section", handleAgentSection);
@@ -158,7 +166,7 @@ export default function Dashboard() {
         startAt: new Date(form.startAt).toISOString(),
         endAt: new Date(form.endAt).toISOString(),
       });
-      setForm((current) => ({ ...emptyForm, location: current.location }));
+      setForm((current) => ({ ...defaultForm, location: current.location }));
       setNotice("Schedule item saved.");
       const [scheduleData, recData] = await Promise.all([api.schedule(), api.recommendations()]);
       setSchedule(scheduleData);
@@ -228,9 +236,7 @@ export default function Dashboard() {
         },
       });
       setAssistantResponse(response);
-      if (!response.success) {
-        setAssistantError(response.error || "Assistant returned a fallback response.");
-      }
+      if (!response.success) setAssistantError(response.error || "Assistant returned a fallback response.");
     } catch (err) {
       setAssistantError(err.message);
       setAssistantResponse({
@@ -276,7 +282,7 @@ export default function Dashboard() {
     }
   }
 
-  function renderSection() {
+  function renderMain() {
     if (activeSection === "map") {
       return (
         <View style={styles.mapStage}>
@@ -285,462 +291,839 @@ export default function Dashboard() {
       );
     }
 
-    return (
-      <ScrollView style={styles.contentScroll} contentContainerStyle={styles.contentBody}>
-        <View style={styles.contentHeader}>
-          <View>
-            <Text style={styles.eyebrow}>{activeSectionMeta.kicker}</Text>
-            <Text style={styles.contentTitle}>{activeSectionMeta.label}</Text>
+    if (activeSection === "dashboard") {
+      return (
+        <ScrollView style={styles.scroll} contentContainerStyle={[styles.dashboardBody, phone && styles.dashboardBodyPhone]}>
+          <TopBar compact={compact} />
+          {(notice || error) && (
+            <View style={[styles.notice, error && styles.noticeError]}>
+              <Text style={[styles.noticeText, error && styles.noticeErrorText]}>{error || notice}</Text>
+            </View>
+          )}
+          <View style={[styles.dashboardTopGrid, compact && styles.dashboardTopGridCompact]}>
+            <View style={styles.primaryTopColumn}>
+              <HeroCard
+                item={nextScheduleItem}
+                buildingByCode={buildingByCode}
+                onOpenMap={() => setActiveSection("map")}
+                onDetails={() => setActiveSection("schedule")}
+              />
+              <AssistantCard
+                assistantMode={assistantMode}
+                setAssistantMode={setAssistantMode}
+                assistantMessage={assistantMessage}
+                setAssistantMessage={setAssistantMessage}
+                assistantResponse={assistantResponse}
+                assistantLoading={assistantLoading}
+                assistantError={assistantError}
+                assistantAddingKey={assistantAddingKey}
+                onSubmit={submitDailyAssistant}
+                onAddSchedule={addAssistantScheduleItem}
+                schedule={dashboardTasks}
+                recommendations={recommendations}
+              />
+            </View>
+
+            <View style={styles.sideTopColumn}>
+              <UpcomingCard item={nextScheduleItem} buildingByCode={buildingByCode} onSchedule={() => setActiveSection("schedule")} />
+              <CampusPreview
+                buildings={buildings}
+                recommendations={recommendations}
+                onOpenMap={() => setActiveSection("map")}
+              />
+              <StatsRow
+                buildings={buildings.length}
+                steps={6842}
+                tasks={Math.max(sortedSchedule.length, recommendations.length)}
+                events={Math.max(2, sortedSchedule.length)}
+              />
+            </View>
           </View>
-          {activeSection === "recommendations" ? <ActionButton label="Refresh" onPress={loadAll} /> : null}
-          {activeSection === "sync" ? <ActionButton label="Run sync" onPress={runSync} /> : null}
-        </View>
+          <View style={[styles.dashboardBottomGrid, compact && styles.dashboardBottomGridCompact]}>
+            <TasksCard schedule={dashboardTasks} onDelete={deleteSchedule} style={styles.bottomPanel} />
+            <WeekCard schedule={dashboardWeekEvents} buildingByCode={buildingByCode} style={styles.bottomPanelWide} />
+            <FocusTimer style={styles.bottomPanel} />
+          </View>
+        </ScrollView>
+      );
+    }
 
-        {activeSection === "recommendations" ? (
-          <>
-            <View style={styles.agentHero}>
-              <View style={styles.agentHeroCopy}>
-                <Text style={styles.eyebrow}>Next move</Text>
-                <Text style={styles.agentHeroTitle}>
-                  {topRecommendation?.title || nextScheduleItem?.title || "Your campus day is ready"}
-                </Text>
-                <Text style={styles.agentHeroText}>
-                  {topRecommendation?.description ||
-                    (nextScheduleItem
-                      ? `${nextScheduleItem.moduleCode} at ${buildingByCode[nextScheduleItem.location]?.name || nextScheduleItem.location}`
-                      : "Atlas will surface routes, schedule gaps, and nearby campus support here.")}
-                </Text>
-                <View style={styles.agentActions}>
-                  <ActionButton label="Open map" onPress={() => setActiveSection("map")} primary />
-                  <ActionButton label="Edit plan" onPress={() => setActiveSection("schedule")} />
-                </View>
-              </View>
-              <View style={styles.agentHeroAside}>
-                <Text style={styles.agentAsideValue}>
-                  {nextScheduleItem ? formatTime(nextScheduleItem.startAt) : "Ready"}
-                </Text>
-                <Text style={styles.agentAsideLabel}>
-                  {nextScheduleItem
-                    ? buildingByCode[nextScheduleItem.location]?.name || nextScheduleItem.location
-                    : "No upcoming class"}
-                </Text>
-              </View>
-            </View>
+    return (
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.sectionBody}>
+        <SectionHeader
+          title={sectionTitle(activeSection)}
+          subtitle={sectionSubtitle(activeSection)}
+          action={activeSection === "sync" ? "Run sync" : activeSection === "recommendations" ? "Refresh" : ""}
+          onAction={activeSection === "sync" ? runSync : loadAll}
+        />
+        {(notice || error) && (
+          <View style={[styles.notice, error && styles.noticeError]}>
+            <Text style={[styles.noticeText, error && styles.noticeErrorText]}>{error || notice}</Text>
+          </View>
+        )}
 
-            <View style={[styles.agentMetricGrid, compact && styles.agentMetricGridCompact]}>
-              <MetricTile label="Suggestions" value={recommendations.length} tone="green" />
-              <MetricTile label="Plans" value={schedule.length} tone="blue" />
-              <MetricTile
-                label="Nearest"
-                value={nearestRecommendation ? `${Math.round(nearestRecommendation.distanceM)}m` : "-"}
-                tone="orange"
-              />
-            </View>
+        {activeSection === "recommendations" && (
+          <AssistantFull
+            assistantMode={assistantMode}
+            setAssistantMode={setAssistantMode}
+            assistantMessage={assistantMessage}
+            setAssistantMessage={setAssistantMessage}
+            assistantResponse={assistantResponse}
+            assistantLoading={assistantLoading}
+            assistantError={assistantError}
+            assistantAddingKey={assistantAddingKey}
+            onSubmit={submitDailyAssistant}
+            onAddSchedule={addAssistantScheduleItem}
+            recommendations={recommendations}
+            schedule={sortedSchedule}
+            buildingByCode={buildingByCode}
+          />
+        )}
 
-            <View style={[styles.assistantSurface, compact && styles.assistantSurfaceCompact]}>
-              <View style={[styles.assistantIntro, compact && styles.assistantIntroCompact]}>
-                <Text style={styles.assistantBadge}>Atlas AI</Text>
-                <Text style={styles.assistantTitle}>Daily Assistant</Text>
-                <Text style={styles.assistantIntroText}>
-                  Ask for a practical campus plan using your schedule, nearby recommendations, sync status,
-                  and facility context.
-                </Text>
-                <View style={styles.assistantContextGrid}>
-                  <ContextPill label="Schedule" value={schedule.length} />
-                  <ContextPill label="Signals" value={facilities.length} />
-                </View>
-              </View>
+        {activeSection === "schedule" && (
+          <ScheduleEditor
+            form={form}
+            setForm={setForm}
+            buildings={buildings}
+            schedule={sortedSchedule}
+            buildingByCode={buildingByCode}
+            onSubmit={submitSchedule}
+            onDelete={deleteSchedule}
+          />
+        )}
 
-              <View style={styles.assistantWorkbench}>
-                <View style={styles.assistantModeRow}>
-                  {assistantModes.map((mode) => (
-                    <FilterChip
-                      key={mode.value}
-                      label={mode.label}
-                      selected={assistantMode === mode.value}
-                      onPress={() => setAssistantMode(mode.value)}
-                    />
-                  ))}
-                </View>
-                <View style={styles.assistantPromptGrid}>
-                  {assistantPrompts.map((prompt) => (
-                    <Pressable
-                      key={prompt}
-                      onPress={() => setAssistantMessage(prompt)}
-                      style={styles.promptCard}
-                    >
-                      <Text style={styles.promptText}>{prompt}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-                <View style={[styles.assistantComposer, compact && styles.assistantComposerCompact]}>
-                  <FormInput
-                    multiline
-                    placeholder="Ask Atlas to plan, reflect, or summarise your campus day"
-                    value={assistantMessage}
-                    onChangeText={setAssistantMessage}
-                    style={styles.assistantInput}
-                  />
-                  <ActionButton
-                    label={assistantLoading ? "Thinking" : "Ask Atlas"}
-                    onPress={submitDailyAssistant}
-                    disabled={assistantLoading || !assistantMessage.trim()}
-                    primary
-                  />
-                </View>
-                {assistantResponse ? (
-                  <View style={[styles.assistantResponse, !assistantResponse.success && styles.assistantResponseFallback]}>
-                    <Text style={styles.assistantReply}>{assistantResponse.reply}</Text>
-                    {assistantResponse.scheduleItems?.length ? (
-                      <View style={styles.scheduleDraftList}>
-                        <Text style={styles.scheduleDraftHeading}>Suggested schedule</Text>
-                        {assistantResponse.scheduleItems.map((item, index) => {
-                          const key = `${item.title}-${item.startAt}-${index}`;
-                          return (
-                            <View key={key} style={styles.scheduleDraftCard}>
-                              <View style={styles.cardCopy}>
-                                <Text style={styles.cardTitle}>{item.moduleCode || "TASK"} - {item.title}</Text>
-                                <Text style={styles.cardText}>
-                                  {(buildingByCode[item.location]?.name || item.location || "COM1")} - {formatTime(item.startAt)} to {formatTime(item.endAt)}
-                                </Text>
-                                {item.notes ? <Text style={styles.meta}>{item.notes}</Text> : null}
-                              </View>
-                              <ActionButton
-                                label={assistantAddingKey === key ? "Adding" : "Add"}
-                                onPress={() => addAssistantScheduleItem(item, index)}
-                                disabled={Boolean(assistantAddingKey)}
-                                primary
-                              />
-                            </View>
-                          );
-                        })}
-                      </View>
-                    ) : null}
-                    <Text style={styles.assistantMeta}>
-                      {[assistantResponse.provider, assistantResponse.model].filter(Boolean).join(" / ") ||
-                        "local fallback"}
-                    </Text>
-                  </View>
-                ) : (
-                  <View style={styles.assistantEmptyState}>
-                    <Text style={styles.assistantEmptyText}>Ready to turn today into a focused plan.</Text>
-                  </View>
-                )}
-                {assistantError ? <Text style={styles.errorText}>{assistantError}</Text> : null}
-              </View>
-            </View>
+        {activeSection === "facilities" && (
+          <FacilitiesPanel
+            buildings={buildings}
+            facilities={facilities}
+            filters={filters}
+            setFilters={setFilters}
+          />
+        )}
 
-            <View style={[styles.agentGrid, compact && styles.agentGridCompact]}>
-              <Panel style={styles.agentColumn}>
-                <PanelHeading eyebrow="Priority queue" title="Agent suggestions" />
-                <View style={styles.stack}>
-                  {recommendations.map((rec, index) => (
-                    <View key={`${rec.kind}-${rec.title}`} style={styles.agentQueueItem}>
-                      <View style={styles.queueRank}>
-                        <Text style={styles.queueRankText}>{index + 1}</Text>
-                      </View>
-                      <View style={styles.cardCopy}>
-                        <View style={styles.queueTitleRow}>
-                          <Text style={styles.cardTitle}>{rec.title}</Text>
-                          <Text style={styles.kindPill}>{rec.kind}</Text>
-                        </View>
-                        <Text style={styles.cardText}>{rec.description}</Text>
-                      </View>
-                      <Text style={styles.distance}>{Math.round(rec.distanceM)} m</Text>
-                    </View>
-                  ))}
-                  {!recommendations.length ? (
-                    <Text style={styles.cardText}>No recommendations yet. Refresh after adding schedule context.</Text>
-                  ) : null}
-                </View>
-              </Panel>
+        {activeSection === "sync" && (
+          <SettingsPanel
+            health={health}
+            loading={loading}
+            syncStatus={syncStatus}
+            buildings={buildings}
+            indoorReadyCount={indoorReadyCount}
+            facilities={facilities}
+          />
+        )}
 
-              <Panel style={styles.agentColumn}>
-                <PanelHeading eyebrow="Today" title="Timeline" />
-                <View style={styles.timeline}>
-                  {sortedSchedule.map((item) => (
-                    <View key={item.id} style={styles.timelineItem}>
-                      <View style={styles.timelineRail}>
-                        <View style={styles.timelineDot} />
-                      </View>
-                      <View style={styles.cardCopy}>
-                        <Text style={styles.cardTitle}>{item.moduleCode} - {item.title}</Text>
-                        <Text style={styles.cardText}>{buildingByCode[item.location]?.name || item.location}</Text>
-                        <Text style={styles.meta}>{formatTime(item.startAt)} to {formatTime(item.endAt)}</Text>
-                      </View>
-                    </View>
-                  ))}
-                  {!sortedSchedule.length ? (
-                    <Text style={styles.cardText}>No scheduled items yet. Add one in Schedule to unlock richer guidance.</Text>
-                  ) : null}
-                </View>
-              </Panel>
-            </View>
-
-            <Panel>
-              <PanelHeading eyebrow="Campus signal" title="Context used by Atlas" />
-              <View style={styles.signalGrid}>
-                <SignalRow label="Supported buildings" value={buildings.length} />
-                <SignalRow label="Indoor-ready buildings" value={indoorReadyCount} />
-                <SignalRow label="Facility matches" value={facilities.length} />
-                <SignalRow label="NUSMods sync" value={syncStatus?.status || "never_run"} />
-              </View>
-            </Panel>
-          </>
-        ) : null}
-
-        {activeSection === "facilities" ? (
-          <Panel>
-            <PanelHeading eyebrow="Map context" title={activeBuilding?.code || "Campus"} />
-            <Text style={styles.cardText}>
-              {activeBuilding?.name || "Select a building filter to focus campus facilities."}
-            </Text>
-            <View style={styles.filterBlock}>
-              <View style={styles.chipRow}>
-                <FilterChip
-                  label="All buildings"
-                  selected={!filters.building}
-                  onPress={() => setFilters((current) => ({ ...current, building: "" }))}
-                />
-                {buildings.map((building) => (
-                  <FilterChip
-                    key={building.code}
-                    label={building.code}
-                    selected={filters.building === building.code}
-                    onPress={() => setFilters((current) => ({ ...current, building: building.code }))}
-                  />
-                ))}
-              </View>
-              <View style={styles.chipRow}>
-                {facilityTypes.map((type) => (
-                  <FilterChip
-                    key={type.value}
-                    label={type.label}
-                    selected={filters.type === type.value}
-                    onPress={() => setFilters((current) => ({ ...current, type: type.value }))}
-                  />
-                ))}
-              </View>
-            </View>
-            <View style={styles.stack}>
-              {facilities.map((facility) => (
-                <View key={facility.id} style={styles.compactCard}>
-                  <View style={styles.cardCopy}>
-                    <Text style={styles.cardTitle}>{facility.name}</Text>
-                    <Text style={styles.cardText}>{facility.description}</Text>
-                  </View>
-                  <View style={styles.metaColumn}>
-                    <Text style={styles.meta}>{facility.buildingCode} L{facility.floor}</Text>
-                    <Text style={styles.meta}>{facility.crowdLevel}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </Panel>
-        ) : null}
-
-        {activeSection === "schedule" ? (
-          <Panel>
-            <PanelHeading eyebrow="Schedule API" title="Student day plan" />
-            <View style={styles.form}>
-              <FormInput
-                placeholder="Title"
-                value={form.title}
-                onChangeText={(title) => setForm((current) => ({ ...current, title }))}
-              />
-              <FormInput
-                placeholder="Module code"
-                value={form.moduleCode}
-                onChangeText={(moduleCode) => setForm((current) => ({ ...current, moduleCode }))}
-              />
-              <View style={styles.chipRow}>
-                {buildings.map((building) => (
-                  <FilterChip
-                    key={building.code}
-                    label={building.code}
-                    selected={form.location === building.code}
-                    onPress={() => setForm((current) => ({ ...current, location: building.code }))}
-                  />
-                ))}
-              </View>
-              <FormInput
-                placeholder="Start 2026-05-15T09:00"
-                value={form.startAt}
-                onChangeText={(startAt) => setForm((current) => ({ ...current, startAt }))}
-              />
-              <FormInput
-                placeholder="End 2026-05-15T10:00"
-                value={form.endAt}
-                onChangeText={(endAt) => setForm((current) => ({ ...current, endAt }))}
-              />
-              <FormInput
-                multiline
-                placeholder="Notes"
-                value={form.notes}
-                onChangeText={(notes) => setForm((current) => ({ ...current, notes }))}
-                style={styles.notesInput}
-              />
-              <ActionButton label="Save schedule" onPress={submitSchedule} primary />
-            </View>
-            <View style={styles.stack}>
-              {schedule.map((item) => (
-                <View key={item.id} style={styles.compactCard}>
-                  <View style={styles.cardCopy}>
-                    <Text style={styles.cardTitle}>{item.moduleCode} - {item.title}</Text>
-                    <Text style={styles.cardText}>{buildingByCode[item.location]?.name || item.location}</Text>
-                    <Text style={styles.meta}>{formatTime(item.startAt)} to {formatTime(item.endAt)}</Text>
-                  </View>
-                  <Pressable onPress={() => deleteSchedule(item.id)} style={styles.deleteButton}>
-                    <Text style={styles.deleteLabel}>x</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          </Panel>
-        ) : null}
-
-        {activeSection === "sync" ? (
-          <Panel>
-            <PanelHeading eyebrow="External API" title="NUSMods sync" />
-            <View style={styles.syncList}>
-              <SyncRow label="Status" value={syncStatus?.status || "never_run"} />
-              <SyncRow label="Records seen" value={syncStatus?.recordsSeen ?? 0} />
-              <SyncRow label="Last finished" value={syncStatus?.finishedAt ? formatTime(syncStatus.finishedAt) : "Not yet"} />
-            </View>
-            {syncStatus?.errorMessage ? <Text style={styles.errorText}>{syncStatus.errorMessage}</Text> : null}
-          </Panel>
-        ) : null}
+        {["inbox", "tasks", "resources", "clubs"].includes(activeSection) && (
+          <PlaceholderPanel
+            title={sectionTitle(activeSection)}
+            schedule={sortedSchedule}
+            recommendations={recommendations}
+            onOpenAssistant={() => setActiveSection("recommendations")}
+          />
+        )}
       </ScrollView>
     );
   }
 
   return (
     <View style={[styles.shell, compact && styles.shellCompact]}>
-      <View style={[styles.sidebar, compact && styles.sidebarCompact]}>
-        <View style={styles.brandBlock}>
-          <Text style={[styles.eyebrow, styles.brandEyebrow]}>Orbital Artemis</Text>
-          <Text style={styles.pageTitle}>Atlas Dashboard</Text>
-          <View style={[styles.apiPill, health && styles.apiPillOnline]}>
-            <View style={[styles.statusDot, health && styles.statusDotOnline]} />
-            <Text style={styles.apiLabel}>{health ? "API online" : loading ? "Checking API" : "API offline"}</Text>
-          </View>
-        </View>
-
-        {notice || error ? (
-          <View style={[styles.notice, error && styles.noticeError]}>
-            <Text style={[styles.noticeText, error && styles.noticeErrorText]}>{error || notice}</Text>
-          </View>
-        ) : null}
-
-        <StatusStrip
-          items={[
-            { label: "Buildings", value: buildings.length },
-            { label: "Indoor", value: indoorReadyCount },
-            { label: "Plans", value: schedule.length },
-          ]}
-        />
-
-        <View style={styles.navList}>
-          {sections.map((section) => (
-            <Pressable
-              key={section.key}
-              onPress={() => setActiveSection(section.key)}
-              style={[styles.navItem, activeSection === section.key && styles.navItemActive]}
-            >
-              <Text style={[styles.navMarker, activeSection === section.key && styles.navMarkerActive]}>
-                {section.marker}
-              </Text>
-              <View style={styles.navText}>
-                <Text style={[styles.navLabel, activeSection === section.key && styles.navLabelActive]}>
-                  {section.label}
-                </Text>
-                <Text style={[styles.navKicker, activeSection === section.key && styles.navKickerActive]}>
-                  {section.kicker}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.mainStage}>{renderSection()}</View>
+      <Sidebar
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        health={health}
+        loading={loading}
+        schedule={schedule}
+        profile={profile}
+        compact={compact}
+      />
+      <View style={styles.main}>{renderMain()}</View>
     </View>
   );
 }
 
-function StatusStrip({ items }) {
+function Sidebar({ activeSection, setActiveSection, health, loading, schedule, profile, compact }) {
+  const initials = initialsFromProfile(profile);
+  const meta = profile.email || (profile.provider === "demo" ? "Demo mode" : "Signed in");
+
   return (
-    <View style={styles.statusStrip}>
-      {items.map((item) => (
-        <View key={item.label} style={styles.statusItem}>
-          <Text style={styles.statusValue}>{item.value}</Text>
-          <Text style={styles.statusLabel}>{item.label}</Text>
+    <View style={[styles.sidebar, compact && styles.sidebarCompact]}>
+      <View style={styles.brand}>
+        <View style={styles.logoMark}>
+          <Image source={{ uri: teamLogo }} style={styles.logoImage} resizeMode="cover" />
+        </View>
+        <View>
+          <Text style={styles.brandName}>Artemis</Text>
+          <Text style={styles.brandSub}>Campus navigation</Text>
+        </View>
+      </View>
+
+      <View style={styles.navList}>
+        {navItems.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={() => setActiveSection(item.key)}
+            style={[styles.navItem, activeSection === item.key && styles.navItemActive]}
+          >
+            <View style={[styles.navIcon, activeSection === item.key && styles.navIconActive]}>
+              <SidebarIcon name={item.icon} active={activeSection === item.key} />
+            </View>
+            <Text style={[styles.navLabel, activeSection === item.key && styles.navLabelActive]}>{item.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.profileCard}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+        <View style={styles.profileCopy}>
+          <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
+          <Text style={styles.profileMeta} numberOfLines={1}>{meta}</Text>
+        </View>
+        <Text style={styles.profileChevron}>v</Text>
+      </View>
+
+      <View style={styles.statusCard}>
+        <Text style={styles.statusTitle}>NUS Status</Text>
+        <View style={styles.statusLine}>
+          <View style={[styles.statusDot, health && styles.statusDotOnline]} />
+          <Text style={styles.statusText}>{health ? "All Systems Normal" : loading ? "Checking API" : "API Offline"}</Text>
+        </View>
+        <View style={styles.statusSketch}>
+          <View style={styles.sketchBuildingTall} />
+          <View style={styles.sketchBuilding} />
+          <View style={styles.sketchRoad} />
+        </View>
+      <Text style={styles.statusSmall}>{`${schedule.length} plan items loaded`}</Text>
+      </View>
+    </View>
+  );
+}
+
+function SidebarIcon({ name, active }) {
+  const stroke = active ? "#f0c986" : "rgba(255, 248, 226, 0.54)";
+  const fill = active ? "rgba(240, 201, 134, 0.16)" : "rgba(255, 248, 226, 0.04)";
+  const common = {
+    fill: "none",
+    stroke,
+    strokeWidth: 1.9,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+  };
+
+  return (
+    <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24">
+      {name === "home" && (
+        <>
+          <path {...common} d="M4.5 11.5 12 5l7.5 6.5" />
+          <path {...common} d="M7 10.5V19h10v-8.5" />
+          <path {...common} d="M10 19v-5h4v5" />
+        </>
+      )}
+      {name === "route" && (
+        <>
+          <circle cx="6.5" cy="17.5" r="2.2" fill={fill} stroke={stroke} strokeWidth="1.7" />
+          <circle cx="17.5" cy="6.5" r="2.2" fill={fill} stroke={stroke} strokeWidth="1.7" />
+          <path {...common} d="M8.4 16.2c3.7-2 1.8-6.3 5.4-8.2" />
+        </>
+      )}
+      {name === "spark" && (
+        <>
+          <path {...common} d="M12 4.5l1.5 5 5 1.5-5 1.5-1.5 5-1.5-5-5-1.5 5-1.5z" />
+          <path {...common} d="M18.5 16.5l1.2 2.2 2.1 1.1-2.1 1.1-1.2 2.1-1.1-2.1-2.2-1.1 2.2-1.1z" />
+        </>
+      )}
+      {name === "calendar" && (
+        <>
+          <rect x="5" y="6.5" width="14" height="13" rx="2.4" fill={fill} stroke={stroke} strokeWidth="1.7" />
+          <path {...common} d="M8 4.5v4M16 4.5v4M5.5 10.5h13" />
+        </>
+      )}
+      {name === "building" && (
+        <>
+          <path {...common} d="M6.5 19.5v-13h7v13" />
+          <path {...common} d="M13.5 10h4v9.5" />
+          <path {...common} d="M9 9h2M9 12.5h2M9 16h2" />
+        </>
+      )}
+      {name === "inbox" && (
+        <>
+          <path {...common} d="M5 7h14l-2 10H7z" />
+          <path {...common} d="M8.5 13h2.2l1.3 2 1.3-2h2.2" />
+        </>
+      )}
+      {name === "check" && (
+        <>
+          <rect x="5.5" y="5.5" width="13" height="13" rx="3" fill={fill} stroke={stroke} strokeWidth="1.7" />
+          <path {...common} d="m8.8 12.2 2.2 2.2 4.4-5" />
+        </>
+      )}
+      {name === "book" && (
+        <>
+          <path {...common} d="M6 5.5h7a3 3 0 0 1 3 3v10h-7a3 3 0 0 0-3 3z" />
+          <path {...common} d="M16 8.5h2.5v10H16" />
+        </>
+      )}
+      {name === "people" && (
+        <>
+          <circle cx="9" cy="9" r="2.6" fill={fill} stroke={stroke} strokeWidth="1.7" />
+          <path {...common} d="M4.8 18c.6-2.8 2.1-4.2 4.2-4.2s3.6 1.4 4.2 4.2" />
+          <path {...common} d="M15 8.2c1.7.2 2.8 1.3 2.8 2.8 0 1.2-.6 2.1-1.6 2.6M17 14.5c1.4.6 2.2 1.8 2.5 3.5" />
+        </>
+      )}
+      {name === "settings" && (
+        <>
+          <circle cx="12" cy="12" r="2.7" fill={fill} stroke={stroke} strokeWidth="1.7" />
+          <path {...common} d="M12 4.8v2M12 17.2v2M4.8 12h2M17.2 12h2M6.9 6.9l1.4 1.4M15.7 15.7l1.4 1.4M17.1 6.9l-1.4 1.4M8.3 15.7l-1.4 1.4" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function TopBar({ compact }) {
+  const profile = readStoredProfile();
+  const firstName = profile.name.split(" ")[0] || "there";
+
+  return (
+    <View style={[styles.topBar, compact && styles.topBarCompact]}>
+      <View style={styles.greeting}>
+        <Text style={styles.sunGlyph}>*</Text>
+        <View>
+          <Text style={styles.greetingTitle}>Good morning, {firstName}</Text>
+          <Text style={styles.greetingText}>Have a productive day at NUS!</Text>
+        </View>
+      </View>
+      <View style={styles.searchBox}>
+        <Text style={styles.searchIcon}>Q</Text>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search buildings, places, events..."
+          placeholderTextColor="#8a8580"
+        />
+        <Text style={styles.shortcut}>K</Text>
+      </View>
+      <View style={styles.topActions}>
+        <SquareButton label="Bell" />
+        <SquareButton label="Cal" />
+        <SquareButton label="Ask AI" dark />
+      </View>
+    </View>
+  );
+}
+
+function readStoredProfile() {
+  if (typeof window === "undefined") return fallbackProfile;
+
+  const stored = safeParseJSON(window.localStorage.getItem("atlas_user"));
+  if (stored && (stored.name || stored.email)) {
+    return normalizeProfile(stored);
+  }
+
+  const token = window.localStorage.getItem("token") || "";
+  if (token === "demo-mode") {
+    return { ...fallbackProfile, name: "Demo Student" };
+  }
+
+  const tokenProfile = readJwtPayload(token);
+  return normalizeProfile(tokenProfile || fallbackProfile);
+}
+
+function normalizeProfile(profile) {
+  const email = typeof profile.email === "string" ? profile.email : "";
+  const name =
+    typeof profile.name === "string" && profile.name.trim()
+      ? profile.name.trim()
+      : displayNameFromEmail(email);
+
+  return {
+    email,
+    name,
+    picture: typeof profile.picture === "string" ? profile.picture : "",
+    provider: typeof profile.provider === "string" ? profile.provider : profile.auth_provider || "",
+  };
+}
+
+function safeParseJSON(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readJwtPayload(token) {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decoded = window.atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+function displayNameFromEmail(email) {
+  const localPart = (email || "").split("@")[0] || "Atlas User";
+  return localPart
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ") || "Atlas User";
+}
+
+function initialsFromProfile(profile) {
+  const source = profile.name || profile.email || "Atlas User";
+  const parts = source.replace(/@.*$/, "").replace(/[._-]+/g, " ").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function HeroCard({ item, buildingByCode, onOpenMap, onDetails }) {
+  return (
+    <View style={styles.heroCard}>
+      <View style={styles.heroCopy}>
+        <Text style={styles.goldKicker}>NEXT UP</Text>
+        <Text style={styles.heroTitle}>{item?.title || "CS2103 Project Meeting"}</Text>
+        <Text style={styles.heroMeta}>{item ? `Today, ${timeRange(item)}` : "Today, 1:00 PM - 2:30 PM"}</Text>
+        <Text style={styles.heroMeta}>{item ? buildingByCode[item.location]?.name || item.location : "COM1-0203"}</Text>
+        <View style={styles.heroActions}>
+          <Pressable onPress={onOpenMap} style={styles.goldButton}>
+            <Text style={styles.goldButtonText}>Open in AR Map</Text>
+          </Pressable>
+          <Pressable onPress={onDetails} style={styles.outlineDarkButton}>
+            <Text style={styles.outlineDarkButtonText}>View Details</Text>
+          </Pressable>
+        </View>
+      </View>
+      <CampusLineArt dark />
+    </View>
+  );
+}
+
+function UpcomingCard({ item, buildingByCode, onSchedule }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.headerInline}>
+          <Text style={styles.cardKicker}>UP NEXT</Text>
+          <Text style={styles.pillMuted}>in 2h 15m</Text>
+        </View>
+        <Text style={styles.moreText}>...</Text>
+      </View>
+      <View style={styles.eventBox}>
+        <View style={styles.dateTile}>
+          <Text style={styles.dateMonth}>MAY</Text>
+          <Text style={styles.dateDay}>22</Text>
+        </View>
+        <View style={styles.eventCopy}>
+          <Text style={styles.eventTitle}>{item?.title || "CS2103 Project Meeting"}</Text>
+          <Text style={styles.smallMeta}>{item ? timeRange(item) : "1:00 PM - 2:30 PM"}</Text>
+          <Text style={styles.smallMeta}>{item ? buildingByCode[item.location]?.name || item.location : "COM1-0203"}</Text>
+        </View>
+      </View>
+      <Pressable onPress={onSchedule} style={styles.linkButton}>
+        <Text style={styles.linkText}>{"View schedule ->"}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function AssistantCard(props) {
+  const previewTasks = props.schedule.slice(0, 3);
+
+  return (
+    <View style={styles.assistantCard}>
+      <View style={styles.assistantHeader}>
+        <View style={styles.assistantSpark}>
+          <Text style={styles.assistantSparkText}>*</Text>
+        </View>
+        <View>
+          <Text style={styles.assistantTitle}>Daily Assistant</Text>
+          <Text style={styles.assistantSubtitle}>Your AI companion for campus life</Text>
+        </View>
+      </View>
+      <View style={styles.chipRow}>
+        {assistantModes.map((mode) => (
+          <FilterChip
+            key={mode.value}
+            label={mode.label}
+            selected={props.assistantMode === mode.value}
+            onPress={() => props.setAssistantMode(mode.value)}
+          />
+        ))}
+      </View>
+      <View style={styles.assistantContent}>
+        <View style={styles.assistantChat}>
+          <View style={styles.assistantBubble}>
+            <Text style={styles.assistantBubbleText}>Hi Qichen! Here's your plan for today.</Text>
+            {(previewTasks.length ? previewTasks : sampleTasks()).map((task, index) => (
+              <View key={`${task.title}-${index}`} style={styles.checkItem}>
+                <View style={styles.checkBox} />
+                <Text style={styles.checkLine}>{task.title || task}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.inputRow}>
+            <TextInput
+              value={props.assistantMessage}
+              onChangeText={props.setAssistantMessage}
+              placeholder="Ask me anything..."
+              placeholderTextColor="#9a958e"
+              style={styles.askInput}
+            />
+            <Pressable
+              disabled={props.assistantLoading}
+              onPress={props.onSubmit}
+              style={[styles.sendButton, props.assistantLoading && styles.disabled]}
+            >
+              <Text style={styles.sendButtonText}>{props.assistantLoading ? "..." : ">"}</Text>
+            </Pressable>
+          </View>
+          {props.assistantResponse && (
+            <View style={styles.responseBox}>
+              <Text style={styles.responseText}>{props.assistantResponse.reply}</Text>
+              {(props.assistantResponse.scheduleItems || []).map((item, index) => {
+                const key = `${item.title}-${item.startAt}-${index}`;
+                return (
+                  <Pressable
+                    key={key}
+                    disabled={Boolean(props.assistantAddingKey)}
+                    onPress={() => props.onAddSchedule(item, index)}
+                    style={styles.miniAddButton}
+                  >
+                    <Text style={styles.miniAddText}>{props.assistantAddingKey === key ? "Adding" : `Add ${item.title}`}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+          {props.assistantError ? <Text style={styles.errorText}>{props.assistantError}</Text> : null}
+        </View>
+        <View style={styles.suggestedBox}>
+          <Text style={styles.suggestedTitle}>Suggested for you</Text>
+          {(props.recommendations.length ? props.recommendations : sampleRecommendations()).slice(0, 3).map((rec) => (
+            <View key={`${rec.kind}-${rec.title}`} style={styles.suggestionItem}>
+              <Text style={styles.suggestionIcon}>•</Text>
+              <View style={styles.suggestionCopy}>
+                <Text style={styles.suggestionTitle}>{rec.title}</Text>
+                <Text style={styles.suggestionText}>{rec.description}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function CampusPreview({ buildings, recommendations, onOpenMap }) {
+  return (
+    <View style={styles.mapCard}>
+      <View style={styles.mapHeader}>
+        <Text style={styles.mapTitle}>Campus Map (AR)</Text>
+        <Pressable onPress={onOpenMap} style={styles.darkMiniButton}>
+          <Text style={styles.darkMiniButtonText}>Open AR Map</Text>
+        </Pressable>
+      </View>
+      <View style={styles.mapIllustration}>
+        <View style={styles.mapRoadMain} />
+        <View style={styles.mapRoadNorth} />
+        <View style={styles.mapRoadSouth} />
+        <View style={styles.mapRoute} />
+        <View style={[styles.campusBlock, styles.campusBlockCom]} />
+        <View style={[styles.campusBlock, styles.campusBlockLibrary]} />
+        <View style={[styles.campusBlock, styles.campusBlockUtown]} />
+        <View style={[styles.campusBlock, styles.campusBlockFood]} />
+        <View style={styles.mapTransitHub} />
+        <View style={styles.mapPinMain}>
+          <View style={styles.mapPinDot} />
+        </View>
+        <View style={[styles.smallMapPin, styles.smallMapPinLibrary]} />
+        <View style={[styles.smallMapPin, styles.smallMapPinUtown]} />
+        <Text style={[styles.mapLabel, styles.mapLabelCom]}>COM1</Text>
+        <Text style={[styles.mapLabel, styles.mapLabelLibrary]}>Central Library</Text>
+        <Text style={[styles.mapLabel, styles.mapLabelUtown]}>UTown</Text>
+        <Text style={[styles.mapLabel, styles.mapLabelFood]}>Food & Study</Text>
+      </View>
+      <Text style={styles.mapMeta}>{`${buildings.length || 3} buildings tracked, ${recommendations.length || 2} live suggestions`}</Text>
+    </View>
+  );
+}
+
+function StatsRow({ buildings, steps, tasks, events }) {
+  return (
+    <View style={styles.statsRow}>
+      <StatTile value={buildings || 3} label="Buildings" sub="Visited today" />
+      <StatTile value={steps.toLocaleString()} label="Steps" sub="Today" />
+      <StatTile value={tasks || 4} label="Tasks" sub="Remaining" />
+      <StatTile value={events || 2} label="Events" sub="This week" />
+    </View>
+  );
+}
+
+function StatTile({ value, label, sub }) {
+  return (
+    <View style={styles.statTile}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statSub}>{sub}</Text>
+    </View>
+  );
+}
+
+function TasksCard({ schedule, onDelete, style }) {
+  const items = schedule.slice(0, 3);
+
+  return (
+    <View style={[styles.card, style]}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.sectionCardTitle}>Tasks</Text>
+        <Text style={styles.linkTiny}>{"View all tasks ->"}</Text>
+      </View>
+      {items.map((item, index) => (
+        <View key={item.id || index} style={styles.taskRow}>
+          <View style={styles.checkbox} />
+          <Text style={styles.taskTitle}>{item.moduleCode ? `${item.moduleCode} ${item.title}` : item.title}</Text>
+          {item.synthetic ? (
+            <Text style={styles.taskDue}>{index === 0 ? "Today" : "May 24"}</Text>
+          ) : (
+            <Pressable onPress={() => onDelete(item.id)} style={styles.deleteMini}>
+              <Text style={styles.deleteMiniText}>x</Text>
+            </Pressable>
+          )}
         </View>
       ))}
     </View>
   );
 }
 
-function MetricTile({ label, value, tone }) {
-  return (
-    <View style={[styles.metricTile, styles[`metricTile${capitalize(tone)}`]]}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
-  );
-}
+function WeekCard({ schedule, buildingByCode, style }) {
+  const days = ["MON\n20", "TUE\n21", "WED\n22", "THU\n23", "FRI\n24", "SAT\n25", "SUN\n26"];
 
-function ContextPill({ label, value }) {
   return (
-    <View style={styles.contextPill}>
-      <Text style={styles.contextValue}>{value}</Text>
-      <Text style={styles.contextLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function SignalRow({ label, value }) {
-  return (
-    <View style={styles.signalRow}>
-      <Text style={styles.cardText}>{label}</Text>
-      <Text style={styles.cardTitle}>{value}</Text>
-    </View>
-  );
-}
-
-function Panel({ children, style }) {
-  return <View style={[styles.panel, style]}>{children}</View>;
-}
-
-function PanelHeading({ eyebrow, title, children }) {
-  return (
-    <View style={styles.panelHeading}>
-      <View style={styles.headingBlock}>
-        <Text style={styles.eyebrow}>{eyebrow}</Text>
-        <Text style={styles.panelTitle}>{title}</Text>
+    <View style={[styles.card, style]}>
+      <Text style={styles.sectionCardTitle}>Week at a glance</Text>
+      <View style={styles.weekDays}>
+        {days.map((day) => (
+          <View key={day} style={[styles.dayCell, day.includes("WED") && styles.dayCellActive]}>
+            <Text style={[styles.dayText, day.includes("WED") && styles.dayTextActive]}>{day}</Text>
+          </View>
+        ))}
       </View>
-      {children}
+      {schedule.slice(0, 2).map((item) => (
+        <View key={item.id} style={styles.weekEvent}>
+          <View style={styles.eventAccent} />
+          <View style={styles.eventCopy}>
+            <Text style={styles.eventTitle}>{item.moduleCode || "TASK"} {item.title}</Text>
+            <Text style={styles.smallMeta}>{buildingByCode[item.location]?.name || item.location || "COM1-0203"}</Text>
+          </View>
+          <Text style={styles.smallMeta}>{item.startAt ? timeRange(item) : "1:00 PM - 2:30 PM"}</Text>
+        </View>
+      ))}
     </View>
   );
 }
 
-function ActionButton({ label, onPress, primary = false, disabled = false }) {
+function FocusTimer({ style }) {
   return (
-    <Pressable
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.actionButton, primary && styles.actionButtonPrimary, disabled && styles.actionButtonDisabled]}
-    >
-      <Text
-        style={[
-          styles.actionLabel,
-          primary && styles.actionLabelPrimary,
-          disabled && styles.actionLabelDisabled,
-        ]}
-      >
-        {label}
+    <View style={[styles.focusCard, style]}>
+      <Text style={styles.sectionCardTitle}>Focus Timer</Text>
+      <View style={styles.focusBody}>
+        <View style={styles.timerRing}>
+          <Text style={styles.timerText}>25:00</Text>
+          <View style={styles.timerStart}>
+            <Text style={styles.timerStartText}>Start</Text>
+          </View>
+        </View>
+        <View style={styles.focusCopy}>
+          <Text style={styles.focusTitle}>Let's focus!</Text>
+          <Text style={styles.focusText}>You've got this.</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function AssistantFull(props) {
+  return (
+    <View style={styles.twoColumnPanel}>
+      <AssistantCard {...props} />
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Priority Queue</Text>
+        {(props.recommendations.length ? props.recommendations : sampleRecommendations()).map((rec, index) => (
+          <View key={`${rec.kind}-${rec.title}`} style={styles.queueItem}>
+            <Text style={styles.queueRank}>{index + 1}</Text>
+            <View style={styles.eventCopy}>
+              <Text style={styles.eventTitle}>{rec.title}</Text>
+              <Text style={styles.smallMeta}>{rec.description}</Text>
+            </View>
+            <Text style={styles.distanceText}>{`${Math.round(rec.distanceM || 180)}m`}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ScheduleEditor({ form, setForm, buildings, schedule, buildingByCode, onSubmit, onDelete }) {
+  return (
+    <View style={styles.twoColumnPanel}>
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Add Schedule Item</Text>
+        <View style={styles.form}>
+          <FormInput placeholder="Title" value={form.title} onChangeText={(title) => setForm((current) => ({ ...current, title }))} />
+          <FormInput placeholder="Module code" value={form.moduleCode} onChangeText={(moduleCode) => setForm((current) => ({ ...current, moduleCode }))} />
+          <View style={styles.chipRow}>
+            {buildings.map((building) => (
+              <FilterChip
+                key={building.code}
+                label={building.code}
+                selected={form.location === building.code}
+                onPress={() => setForm((current) => ({ ...current, location: building.code }))}
+              />
+            ))}
+          </View>
+          <FormInput placeholder="Start 2026-05-22T13:00" value={form.startAt} onChangeText={(startAt) => setForm((current) => ({ ...current, startAt }))} />
+          <FormInput placeholder="End 2026-05-22T14:30" value={form.endAt} onChangeText={(endAt) => setForm((current) => ({ ...current, endAt }))} />
+          <FormInput multiline placeholder="Notes" value={form.notes} onChangeText={(notes) => setForm((current) => ({ ...current, notes }))} style={styles.notesInput} />
+          <Pressable onPress={onSubmit} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Save schedule</Text>
+          </Pressable>
+        </View>
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Today</Text>
+        {schedule.map((item) => (
+          <View key={item.id} style={styles.scheduleRow}>
+            <View style={styles.eventCopy}>
+              <Text style={styles.eventTitle}>{item.moduleCode} {item.title}</Text>
+              <Text style={styles.smallMeta}>{`${buildingByCode[item.location]?.name || item.location} | ${timeRange(item)}`}</Text>
+            </View>
+            <Pressable onPress={() => onDelete(item.id)} style={styles.deleteMini}>
+              <Text style={styles.deleteMiniText}>x</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function FacilitiesPanel({ buildings, facilities, filters, setFilters }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionCardTitle}>Campus Facilities</Text>
+      <View style={styles.chipRow}>
+        <FilterChip label="All buildings" selected={!filters.building} onPress={() => setFilters((current) => ({ ...current, building: "" }))} />
+        {buildings.map((building) => (
+          <FilterChip
+            key={building.code}
+            label={building.code}
+            selected={filters.building === building.code}
+            onPress={() => setFilters((current) => ({ ...current, building: building.code }))}
+          />
+        ))}
+      </View>
+      <View style={styles.chipRow}>
+        {facilityTypes.map((type) => (
+          <FilterChip
+            key={type.value}
+            label={type.label}
+            selected={filters.type === type.value}
+            onPress={() => setFilters((current) => ({ ...current, type: type.value }))}
+          />
+        ))}
+      </View>
+      {facilities.map((facility) => (
+        <View key={facility.id} style={styles.scheduleRow}>
+          <View style={styles.eventCopy}>
+            <Text style={styles.eventTitle}>{facility.name}</Text>
+            <Text style={styles.smallMeta}>{facility.description}</Text>
+          </View>
+          <Text style={styles.distanceText}>{`${facility.buildingCode} L${facility.floor}`}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function SettingsPanel({ health, loading, syncStatus, buildings, indoorReadyCount, facilities }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionCardTitle}>System Settings</Text>
+      <InfoRow label="API" value={health ? "online" : loading ? "checking" : "offline"} />
+      <InfoRow label="NUSMods sync" value={syncStatus?.status || "never_run"} />
+      <InfoRow label="Records seen" value={syncStatus?.recordsSeen ?? 0} />
+      <InfoRow label="Buildings" value={buildings.length} />
+      <InfoRow label="Indoor ready" value={indoorReadyCount} />
+      <InfoRow label="Facility matches" value={facilities.length} />
+      {syncStatus?.errorMessage ? <Text style={styles.errorText}>{syncStatus.errorMessage}</Text> : null}
+    </View>
+  );
+}
+
+function PlaceholderPanel({ title, schedule, recommendations, onOpenAssistant }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionCardTitle}>{title}</Text>
+      <Text style={styles.bodyText}>
+        {`This workspace is connected to the same campus signals as the dashboard: ${schedule.length} schedule items and ${recommendations.length} assistant suggestions.`}
       </Text>
-    </Pressable>
+      <Pressable onPress={onOpenAssistant} style={styles.primaryButton}>
+        <Text style={styles.primaryButtonText}>Open Daily Assistant</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function SectionHeader({ title, subtitle, action, onAction }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View>
+        <Text style={styles.pageKicker}>Artemis</Text>
+        <Text style={styles.pageTitle}>{title}</Text>
+        <Text style={styles.pageSubtitle}>{subtitle}</Text>
+      </View>
+      {action ? (
+        <Pressable onPress={onAction} style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>{action}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.bodyText}>{label}</Text>
+      <Text style={styles.eventTitle}>{value}</Text>
+    </View>
+  );
+}
+
+function CampusLineArt({ dark = false }) {
+  return (
+    <View style={[styles.lineArt, dark && styles.lineArtDark]}>
+      <View style={[styles.blockTower, dark && styles.blockDark]} />
+      <View style={[styles.blockLow, dark && styles.blockDark]} />
+      <View style={[styles.blockWide, dark && styles.blockDark]} />
+      <View style={[styles.routeLine, dark && styles.routeLineDark]} />
+      <View style={[styles.pin, dark && styles.pinDark]}>
+        <View style={styles.pinInner} />
+      </View>
+    </View>
+  );
+}
+
+function SquareButton({ label, dark }) {
+  return (
+    <View style={[styles.squareButton, dark && styles.squareButtonDark]}>
+      <Text style={[styles.squareButtonText, dark && styles.squareButtonTextDark]}>{label}</Text>
+    </View>
   );
 }
 
@@ -753,29 +1136,86 @@ function FilterChip({ label, selected, onPress }) {
 }
 
 function FormInput({ style, ...props }) {
-  return <TextInput placeholderTextColor="#748179" style={[styles.input, style]} {...props} />;
+  return <TextInput placeholderTextColor="#8a8580" style={[styles.formInput, style]} {...props} />;
 }
 
-function SyncRow({ label, value }) {
-  return (
-    <View style={styles.syncRow}>
-      <Text style={styles.cardText}>{label}</Text>
-      <Text style={styles.cardTitle}>{value}</Text>
-    </View>
-  );
-}
-
-function formatTime(value) {
+function formatClock(value) {
   return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
   }).format(new Date(value));
 }
 
-function capitalize(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function timeRange(item) {
+  return `${formatClock(item.startAt)} - ${formatClock(item.endAt)}`;
+}
+
+function buildDashboardTasks(schedule) {
+  if (schedule.length >= 3) return schedule.slice(0, 3);
+
+  const seed = schedule[0];
+  const items = seed
+    ? [
+        { ...seed, title: seed.title || "Project meeting" },
+        {
+          id: "synthetic-review-cs2106",
+          title: "Review lecture slides",
+          moduleCode: "CS2106",
+          location: "CLB",
+          synthetic: true,
+        },
+        {
+          id: "synthetic-gym",
+          title: "Gym session",
+          moduleCode: "USC",
+          location: "U Sports Complex",
+          synthetic: true,
+        },
+      ]
+    : [
+        { id: "synthetic-cs2103", title: "Project Meeting", moduleCode: "CS2103", location: "COM1", synthetic: true },
+        { id: "synthetic-review-cs2106", title: "Review lecture slides", moduleCode: "CS2106", location: "CLB", synthetic: true },
+        { id: "synthetic-gym", title: "Gym session", moduleCode: "USC", location: "U Sports Complex", synthetic: true },
+      ];
+
+  return dedupeByTitle(items).slice(0, 3);
+}
+
+function buildWeekEvents(schedule) {
+  if (schedule.length >= 2) return schedule.slice(0, 2);
+
+  const first = schedule[0] || {
+    id: "synthetic-week-cs2103",
+    moduleCode: "CS2103",
+    title: "Project Meeting",
+    location: "COM1",
+    startAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    endAt: new Date(Date.now() + 3.5 * 60 * 60 * 1000).toISOString(),
+    synthetic: true,
+  };
+
+  return [
+    first,
+    {
+      id: "synthetic-week-ma1521",
+      moduleCode: "MA1521",
+      title: "Tutorial",
+      location: "AS5-0211",
+      startAt: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+      endAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      synthetic: true,
+    },
+  ];
+}
+
+function dedupeByTitle(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = `${item.moduleCode || ""}-${item.title || ""}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function fallbackAssistantReply(mode) {
@@ -791,492 +1231,695 @@ function fallbackAssistantReply(mode) {
   return "Assistant fallback:\n1. Clarify what needs attention.\n2. Choose one practical next action.\n3. Keep the plan short enough to follow.";
 }
 
-const baseStyles = {
+function sampleTasks() {
+  return ["CS2103 Project Meeting at 1:00 PM", "Review lecture slides for CS2106", "Gym session at U Sports Complex"];
+}
+
+function sampleRecommendations() {
+  return [
+    { kind: "study", title: "Best study spots nearby", description: "Central Library, UTown", distanceM: 240 },
+    { kind: "route", title: "Walk to COM1 in 8 min", description: "via Kent Ridge Path", distanceM: 180 },
+    { kind: "task", title: "2 tasks due this week", description: "CS2106, MA1521", distanceM: 0 },
+  ];
+}
+
+function sectionTitle(section) {
+  return navItems.find((item) => item.key === section)?.label || "Dashboard";
+}
+
+function sectionSubtitle(section) {
+  const subtitles = {
+    recommendations: "Plan the day with your campus assistant.",
+    schedule: "Create and review classes, meetings, and focus blocks.",
+    facilities: "Filter campus support spaces by building and type.",
+    sync: "Check service health and NUSMods sync status.",
+    inbox: "Campus notices and assistant follow-ups.",
+    tasks: "Academic actions and reminders.",
+    resources: "Saved locations, guides, and study materials.",
+    clubs: "Events around NUS this week.",
+  };
+  return subtitles[section] || "Campus life at a glance.";
+}
+
+const styles = StyleSheet.create({
   shell: {
     flexDirection: "row",
     height: "100vh",
-    minHeight: 640,
+    minHeight: 720,
     overflow: "hidden",
-    backgroundColor: "#e8efeb",
+    backgroundColor: "#efe6d7",
+    backgroundImage:
+      "radial-gradient(circle at 18% 12%, rgba(239, 105, 68, 0.12), transparent 24%), radial-gradient(circle at 84% 18%, rgba(30, 91, 87, 0.16), transparent 28%), linear-gradient(135deg, #f4eadc 0%, #dde5d8 46%, #d8ceb8 100%)",
   },
   shellCompact: {
     flexDirection: "column",
+    overflow: "auto",
   },
   sidebar: {
-    width: 330,
+    width: 248,
     flexShrink: 0,
     gap: 14,
-    padding: 18,
-    borderRightWidth: 1,
-    borderRightColor: "#d8e3df",
-    backgroundColor: "#f7faf8",
-    ...shadows.panel,
+    paddingHorizontal: 18,
+    paddingVertical: 28,
+    backgroundColor: "#123a3b",
+    backgroundImage:
+      "radial-gradient(circle at 24% 9%, rgba(217, 155, 104, 0.22), transparent 28%), radial-gradient(circle at 88% 34%, rgba(120, 208, 177, 0.14), transparent 30%), linear-gradient(155deg, #123b3d 0%, #1f4b43 54%, #423d33 100%)",
+    boxShadow: "inset -1px 0 0 rgba(255, 243, 208, 0.1)",
   },
   sidebarCompact: {
     width: "100%",
-    maxHeight: 340,
-    borderRightWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: "#d8e3df",
+    minHeight: "100vh",
   },
-  brandBlock: {
-    gap: 8,
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 18,
   },
-  headingBlock: {
-    gap: 4,
+  logoMark: {
+    width: 54,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 243, 208, 0.34)",
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 252, 243, 0.88)",
+    boxShadow: "0 16px 34px rgba(5, 18, 18, 0.22)",
   },
-  eyebrow: {
-    color: colors.muted,
+  logoImage: {
+    width: "100%",
+    height: "100%",
+  },
+  brandName: {
+    color: "#fff3d0",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 27,
+    lineHeight: 31,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+    textShadow: "0 5px 18px rgba(5, 18, 18, 0.3)",
+  },
+  brandSub: {
+    color: "rgba(255, 243, 208, 0.66)",
+    marginTop: 1,
     fontSize: 11,
     fontWeight: "800",
+    letterSpacing: 0.7,
     textTransform: "uppercase",
   },
-  pageTitle: {
-    color: colors.ink,
-    fontSize: 29,
-    lineHeight: 34,
+  navList: {
+    gap: 4,
+  },
+  navItem: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "transparent",
+    transitionProperty: "background-color, border-color, transform",
+    transitionDuration: "180ms",
+  },
+  navItemActive: {
+    borderColor: "rgba(240, 201, 134, 0.36)",
+    backgroundColor: "rgba(255, 248, 226, 0.11)",
+    boxShadow: "inset 3px 0 0 rgba(240, 201, 134, 0.72), 0 12px 28px rgba(5, 18, 18, 0.12)",
+  },
+  navIcon: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 248, 226, 0.045)",
+  },
+  navIconActive: {
+    backgroundColor: "rgba(240, 201, 134, 0.12)",
+  },
+  navLabel: {
+    color: "rgba(255, 248, 226, 0.74)",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  navLabelActive: {
+    color: "#fff8e2",
     fontWeight: "900",
   },
-  apiPill: {
-    alignSelf: "flex-start",
+  profileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: "auto",
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 243, 208, 0.13)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 248, 226, 0.075)",
+    boxShadow: "0 14px 34px rgba(5, 18, 18, 0.12)",
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 23,
+    backgroundColor: "#f0c986",
+  },
+  avatarText: {
+    color: "#123a3b",
+    fontWeight: "900",
+  },
+  profileCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  profileName: {
+    color: "#fff8e2",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  profileMeta: {
+    color: "rgba(255, 248, 226, 0.66)",
+    marginTop: 2,
+  },
+  profileChevron: {
+    color: "#fff8e2",
+    fontWeight: "900",
+  },
+  statusCard: {
+    gap: 12,
+    minHeight: 132,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 243, 208, 0.13)",
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 248, 226, 0.07)",
+    boxShadow: "0 14px 34px rgba(5, 18, 18, 0.12)",
+  },
+  statusTitle: {
+    color: "#fff8e2",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  statusLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minHeight: 36,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  apiPillOnline: {
-    borderColor: "rgba(46,112,88,0.3)",
   },
   statusDot: {
     width: 9,
     height: 9,
-    borderRadius: 99,
-    backgroundColor: colors.danger,
+    borderRadius: 5,
+    backgroundColor: "#a94747",
   },
   statusDotOnline: {
-    backgroundColor: colors.green,
+    backgroundColor: "#7bd69e",
   },
-  apiLabel: {
-    color: colors.muted,
-    fontWeight: "800",
+  statusText: {
+    color: "#fff8e2",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  statusSketch: {
+    flex: 1,
+    minHeight: 84,
+    justifyContent: "flex-end",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 243, 208, 0.16)",
+  },
+  sketchBuildingTall: {
+    position: "absolute",
+    left: 76,
+    bottom: 0,
+    width: 42,
+    height: 78,
+    borderWidth: 1,
+    borderColor: "rgba(240, 201, 134, 0.52)",
+  },
+  sketchBuilding: {
+    position: "absolute",
+    left: 28,
+    bottom: 0,
+    width: 62,
+    height: 52,
+    borderWidth: 1,
+    borderColor: "rgba(240, 201, 134, 0.34)",
+  },
+  sketchRoad: {
+    height: 1,
+    marginLeft: 16,
+    marginRight: 28,
+    backgroundColor: "rgba(240, 201, 134, 0.36)",
+    transform: [{ rotate: "-12deg" }],
+  },
+  statusSmall: {
+    color: "rgba(255, 248, 226, 0.58)",
+    fontSize: 12,
+  },
+  main: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 249, 236, 0.72)",
+    backgroundImage:
+      "repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(18, 78, 69, 0.08), transparent 28%), radial-gradient(circle at 20% 86%, rgba(217, 155, 104, 0.1), transparent 30%)",
+  },
+  scroll: {
+    flex: 1,
+  },
+  dashboardBody: {
+    gap: 28,
+    padding: 36,
+    paddingBottom: 32,
+  },
+  dashboardBodyPhone: {
+    padding: 18,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 20,
+    marginBottom: 6,
+  },
+  topBarCompact: {
+    flexWrap: "wrap",
+  },
+  greeting: {
+    flex: 1,
+    minWidth: 260,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  sunGlyph: {
+    color: "#cf9e4e",
+    fontSize: 40,
+    lineHeight: 42,
+  },
+  greetingTitle: {
+    color: "#123f38",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  greetingText: {
+    color: "#5f6c62",
+    marginTop: 5,
+    fontSize: 14,
+  },
+  searchBox: {
+    width: 480,
+    maxWidth: "100%",
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 252, 243, 0.78)",
+    boxShadow: "0 10px 26px rgba(35, 30, 23, 0.06)",
+  },
+  searchIcon: {
+    color: "#40504a",
+    fontWeight: "900",
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    color: "#123f38",
+    outlineStyle: "none",
+  },
+  shortcut: {
+    minWidth: 30,
+    paddingVertical: 3,
+    textAlign: "center",
+    color: "#90897f",
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  topActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  squareButton: {
+    minWidth: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    backgroundColor: "rgba(255, 252, 243, 0.72)",
+  },
+  squareButtonDark: {
+    borderColor: "rgba(201, 118, 84, 0.28)",
+    backgroundColor: "rgba(217, 155, 104, 0.16)",
+  },
+  squareButtonText: {
+    color: "#123f38",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  squareButtonTextDark: {
+    color: "#123f38",
   },
   notice: {
     padding: 12,
     borderWidth: 1,
-    borderColor: "rgba(242,203,120,0.46)",
+    borderColor: "rgba(201, 118, 84, 0.34)",
     borderRadius: 8,
-    backgroundColor: "rgba(242,203,120,0.2)",
+    backgroundColor: "rgba(217, 155, 104, 0.14)",
   },
   noticeError: {
-    borderColor: "rgba(169,71,71,0.22)",
+    borderColor: "rgba(169,71,71,0.28)",
     backgroundColor: "rgba(169,71,71,0.08)",
   },
   noticeText: {
-    color: "#66521f",
-    fontWeight: "700",
+    color: "#7b5438",
+    fontWeight: "800",
   },
   noticeErrorText: {
-    color: colors.danger,
+    color: "#a94747",
   },
-  statusStrip: {
+  dashboardTopGrid: {
     flexDirection: "row",
-    gap: 8,
+    gap: 28,
   },
-  statusItem: {
-    flex: 1,
+  dashboardTopGridCompact: {
+    flexDirection: "column",
+  },
+  primaryTopColumn: {
+    flex: 2,
     minWidth: 0,
-    gap: 2,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#dfe8e4",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    gap: 24,
   },
-  statusValue: {
-    color: colors.ink,
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: "900",
+  sideTopColumn: {
+    flex: 1.35,
+    minWidth: 320,
+    gap: 24,
   },
-  statusLabel: {
-    color: colors.muted,
+  dashboardBottomGrid: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 24,
+  },
+  dashboardBottomGridCompact: {
+    flexDirection: "column",
+  },
+  bottomPanel: {
+    flex: 1,
+    minWidth: 260,
+  },
+  bottomPanelWide: {
+    flex: 1.25,
+    minWidth: 320,
+  },
+  heroCard: {
+    minHeight: 300,
+    flexDirection: "row",
+    overflow: "hidden",
+    padding: 32,
+    borderRadius: 20,
+    backgroundColor: "#123a3b",
+    backgroundImage:
+      "radial-gradient(circle at 18% 18%, rgba(217, 155, 104, 0.2), transparent 28%), radial-gradient(circle at 84% 24%, rgba(120, 208, 177, 0.13), transparent 32%), linear-gradient(145deg, #123b3d 0%, #1f4b43 54%, #423d33 100%)",
+    boxShadow: "0 24px 60px rgba(18, 58, 59, 0.2)",
+  },
+  heroCopy: {
+    flex: 1,
+    zIndex: 2,
+    gap: 18,
+  },
+  goldKicker: {
+    color: "#f0c986",
     fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
+    fontWeight: "600",
+    letterSpacing: 0.8,
   },
-  navList: {
-    gap: 8,
-  },
-  navItem: {
-    minHeight: 68,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    borderWidth: 1,
-    borderColor: "#dfe8e4",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  navItemActive: {
-    borderColor: "rgba(46,112,88,0.36)",
-    backgroundColor: "#e8f3ef",
-  },
-  navText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  navLabel: {
-    color: colors.ink,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  navLabelActive: {
-    color: colors.green,
-  },
-  navKicker: {
-    color: colors.muted,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  navKickerActive: {
-    color: "#49645b",
-  },
-  navArrow: {
-    color: "#9aa9a2",
-    fontSize: 24,
-    lineHeight: 24,
-    fontWeight: "800",
-  },
-  navArrowActive: {
-    color: colors.green,
-  },
-  mainStage: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 0,
-    position: "relative",
-    overflow: "hidden",
-  },
-  mapStage: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 0,
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: "#dfe8e4",
-  },
-  contentScroll: {
-    flex: 1,
-  },
-  contentBody: {
-    width: "100%",
-    maxWidth: 980,
-    alignSelf: "center",
-    gap: 16,
-    padding: 24,
-  },
-  contentHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  contentTitle: {
-    color: colors.ink,
-    fontSize: 34,
+  heroTitle: {
+    color: "#fff8e2",
+    fontSize: 32,
     lineHeight: 39,
-    fontWeight: "900",
+    fontWeight: "700",
   },
-  agentHero: {
+  heroMeta: {
+    color: "rgba(255, 248, 226, 0.78)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  heroActions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    alignItems: "stretch",
-    justifyContent: "space-between",
-    gap: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "rgba(46,112,88,0.22)",
-    borderRadius: 8,
-    backgroundColor: "#f6fbf8",
-  },
-  agentHeroCopy: {
-    flex: 1,
-    minWidth: 280,
-    gap: 9,
-  },
-  agentHeroTitle: {
-    color: colors.ink,
-    fontSize: 27,
-    lineHeight: 32,
-    fontWeight: "900",
-  },
-  agentHeroText: {
-    maxWidth: 620,
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  agentActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 4,
-  },
-  agentHeroAside: {
-    width: 210,
-    minHeight: 128,
-    justifyContent: "space-between",
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#dce8e3",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  agentAsideValue: {
-    color: colors.green,
-    fontSize: 25,
-    lineHeight: 30,
-    fontWeight: "900",
-  },
-  agentAsideLabel: {
-    color: colors.muted,
-    lineHeight: 19,
-  },
-  agentMetricGrid: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  agentMetricGridCompact: {
-    flexWrap: "wrap",
-  },
-  metricTile: {
-    flex: 1,
-    minWidth: 170,
-    gap: 4,
-    padding: 15,
-    borderWidth: 1,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  metricTileGreen: {
-    borderColor: "rgba(46,112,88,0.28)",
-  },
-  metricTileBlue: {
-    borderColor: "rgba(71,118,184,0.28)",
-  },
-  metricTileOrange: {
-    borderColor: "rgba(219,138,86,0.32)",
-  },
-  metricValue: {
-    color: colors.ink,
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: "900",
-  },
-  metricLabel: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  assistantModeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  assistantComposer: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    gap: 10,
-  },
-  assistantComposerCompact: {
-    flexDirection: "column",
-  },
-  assistantInput: {
-    flex: 1,
-    minHeight: 78,
-    textAlignVertical: "top",
-  },
-  assistantResponse: {
-    gap: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "rgba(46,112,88,0.24)",
-    borderRadius: 8,
-    backgroundColor: "#f6fbf8",
-  },
-  assistantResponseFallback: {
-    borderColor: "rgba(242,203,120,0.42)",
-    backgroundColor: "rgba(242,203,120,0.12)",
-  },
-  assistantReply: {
-    color: colors.ink,
-    lineHeight: 20,
-    whiteSpace: "pre-wrap",
-  },
-  assistantMeta: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  agentGrid: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 16,
-  },
-  agentGridCompact: {
-    flexDirection: "column",
-  },
-  agentColumn: {
-    flex: 1,
-  },
-  panel: {
     gap: 14,
-    minWidth: 0,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    marginTop: 8,
   },
-  panelHeading: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
+  goldButton: {
+    minHeight: 46,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    backgroundImage: "linear-gradient(135deg, #d99b68 0%, #c97654 100%)",
   },
-  panelTitle: {
-    color: colors.ink,
-    fontSize: 17,
+  goldButtonText: {
+    color: "#fff8e2",
     fontWeight: "900",
   },
-  stack: {
-    gap: 10,
-  },
-  compactCard: {
-    flexGrow: 1,
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-    padding: 12,
+  outlineDarkButton: {
+    minHeight: 46,
+    justifyContent: "center",
+    paddingHorizontal: 24,
     borderWidth: 1,
-    borderColor: "#e4ece8",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    borderColor: "rgba(255, 248, 226, 0.34)",
+    borderRadius: 14,
   },
-  cardCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
+  outlineDarkButtonText: {
+    color: "#fff8e2",
+    fontWeight: "800",
   },
-  cardTitle: {
-    color: colors.ink,
-    fontWeight: "900",
+  lineArt: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: "62%",
+    height: "100%",
+    opacity: 0.82,
   },
-  cardText: {
-    color: colors.muted,
-    lineHeight: 19,
+  lineArtDark: {
+    opacity: 0.72,
   },
-  meta: {
-    color: colors.muted,
-    fontSize: 12,
-  },
-  distance: {
-    color: colors.green,
-    fontWeight: "900",
-  },
-  agentQueueItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: 12,
+  blockTower: {
+    position: "absolute",
+    right: 144,
+    top: 50,
+    width: 78,
+    height: 110,
     borderWidth: 1,
-    borderColor: "#e4ece8",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    borderColor: "rgba(18, 63, 56, 0.14)",
+    backgroundColor: "rgba(217, 155, 104, 0.12)",
+    transform: [{ rotate: "-18deg" }],
   },
-  queueRank: {
-    width: 30,
-    height: 30,
+  blockLow: {
+    position: "absolute",
+    right: 48,
+    top: 82,
+    width: 110,
+    height: 76,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    backgroundColor: "rgba(255,255,255,0.28)",
+    transform: [{ rotate: "-18deg" }],
+  },
+  blockWide: {
+    position: "absolute",
+    right: 126,
+    bottom: 36,
+    width: 172,
+    height: 64,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    backgroundColor: "rgba(240, 201, 134, 0.18)",
+    transform: [{ rotate: "-18deg" }],
+  },
+  blockDark: {
+    borderColor: "rgba(230,193,132,0.26)",
+    backgroundColor: "rgba(255,250,240,0.04)",
+  },
+  routeLine: {
+    position: "absolute",
+    right: 46,
+    bottom: 70,
+    width: 260,
+    height: 3,
+    backgroundColor: "rgba(240, 201, 134, 0.68)",
+    transform: [{ rotate: "-18deg" }],
+  },
+  routeLineDark: {
+    backgroundColor: "rgba(240, 201, 134, 0.62)",
+  },
+  pin: {
+    position: "absolute",
+    right: 210,
+    bottom: 88,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#e8f3ef",
+    borderRadius: 17,
+    backgroundColor: "#123f38",
   },
-  queueRankText: {
-    color: colors.green,
-    fontWeight: "900",
+  pinDark: {
+    backgroundColor: "#f0c986",
   },
-  queueTitleRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 8,
+  pinInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: "#ffffff",
   },
-  kindPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-    overflow: "hidden",
-    color: colors.green,
-    backgroundColor: "#e8f3ef",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
+  card: {
+    gap: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 252, 243, 0.82)",
+    backgroundImage:
+      "linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.06)), repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.018) 0 1px, transparent 1px 5px)",
+    boxShadow: "0 18px 50px rgba(35, 30, 23, 0.08)",
   },
-  timeline: {
-    gap: 4,
-  },
-  timelineItem: {
-    flexDirection: "row",
-    gap: 10,
-    paddingVertical: 8,
-  },
-  timelineRail: {
-    width: 18,
-    alignItems: "center",
-    paddingTop: 3,
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 99,
-    backgroundColor: colors.blue,
-  },
-  signalGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  signalRow: {
-    flexBasis: "48%",
-    flexGrow: 1,
-    minWidth: 220,
+  cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#e4ece8",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    gap: 12,
   },
-  filterBlock: {
-    gap: 9,
+  headerInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  cardKicker: {
+    color: "#123f38",
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.7,
+  },
+  pillMuted: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    overflow: "hidden",
+    color: "#6d7280",
+    backgroundColor: "rgba(18, 63, 56, 0.06)",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  moreText: {
+    color: "#123f38",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  eventBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.42)",
+  },
+  dateTile: {
+    width: 64,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 14,
+    backgroundColor: "#fff8e8",
+  },
+  dateMonth: {
+    paddingVertical: 8,
+    textAlign: "center",
+    color: "#fff8e2",
+    backgroundColor: "#123f38",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dateDay: {
+    paddingVertical: 10,
+    textAlign: "center",
+    color: "#123f38",
+    fontSize: 26,
+    fontWeight: "700",
+  },
+  eventCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 5,
+  },
+  eventTitle: {
+    color: "#123f38",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  smallMeta: {
+    color: "#6d7280",
+    fontSize: 12,
+  },
+  linkButton: {
+    alignSelf: "flex-start",
+  },
+  linkText: {
+    color: "#235f52",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  assistantCard: {
+    gap: 16,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 252, 243, 0.82)",
+    backgroundImage:
+      "linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0.06)), repeating-linear-gradient(90deg, rgba(32, 25, 18, 0.016) 0 1px, transparent 1px 5px)",
+    boxShadow: "0 12px 34px rgba(35, 30, 23, 0.05)",
+  },
+  assistantHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  assistantSpark: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 19,
+    backgroundColor: "rgba(217, 155, 104, 0.16)",
+  },
+  assistantSparkText: {
+    color: "#c97654",
+    fontSize: 22,
+    lineHeight: 28,
+  },
+  assistantTitle: {
+    color: "#123f38",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  assistantSubtitle: {
+    color: "#6d7280",
+    marginTop: 4,
   },
   chipRow: {
     flexDirection: "row",
@@ -1284,745 +1927,651 @@ const baseStyles = {
     gap: 8,
   },
   chip: {
-    minHeight: 34,
+    minHeight: 32,
     justifyContent: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    borderColor: "rgba(18, 63, 56, 0.09)",
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 255, 255, 0.42)",
   },
   chipSelected: {
-    borderColor: colors.green,
-    backgroundColor: colors.green,
+    borderColor: "rgba(201, 118, 84, 0.36)",
+    backgroundColor: "rgba(217, 155, 104, 0.15)",
   },
   chipLabel: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: "800",
+    color: "#4f5663",
+    fontSize: 12,
+    fontWeight: "600",
   },
   chipLabelSelected: {
-    color: "#ffffff",
+    color: "#123f38",
   },
-  metaColumn: {
-    alignItems: "flex-end",
-    gap: 3,
-  },
-  form: {
-    gap: 9,
-  },
-  input: {
-    minHeight: 42,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    color: colors.ink,
-    backgroundColor: "#ffffff",
-    fontSize: 14,
-  },
-  notesInput: {
-    minHeight: 76,
-    textAlignVertical: "top",
-  },
-  actionButton: {
-    minHeight: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 11,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  actionButtonPrimary: {
-    borderColor: colors.green,
-    backgroundColor: colors.green,
-  },
-  actionButtonDisabled: {
-    opacity: 0.55,
-  },
-  actionLabel: {
-    color: colors.ink,
-    fontWeight: "900",
-  },
-  actionLabelPrimary: {
-    color: "#ffffff",
-  },
-  actionLabelDisabled: {
-    color: "#d8e3df",
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-  },
-  deleteLabel: {
-    color: colors.danger,
-    fontSize: 17,
-    lineHeight: 19,
-    fontWeight: "900",
-  },
-  syncList: {
-    gap: 10,
-  },
-  syncRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e4ece8",
-  },
-  errorText: {
-    color: colors.danger,
-  },
-};
-
-const redesignStyles = {
-  shell: {
-    flexDirection: "row",
-    height: "100vh",
-    minHeight: 640,
-    overflow: "hidden",
-    backgroundColor: "#edf0ed",
-  },
-  shellCompact: {
-    flexDirection: "column",
-  },
-  sidebar: {
-    width: 318,
-    flexShrink: 0,
-    gap: 16,
-    padding: 18,
-    borderRightWidth: 1,
-    borderRightColor: "#d7ddd8",
-    backgroundColor: "#fbfcfa",
-    ...shadows.panel,
-  },
-  sidebarCompact: {
-    width: "100%",
-    maxHeight: 390,
-    borderRightWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: "#d7ddd8",
-  },
-  brandBlock: {
-    gap: 10,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#222b27",
-    borderRadius: 8,
-    backgroundColor: "#222b27",
-  },
-  eyebrow: {
-    color: "#6e7c75",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
-  pageTitle: {
-    color: "#ffffff",
-    fontSize: 28,
-    lineHeight: 33,
-    fontWeight: "900",
-  },
-  brandEyebrow: {
-    color: "#98dfc6",
-  },
-  apiPill: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 34,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-  apiPillOnline: {
-    borderColor: "rgba(129,210,176,0.42)",
-  },
-  apiLabel: {
-    color: "#d9e2dd",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  statusStrip: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  statusItem: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#dfe4df",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  statusValue: {
-    color: "#242b27",
-    fontSize: 21,
-    lineHeight: 25,
-    fontWeight: "900",
-  },
-  statusLabel: {
-    color: "#738079",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
-  navList: {
-    gap: 8,
-  },
-  navItem: {
-    minHeight: 66,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "#dfe4df",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  navItemActive: {
-    borderColor: "rgba(46,112,88,0.35)",
-    backgroundColor: "#edf7f1",
-    boxShadow: "inset 3px 0 0 #2e7058",
-  },
-  navMarker: {
-    width: 32,
-    color: "#9aa39d",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  navMarkerActive: {
-    color: "#2e7058",
-  },
-  navText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  navLabel: {
-    color: "#242b27",
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  navLabelActive: {
-    color: "#1f5f49",
-  },
-  navKicker: {
-    color: "#738079",
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  navKickerActive: {
-    color: "#50665b",
-  },
-  mainStage: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 0,
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: "#edf0ed",
-  },
-  contentBody: {
-    width: "100%",
-    maxWidth: 1160,
-    alignSelf: "center",
-    gap: 18,
-    padding: 26,
-  },
-  contentHeader: {
+  assistantContent: {
     flexDirection: "row",
     flexWrap: "wrap",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingBottom: 2,
+    gap: 14,
   },
-  contentTitle: {
-    color: "#242b27",
-    fontSize: 36,
-    lineHeight: 42,
-    fontWeight: "900",
-  },
-  agentHero: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "stretch",
-    justifyContent: "space-between",
-    gap: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#d6ddd8",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    boxShadow: "0 18px 42px rgba(35, 43, 39, 0.08)",
-  },
-  agentHeroCopy: {
-    flex: 1,
+  assistantChat: {
+    flex: 1.4,
     minWidth: 280,
-    gap: 10,
-  },
-  agentHeroTitle: {
-    maxWidth: 720,
-    color: "#242b27",
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: "900",
-  },
-  agentHeroText: {
-    maxWidth: 680,
-    color: "#617069",
-    fontSize: 15,
-    lineHeight: 23,
-  },
-  agentHeroAside: {
-    width: 226,
-    minHeight: 132,
-    justifyContent: "space-between",
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "rgba(71,118,184,0.24)",
-    borderRadius: 8,
-    backgroundColor: "#f4f7fb",
-  },
-  agentAsideValue: {
-    color: "#4776b8",
-    fontSize: 26,
-    lineHeight: 31,
-    fontWeight: "900",
-  },
-  agentMetricGrid: {
-    flexDirection: "row",
     gap: 12,
-  },
-  metricTile: {
-    flex: 1,
-    minWidth: 170,
-    gap: 4,
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  metricTileGreen: {
-    borderColor: "rgba(46,112,88,0.26)",
-    backgroundColor: "#f2faf5",
-  },
-  metricTileBlue: {
-    borderColor: "rgba(71,118,184,0.26)",
-    backgroundColor: "#f4f7fb",
-  },
-  metricTileOrange: {
-    borderColor: "rgba(219,138,86,0.3)",
-    backgroundColor: "#fff7f1",
-  },
-  metricValue: {
-    color: "#242b27",
-    fontSize: 25,
-    lineHeight: 30,
-    fontWeight: "900",
-  },
-  metricLabel: {
-    color: "#738079",
-    fontSize: 11,
-    fontWeight: "900",
-    letterSpacing: 0,
-    textTransform: "uppercase",
-  },
-  assistantSurface: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    gap: 0,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#222b27",
-    borderRadius: 8,
-    backgroundColor: "#222b27",
-    boxShadow: "0 20px 46px rgba(35, 43, 39, 0.16)",
-  },
-  assistantSurfaceCompact: {
-    flexDirection: "column",
-  },
-  assistantIntro: {
-    width: 286,
-    gap: 12,
-    padding: 20,
-    backgroundColor: "#222b27",
-  },
-  assistantIntroCompact: {
-    width: "100%",
-  },
-  assistantBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    borderRadius: 8,
-    overflow: "hidden",
-    color: "#98dfc6",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  assistantTitle: {
-    color: "#ffffff",
-    fontSize: 25,
-    lineHeight: 30,
-    fontWeight: "900",
-  },
-  assistantIntroText: {
-    color: "#c7d2cc",
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  assistantContextGrid: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: "auto",
-  },
-  contextPill: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.07)",
-  },
-  contextValue: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-  contextLabel: {
-    color: "#aebbb4",
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  assistantWorkbench: {
-    flex: 1,
-    minWidth: 0,
-    gap: 12,
-    padding: 16,
-    backgroundColor: "#fbfcfa",
-  },
-  assistantModeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  assistantPromptGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  promptCard: {
-    flexGrow: 1,
-    flexBasis: 190,
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderWidth: 1,
-    borderColor: "#dfe4df",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  promptText: {
-    color: "#3f4a45",
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "800",
-  },
-  assistantComposer: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    gap: 10,
-  },
-  assistantComposerCompact: {
-    flexDirection: "column",
-  },
-  assistantInput: {
-    flex: 1,
-    minHeight: 92,
-    textAlignVertical: "top",
-    backgroundColor: "#ffffff",
-  },
-  assistantResponse: {
-    gap: 9,
     padding: 14,
     borderWidth: 1,
-    borderColor: "rgba(46,112,88,0.25)",
-    borderRadius: 8,
-    backgroundColor: "#edf7f1",
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.38)",
   },
-  assistantResponseFallback: {
-    borderColor: "rgba(219,138,86,0.36)",
-    backgroundColor: "#fff7f1",
+  assistantBubble: {
+    gap: 9,
   },
-  assistantReply: {
-    color: "#242b27",
-    lineHeight: 21,
-    whiteSpace: "pre-wrap",
+  assistantBubbleText: {
+    color: "#123f38",
+    fontSize: 14,
+    fontWeight: "700",
   },
-  assistantMeta: {
-    color: "#65716b",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  scheduleDraftList: {
+  checkItem: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(46,112,88,0.16)",
   },
-  scheduleDraftHeading: {
-    color: "#2e7058",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  scheduleDraftCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-    padding: 10,
+  checkBox: {
+    width: 13,
+    height: 13,
     borderWidth: 1,
-    borderColor: "rgba(46,112,88,0.18)",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+    borderColor: "rgba(18, 63, 56, 0.24)",
+    borderRadius: 4,
   },
-  assistantEmptyState: {
-    minHeight: 52,
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: "#dfe4df",
-    borderRadius: 8,
-    backgroundColor: "#f4f6f4",
+  checkLine: {
+    color: "#4f5663",
+    fontSize: 13,
   },
-  assistantEmptyText: {
-    color: "#6f7c75",
-    fontWeight: "800",
+  assistantHint: {
+    color: "#88827a",
+    marginTop: 4,
+    fontSize: 13,
   },
-  agentGrid: {
+  inputRow: {
+    minHeight: 44,
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 16,
-  },
-  agentGridCompact: {
-    flexDirection: "column",
-  },
-  panel: {
+    alignItems: "center",
     gap: 14,
+    paddingLeft: 14,
+    paddingRight: 8,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 14,
+    backgroundColor: "#fff8e8",
+  },
+  askInput: {
+    flex: 1,
     minWidth: 0,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#d8ded9",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-    boxShadow: "0 12px 28px rgba(35, 43, 39, 0.06)",
+    paddingRight: 10,
+    color: "#123f38",
+    outlineStyle: "none",
   },
-  panelTitle: {
-    color: "#242b27",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-  compactCard: {
-    flexGrow: 1,
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-    padding: 13,
-    borderWidth: 1,
-    borderColor: "#e2e7e2",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  cardTitle: {
-    color: "#242b27",
-    fontWeight: "900",
-  },
-  cardText: {
-    color: "#617069",
-    lineHeight: 20,
-  },
-  meta: {
-    color: "#7a877f",
-    fontSize: 12,
-  },
-  distance: {
-    color: "#1f5f49",
-    fontWeight: "900",
-  },
-  agentQueueItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    padding: 13,
-    borderWidth: 1,
-    borderColor: "#e2e7e2",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  queueRank: {
-    width: 32,
-    height: 32,
+  sendButton: {
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#edf7f1",
+    borderRadius: 12,
+    backgroundColor: "#123f38",
   },
-  queueRankText: {
-    color: "#1f5f49",
+  sendButtonText: {
+    color: "#fff8e2",
     fontWeight: "900",
   },
-  kindPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 8,
-    overflow: "hidden",
-    color: "#4776b8",
-    backgroundColor: "#f4f7fb",
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
+  disabled: {
+    opacity: 0.58,
   },
-  timelineItem: {
-    flexDirection: "row",
-    gap: 10,
-    paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eef1ee",
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 99,
-    backgroundColor: "#db8a56",
-  },
-  signalRow: {
-    flexBasis: "48%",
-    flexGrow: 1,
-    minWidth: 220,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  responseBox: {
     gap: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e7e2",
+    borderColor: "#d9d0c4",
     borderRadius: 8,
-    backgroundColor: "#fbfcfa",
+    backgroundColor: "#fff8e8",
   },
-  chip: {
-    minHeight: 34,
-    justifyContent: "center",
-    paddingHorizontal: 11,
-    borderWidth: 1,
-    borderColor: "#d8ded9",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  chipSelected: {
-    borderColor: "#222b27",
-    backgroundColor: "#222b27",
-  },
-  chipLabel: {
-    color: "#647069",
+  responseText: {
+    color: "#303844",
     fontSize: 13,
-    fontWeight: "900",
+    lineHeight: 20,
+    whiteSpace: "pre-wrap",
   },
-  chipLabelSelected: {
-    color: "#ffffff",
-  },
-  input: {
-    minHeight: 43,
+  miniAddButton: {
+    alignSelf: "flex-start",
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "#d8ded9",
+    paddingVertical: 8,
     borderRadius: 8,
-    color: "#242b27",
-    backgroundColor: "#ffffff",
-    fontSize: 14,
+    backgroundColor: "#123f38",
   },
-  actionButton: {
-    minHeight: 38,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: "#d8ded9",
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
-  },
-  actionButtonPrimary: {
-    borderColor: "#2e7058",
-    backgroundColor: "#2e7058",
-  },
-  actionButtonDisabled: {
-    opacity: 0.55,
-  },
-  actionLabel: {
-    color: "#242b27",
+  miniAddText: {
+    color: "#fff8e2",
+    fontSize: 12,
     fontWeight: "900",
-  },
-  actionLabelPrimary: {
-    color: "#ffffff",
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#ecd6cf",
-    borderRadius: 8,
-    backgroundColor: "#fff6f3",
-  },
-  syncRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e2e7e2",
   },
   errorText: {
     color: "#a94747",
+    fontSize: 13,
     fontWeight: "800",
   },
-};
-
-const styles = StyleSheet.create({
-  ...baseStyles,
-  ...redesignStyles,
+  suggestedBox: {
+    flex: 0.9,
+    minWidth: 230,
+    gap: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.07)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.34)",
+  },
+  suggestedTitle: {
+    color: "#123f38",
+    fontWeight: "700",
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  suggestionIcon: {
+    width: 18,
+    color: "#c97654",
+    fontWeight: "700",
+  },
+  suggestionCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  suggestionTitle: {
+    color: "#294b43",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  suggestionText: {
+    color: "#77726c",
+    fontSize: 12,
+  },
+  lowerGrid: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  lowerGridPhone: {
+    flexDirection: "column",
+  },
+  sectionCardTitle: {
+    color: "#123f38",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+  linkTiny: {
+    color: "#6d6a65",
+    fontSize: 11,
+  },
+  taskRow: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(18, 63, 56, 0.08)",
+  },
+  checkbox: {
+    width: 14,
+    height: 14,
+    borderWidth: 1,
+    borderColor: "#7e858d",
+    borderRadius: 4,
+  },
+  taskTitle: {
+    flex: 1,
+    color: "#294b43",
+    fontSize: 13,
+  },
+  taskDue: {
+    color: "#6d7280",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  deleteMini: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#d9d0c4",
+    borderRadius: 8,
+  },
+  deleteMiniText: {
+    color: "#a94747",
+    fontWeight: "900",
+  },
+  weekDays: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 4,
+  },
+  dayCell: {
+    flex: 1,
+    minWidth: 30,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+  },
+  dayCellActive: {
+    backgroundColor: "#123f38",
+  },
+  dayText: {
+    color: "#6e737b",
+    textAlign: "center",
+    fontSize: 11,
+    lineHeight: 17,
+  },
+  dayTextActive: {
+    color: "#fff8e2",
+    fontWeight: "700",
+  },
+  weekEvent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(18, 63, 56, 0.08)",
+  },
+  eventAccent: {
+    width: 5,
+    height: 42,
+    borderRadius: 4,
+    backgroundColor: "#d99b68",
+  },
+  mapCard: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 252, 243, 0.82)",
+    boxShadow: "0 14px 40px rgba(35, 30, 23, 0.06)",
+  },
+  mapHeader: {
+    zIndex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 18,
+    paddingBottom: 0,
+  },
+  mapTitle: {
+    color: "#123f38",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  darkMiniButton: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "rgba(201, 118, 84, 0.36)",
+    borderRadius: 12,
+    backgroundColor: "rgba(217, 155, 104, 0.13)",
+  },
+  darkMiniButtonText: {
+    color: "#123f38",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  mapIllustration: {
+    height: 184,
+    overflow: "hidden",
+    backgroundColor: "#efe6d7",
+    backgroundImage:
+      "radial-gradient(circle at 16% 18%, rgba(217, 155, 104, 0.14), transparent 28%), radial-gradient(circle at 82% 26%, rgba(18, 78, 69, 0.12), transparent 30%)",
+  },
+  mapRoadMain: {
+    position: "absolute",
+    left: "-8%",
+    top: "45%",
+    width: "118%",
+    height: 22,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,250,240,0.92)",
+    transform: [{ rotate: "-14deg" }],
+  },
+  mapRoadNorth: {
+    position: "absolute",
+    left: "4%",
+    top: "24%",
+    width: "92%",
+    height: 12,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,250,240,0.72)",
+    transform: [{ rotate: "10deg" }],
+  },
+  mapRoadSouth: {
+    position: "absolute",
+    left: "2%",
+    bottom: "22%",
+    width: "96%",
+    height: 14,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,250,240,0.76)",
+    transform: [{ rotate: "-3deg" }],
+  },
+  mapRoute: {
+    position: "absolute",
+    left: "18%",
+    top: "52%",
+    width: "58%",
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "#c97654",
+    transform: [{ rotate: "-14deg" }],
+  },
+  campusBlock: {
+    position: "absolute",
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    backgroundColor: "rgba(240, 201, 134, 0.22)",
+  },
+  campusBlockCom: {
+    left: "20%",
+    top: "28%",
+    width: 92,
+    height: 62,
+    transform: [{ rotate: "-14deg" }],
+  },
+  campusBlockLibrary: {
+    right: "14%",
+    top: "18%",
+    width: 112,
+    height: 68,
+    transform: [{ rotate: "-14deg" }],
+  },
+  campusBlockUtown: {
+    right: "16%",
+    bottom: "17%",
+    width: 132,
+    height: 54,
+    transform: [{ rotate: "-14deg" }],
+  },
+  campusBlockFood: {
+    left: "11%",
+    bottom: "17%",
+    width: 92,
+    height: 48,
+    transform: [{ rotate: "-14deg" }],
+  },
+  mapTransitHub: {
+    position: "absolute",
+    left: "48%",
+    top: "42%",
+    width: 64,
+    height: 64,
+    borderWidth: 9,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 32,
+  },
+  mapPinMain: {
+    position: "absolute",
+    left: "49%",
+    top: "43%",
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 26,
+    backgroundColor: "rgba(18, 63, 56, 0.1)",
+  },
+  mapPinDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#123f38",
+  },
+  smallMapPin: {
+    position: "absolute",
+    width: 13,
+    height: 13,
+    borderWidth: 3,
+    borderColor: "#c97654",
+    borderRadius: 7,
+    backgroundColor: "#123f38",
+  },
+  smallMapPinLibrary: {
+    right: "22%",
+    top: "28%",
+  },
+  smallMapPinUtown: {
+    right: "28%",
+    bottom: "26%",
+  },
+  mapLabel: {
+    position: "absolute",
+    color: "#294b43",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  mapLabelCom: {
+    left: "29%",
+    top: "35%",
+  },
+  mapLabelLibrary: {
+    right: "8%",
+    top: "24%",
+  },
+  mapLabelUtown: {
+    right: "20%",
+    bottom: "17%",
+  },
+  mapLabelFood: {
+    left: "10%",
+    bottom: "24%",
+  },
+  mapMeta: {
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+    color: "#6d7280",
+    fontSize: 12,
+  },
+  statsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  statTile: {
+    flex: 1,
+    minWidth: 112,
+    gap: 4,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 252, 243, 0.72)",
+  },
+  statValue: {
+    color: "#123f38",
+    fontSize: 24,
+    fontWeight: "700",
+  },
+  statLabel: {
+    color: "#294b43",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  statSub: {
+    color: "#686f78",
+    fontSize: 12,
+  },
+  focusCard: {
+    minHeight: 210,
+    gap: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 252, 243, 0.82)",
+    backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0.06))",
+    boxShadow: "0 14px 40px rgba(35, 30, 23, 0.06)",
+  },
+  focusBody: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 18,
+  },
+  timerRing: {
+    width: 128,
+    height: 128,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 4,
+    borderColor: "#d99b68",
+    borderRadius: 64,
+    backgroundColor: "#fff8e8",
+  },
+  timerText: {
+    color: "#123f38",
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  timerStart: {
+    marginTop: 8,
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: "#d9d0c4",
+    borderRadius: 8,
+  },
+  timerStartText: {
+    color: "#123f38",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  focusCopy: {
+    alignSelf: "stretch",
+  },
+  focusTitle: {
+    color: "#123f38",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  focusText: {
+    color: "#686f78",
+    marginTop: 8,
+  },
+  mapStage: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden",
+  },
+  sectionBody: {
+    width: "100%",
+    maxWidth: 1120,
+    alignSelf: "center",
+    gap: 20,
+    padding: 34,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  pageKicker: {
+    color: "#c97654",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  pageTitle: {
+    color: "#123f38",
+    marginTop: 6,
+    fontSize: 34,
+    fontWeight: "800",
+  },
+  pageSubtitle: {
+    color: "#686f78",
+    marginTop: 8,
+  },
+  primaryButton: {
+    minHeight: 42,
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundImage: "linear-gradient(135deg, #d99b68 0%, #c97654 100%)",
+  },
+  primaryButtonText: {
+    color: "#fff8e2",
+    fontWeight: "900",
+  },
+  twoColumnPanel: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 20,
+  },
+  queueItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e6ded5",
+  },
+  queueRank: {
+    width: 34,
+    height: 34,
+    paddingTop: 8,
+    textAlign: "center",
+    color: "#123f38",
+    borderRadius: 8,
+    overflow: "hidden",
+    backgroundColor: "#e6c184",
+    fontWeight: "900",
+  },
+  distanceText: {
+    color: "#c97654",
+    fontWeight: "900",
+  },
+  form: {
+    gap: 12,
+  },
+  formInput: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#d9d0c4",
+    borderRadius: 8,
+    color: "#123f38",
+    backgroundColor: "#fff8e8",
+    outlineStyle: "none",
+  },
+  notesInput: {
+    minHeight: 82,
+    textAlignVertical: "top",
+  },
+  scheduleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e6ded5",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e6ded5",
+  },
+  bodyText: {
+    color: "#686f78",
+    lineHeight: 22,
+  },
 });

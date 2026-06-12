@@ -10,6 +10,32 @@
   box-sizing: border-box;
 }
 
+::selection {
+  background: rgba(255, 116, 71, 0.24);
+  color: #17251f;
+}
+
+.atlas-route-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+input:focus {
+  border-color: #14564c !important;
+  box-shadow:
+    0 0 0 4px rgba(20, 86, 76, 0.12),
+    0 13px 28px rgba(20, 64, 56, 0.12) !important;
+}
+
+iframe[title*="Sign in"],
+iframe[title*="Google"],
+iframe[src*="accounts.google"] {
+  border-radius: 14px !important;
+}
+
 html,
 body,
 #root {

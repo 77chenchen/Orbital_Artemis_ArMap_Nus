@@ -54,7 +54,8 @@ class RouteErrorBoundary extends React.Component {
 
 function AppRoutes() {
   const location = useLocation();
-  const showAgent = location.pathname !== "/";
+  const path = location.pathname.toLowerCase();
+  const showAgent = path !== "/" && path !== "/dashboard";
 
   return (
     <>

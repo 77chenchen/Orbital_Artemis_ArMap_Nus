@@ -38,7 +38,7 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) Migrate(ctx context.Context) error {
-	return s.execSQL(ctx, `
+	if err := s.execSQL(ctx, `
 		PRAGMA foreign_keys = ON;
 		CREATE TABLE IF NOT EXISTS buildings (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +85,46 @@ func (s *Store) Migrate(ctx context.Context) error {
 			email TEXT NOT NULL UNIQUE,
 			password TEXT NOT NULL
 		);
-	`)
+	`); err != nil {
+		return err
+	}
+	return s.ensureCredentialSecurityColumns(ctx)
+}
+
+func (s *Store) ensureCredentialSecurityColumns(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(credentials)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull int
+		var defaultValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		columns[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !columns["security_question"] {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE credentials ADD COLUMN security_question TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	if !columns["security_answer"] {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE credentials ADD COLUMN security_answer TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) Seed(ctx context.Context) error {
@@ -140,17 +179,25 @@ func (s *Store) Seed(ctx context.Context) error {
 }
 
 func (s *Store) ensureDemoCredentials(ctx context.Context) error {
+	demoCred := Credentials{
+		Email:            "test1@gmail.com",
+		Password:         "cp2106",
+		SecurityQuestion: "What was your first campus building?",
+		SecurityAnswer:   "COM1",
+	}
 	exists, err := s.userExists(ctx, Credentials{Email: "test1@gmail.com"})
 	if err != nil {
 		return err
 	}
 	if exists {
-		return nil
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE credentials
+			SET security_question = ?, security_answer = ?
+			WHERE email = ? AND security_question = ''
+		`, demoCred.SecurityQuestion, hash(normalizeSecurityAnswer(demoCred.SecurityAnswer)), demoCred.Email)
+		return err
 	}
-	return s.registerIntoDB(ctx, Credentials{
-		Email:    "test1@gmail.com",
-		Password: "cp2106",
-	})
+	return s.registerIntoDB(ctx, demoCred)
 }
 
 func (s *Store) ensureFutureSchedule(ctx context.Context) error {

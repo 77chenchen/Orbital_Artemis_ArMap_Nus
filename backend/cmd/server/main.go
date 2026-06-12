@@ -15,8 +15,6 @@ import (
 	"github.com/atlas-nus/armap/backend/internal/atlas"
 )
 
-const defaultGoogleClientID = "256709725892-l8c193prtctrjm4bhsv0fdknhshuvdqd.apps.googleusercontent.com"
-
 func main() {
 	loadDotEnv(".env")
 	loadDotEnv("../.env")
@@ -27,7 +25,7 @@ func main() {
 		AllowedOrigin:     env("ALLOWED_ORIGIN", "*"),
 		StaticDir:         env("STATIC_DIR", ""),
 		JWTSecret:         env("JWT_SECRET", ""),
-		GoogleClientID:    env("GOOGLE_CLIENT_ID", defaultGoogleClientID),
+		GoogleClientID:    env("GOOGLE_CLIENT_ID", ""),
 		NUSModsAcadYear:   env("NUSMODS_ACAD_YEAR", "2025-2026"),
 		NUSBusAuthBase:    env("NUS_BUS_AUTH_BASE", "https://myizaac2.nus.edu.sg"),
 		NUSBusAPIBase:     env("NUS_BUS_API_BASE", "https://fms.connectx.com.sg/apiy/NUSETA"),
