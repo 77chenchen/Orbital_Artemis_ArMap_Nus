@@ -12,7 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 import SelectList from "./(ui)/selectList";
 import { MapEngine } from "./mapEngine";
-import { route } from "./services";
+import { route, watchLocation } from "./services";
 import getSuggestions from "./geocoding";
 import RoutingForm from "./(ui)/routingForm";
 import { api } from "../api";
@@ -28,6 +28,7 @@ export default function MapScreen({ embedded = false }) {
   const [startPlace, setStartPlace] = useState(null);
   const [endPlace, setEndPlace] = useState(null);
   const [routing, setRouting] = useState(false);
+  const [followLocation, setFollowLocation] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeField, setActiveField] = useState(null);
@@ -49,6 +50,20 @@ export default function MapScreen({ embedded = false }) {
     }
 
     setMapHostElement(resolveHostElement(node));
+  }, []);
+
+  useEffect(() => {
+    const onLoaded = () => {
+      console.log("XR8 =", window.XR8);
+    };
+
+    if (window.XR8) {
+      onLoaded();
+      return undefined;
+    }
+
+    window.addEventListener("xrloaded", onLoaded, { once: true });
+    return () => window.removeEventListener("xrloaded", onLoaded);
   }, []);
 
   useEffect(() => {
@@ -242,6 +257,26 @@ export default function MapScreen({ embedded = false }) {
 
     runRoute();
   }, [startPlace, endPlace, routing]);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!followLocation || !engine) return undefined;
+
+    if (!navigator.geolocation) {
+      setBusError("Geolocation is not supported in this browser.");
+      setFollowLocation(false);
+      return undefined;
+    }
+
+    const watchId = watchLocation((pos) => {
+      engine.track(pos, { fly: true });
+    });
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      engine.closeLocation();
+    };
+  }, [followLocation]);
 
   async function handleSubmit() {
     const engine = engineRef.current;
@@ -523,6 +558,21 @@ export default function MapScreen({ embedded = false }) {
           configured
         </Text>
       </ScrollView>
+
+      <View style={styles.functionalButtons}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={followLocation ? "Stop GPS tracking" : "Start GPS tracking"}
+          onPress={() => setFollowLocation((current) => !current)}
+          style={({ pressed }) => [
+            styles.gpsButton,
+            followLocation && styles.gpsButtonActive,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={[styles.gpsButtonText, followLocation && styles.gpsButtonTextActive]}>GPS</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -951,5 +1001,36 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontSize: 11,
     lineHeight: 15,
+  },
+  functionalButtons: {
+    position: "absolute",
+    left: 20,
+    bottom: 20,
+    zIndex: 10,
+    flexDirection: "row",
+    gap: 10,
+  },
+  gpsButton: {
+    width: 54,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(15, 118, 110, 0.28)",
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
+  },
+  gpsButtonActive: {
+    borderColor: "#0f766e",
+    backgroundColor: "#0f766e",
+  },
+  gpsButtonText: {
+    color: "#0f766e",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  gpsButtonTextActive: {
+    color: "#ffffff",
   },
 });
