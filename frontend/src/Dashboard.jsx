@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { api } from "./api.js";
 import MapScreen from "./Map/map";
-import teamLogo from "../../team_logo.jpg";
+import teamLogo from "./assets/brand/team_logo.jpg";
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: "home" },
