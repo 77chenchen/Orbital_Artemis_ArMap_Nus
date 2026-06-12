@@ -186,7 +186,7 @@ let demoSyncStatus = {
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("token");
-  if (token === "demo-mode" && !path.startsWith('/bus/')) {
+  if (token === "demo-mode" && !path.startsWith('/bus/') && path !== '/agent/daily-assistant') {
     return demoRequest(path, options);
   }
 

@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +18,9 @@ import (
 const defaultGoogleClientID = "256709725892-l8c193prtctrjm4bhsv0fdknhshuvdqd.apps.googleusercontent.com"
 
 func main() {
+	loadDotEnv(".env")
+	loadDotEnv("../.env")
+
 	cfg := atlas.Config{
 		Port:              env("PORT", "8080"),
 		DBPath:            env("DB_PATH", "atlas.db"),
@@ -78,6 +83,41 @@ func main() {
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Printf("server shutdown error: %v", err)
+	}
+}
+
+func loadDotEnv(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+			continue
+		}
+
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" {
+			continue
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+
+		value = strings.Trim(value, `"'`)
+		if err := os.Setenv(key, value); err != nil {
+			log.Printf("skip env %s from %s: %v", key, path, err)
+		}
 	}
 }
 

@@ -133,6 +133,18 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    function handleAgentSection(event) {
+      const section = event.detail?.section;
+      if (sections.some((item) => item.key === section)) {
+        setActiveSection(section);
+      }
+    }
+
+    window.addEventListener("atlas:dashboard-section", handleAgentSection);
+    return () => window.removeEventListener("atlas:dashboard-section", handleAgentSection);
+  }, []);
+
+  useEffect(() => {
     loadFacilities(filters);
   }, [filters.building, filters.type]);
 

@@ -23,24 +23,24 @@
     },
     {
       "id": "wave",
-      "label": "Wave",
-      "mood": "friendly",
+      "label": "Check-in",
+      "mood": "scanning campus",
       "durationMs": 1700,
       "replies": [
-        "Hello. I'll stay in the corner until you need me.",
-        "Campus assistant ready.",
-        "Hi, I'm here. Pick an action when you want me to help."
+        "Checking campus context, schedule, and current suggestions.",
+        "Scanning your day before I suggest a move.",
+        "I can quickly check what needs attention now."
       ]
     },
     {
       "id": "think",
-      "label": "Think",
-      "mood": "planning",
+      "label": "Plan",
+      "mood": "planning with AI",
       "durationMs": 2200,
       "replies": [
-        "Thinking through the easiest route and timing.",
-        "Reviewing your schedule before suggesting the next move.",
-        "Analyzing classes, locations, and walking distance together."
+        "I'll ask Daily Assistant to turn the current context into a short plan.",
+        "Reviewing schedule, recommendations, and facility signals.",
+        "Planning with the LLM through the backend agent."
       ]
     },
     {
@@ -49,20 +49,20 @@
       "mood": "navigation",
       "durationMs": 2100,
       "replies": [
-        "Route mode is ready. Send a destination to the map when you are set.",
-        "I'll prioritize simpler paths with fewer detours.",
-        "Navigation support is on. I can work with map search when needed."
+        "Opening the map and checking the next likely campus move.",
+        "I'll combine recommendations with bus context where it is available.",
+        "Navigation support is on. I can bring you back to the map now."
       ]
     },
     {
       "id": "celebrate",
-      "label": "Done",
+      "label": "Wrap-up",
       "mood": "complete",
       "durationMs": 1800,
       "replies": [
-        "Done. The plan looks cleaner now.",
-        "Task wrapped. You can refine the schedule next.",
-        "Nice, the current plan is organized."
+        "I'll summarize the current plan and call out the next action.",
+        "Wrapping the campus context into a short status update.",
+        "I can turn the latest data into a clean task summary."
       ]
     }
   ]

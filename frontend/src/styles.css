@@ -27,3 +27,186 @@ input,
 textarea {
   font: inherit;
 }
+
+@keyframes atlasAgentPeek {
+  0%,
+  100% {
+    transform: translate(50px, 34px) scale(0.98) rotate(-2deg);
+  }
+  45% {
+    transform: translate(40px, 26px) scale(1) rotate(1deg);
+  }
+}
+
+@keyframes atlasAgentFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(1.5deg);
+  }
+}
+
+@keyframes atlasAgentPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes atlasAgentRing {
+  0% {
+    opacity: 0.72;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.32);
+  }
+}
+
+@keyframes atlasAgentThink {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.06);
+    filter: saturate(1.25);
+  }
+}
+
+@keyframes atlasAgentRoute {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  35% {
+    transform: translateX(-5px) rotate(-3deg);
+  }
+  70% {
+    transform: translateX(6px) rotate(3deg);
+  }
+}
+
+@keyframes atlasAgentCelebrate {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-9px) scale(1.05);
+  }
+  55% {
+    transform: translateY(2px) scale(0.98);
+  }
+}
+
+@keyframes atlasAgentWorkDot {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.atlas-agent-panel {
+  animation: atlasAgentPanelIn 220ms ease-out both;
+}
+
+.atlas-agent-peek {
+  animation: atlasAgentPeek 4.8s ease-in-out infinite;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.atlas-agent-shell-docked:hover .atlas-agent-peek {
+  transform: translate(18px, 18px) scale(1);
+  animation-play-state: paused;
+}
+
+.atlas-agent-awake .atlas-agent-art {
+  animation: atlasAgentFloat 3.2s ease-in-out infinite;
+}
+
+.atlas-agent-wave .atlas-agent-art {
+  animation: atlasAgentFloat 1.6s ease-in-out infinite;
+}
+
+.atlas-agent-think .atlas-agent-art {
+  animation: atlasAgentThink 920ms ease-in-out infinite;
+}
+
+.atlas-agent-route .atlas-agent-art {
+  animation: atlasAgentRoute 980ms ease-in-out infinite;
+}
+
+.atlas-agent-celebrate .atlas-agent-art {
+  animation: atlasAgentCelebrate 780ms ease-in-out infinite;
+}
+
+.atlas-agent-ring-one {
+  animation: atlasAgentRing 2.4s ease-out infinite;
+}
+
+.atlas-agent-ring-two {
+  animation: atlasAgentRing 2.4s ease-out 1.2s infinite;
+}
+
+.atlas-agent-work-dot {
+  animation: atlasAgentWorkDot 880ms ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-panel"] {
+  animation: atlasAgentPanelIn 220ms ease-out both;
+}
+
+[data-testid="atlas-agent-body"][data-awake="false"] {
+  animation: atlasAgentPeek 4.8s ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-body"][data-awake="false"]:hover {
+  animation-play-state: paused;
+  transform: translate(18px, 18px) scale(1);
+}
+
+[data-testid="atlas-agent-body"][data-awake="true"] [data-testid="atlas-agent-art"] {
+  animation: atlasAgentFloat 3.2s ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-body"][data-action="wave"] [data-testid="atlas-agent-art"] {
+  animation: atlasAgentFloat 1.6s ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-body"][data-action="think"] [data-testid="atlas-agent-art"] {
+  animation: atlasAgentThink 920ms ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-body"][data-action="route"] [data-testid="atlas-agent-art"] {
+  animation: atlasAgentRoute 980ms ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-body"][data-action="celebrate"] [data-testid="atlas-agent-art"] {
+  animation: atlasAgentCelebrate 780ms ease-in-out infinite;
+}
+
+[data-testid="atlas-agent-ring-one"] {
+  animation: atlasAgentRing 2.4s ease-out infinite;
+}
+
+[data-testid="atlas-agent-ring-two"] {
+  animation: atlasAgentRing 2.4s ease-out 1.2s infinite;
+}
+
+[data-testid="atlas-agent-work-dot"] {
+  animation: atlasAgentWorkDot 880ms ease-in-out infinite;
+}
