@@ -252,7 +252,7 @@ export default function MapScreen({ embedded = false }) {
       engine.clear();
       engine.setMarker(startPlace.coords, { fly: true });
       engine.setMarker(endPlace.coords, { fly: false });
-      engine.drawRoute(points);
+      engine.drawRoute(points, { mode: "WALK" });
     }
 
     runRoute();
@@ -357,6 +357,11 @@ export default function MapScreen({ embedded = false }) {
   return (
     <View style={[styles.container, embedded && styles.containerEmbedded]}>
       <View ref={captureMapContainer} style={styles.mapContainer} />
+      <View style={styles.routeLegend}>
+        <LegendItem color="#2563eb" label="Walk" />
+        <LegendItem color="#dc2626" label="Bus" />
+        <LegendItem color="#16a34a" label="Rail" />
+      </View>
 
       {!routing ? (
         <View style={styles.searchBox}>
@@ -577,6 +582,15 @@ export default function MapScreen({ embedded = false }) {
   );
 }
 
+function LegendItem({ color, label }) {
+  return (
+    <View style={styles.legendItem}>
+      <View style={[styles.legendDot, { backgroundColor: color }]} />
+      <Text style={styles.legendText}>{label}</Text>
+    </View>
+  );
+}
+
 function resolveHostElement(node) {
   if (typeof HTMLElement !== "undefined" && node instanceof HTMLElement) {
     return node;
@@ -676,6 +690,38 @@ const styles = StyleSheet.create({
   mapContainer: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 0,
+  },
+  routeLegend: {
+    position: "absolute",
+    left: 20,
+    bottom: 20,
+    zIndex: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(15, 23, 42, 0.12)",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    boxShadow: "0 10px 26px rgba(15, 23, 42, 0.14)",
+    backdropFilter: "blur(10px)",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 20,
+    height: 4,
+    borderRadius: 999,
+  },
+  legendText: {
+    color: "#0f172a",
+    fontSize: 12,
+    fontWeight: "800",
   },
   searchBox: {
     position: "absolute",

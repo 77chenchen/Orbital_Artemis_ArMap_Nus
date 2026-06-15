@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [profile, setProfile] = useState(() => readStoredProfile());
   const { width } = useWindowDimensions();
 
@@ -294,12 +295,27 @@ export default function Dashboard() {
     if (activeSection === "dashboard") {
       return (
         <ScrollView style={styles.scroll} contentContainerStyle={[styles.dashboardBody, phone && styles.dashboardBodyPhone]}>
-          <TopBar compact={compact} />
+          <TopBar
+            compact={compact}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onOpenSection={setActiveSection}
+          />
           {(notice || error) && (
             <View style={[styles.notice, error && styles.noticeError]}>
               <Text style={[styles.noticeText, error && styles.noticeErrorText]}>{error || notice}</Text>
             </View>
           )}
+          {searchQuery.trim() ? (
+            <SearchResults
+              query={searchQuery}
+              buildings={buildings}
+              facilities={facilities}
+              schedule={sortedSchedule}
+              recommendations={recommendations}
+              onOpenSection={setActiveSection}
+            />
+          ) : null}
           <View style={[styles.dashboardTopGrid, compact && styles.dashboardTopGridCompact]}>
             <View style={styles.primaryTopColumn}>
               <HeroCard
@@ -412,12 +428,37 @@ export default function Dashboard() {
           />
         )}
 
-        {["inbox", "tasks", "resources", "clubs"].includes(activeSection) && (
-          <PlaceholderPanel
-            title={sectionTitle(activeSection)}
+        {activeSection === "tasks" && (
+          <TasksPanel
+            schedule={dashboardTasks}
+            onDelete={deleteSchedule}
+            onOpenSchedule={() => setActiveSection("schedule")}
+          />
+        )}
+
+        {activeSection === "inbox" && (
+          <InboxPanel
+            health={health}
+            syncStatus={syncStatus}
             schedule={sortedSchedule}
             recommendations={recommendations}
             onOpenAssistant={() => setActiveSection("recommendations")}
+          />
+        )}
+
+        {activeSection === "resources" && (
+          <ResourcesPanel
+            buildings={buildings}
+            facilities={facilities}
+            recommendations={recommendations}
+            onOpenMap={() => setActiveSection("map")}
+          />
+        )}
+
+        {activeSection === "clubs" && (
+          <ClubsPanel
+            schedule={sortedSchedule}
+            onOpenSchedule={() => setActiveSection("schedule")}
           />
         )}
       </ScrollView>
@@ -580,7 +621,7 @@ function SidebarIcon({ name, active }) {
   );
 }
 
-function TopBar({ compact }) {
+function TopBar({ compact, searchQuery, setSearchQuery, onOpenSection }) {
   const profile = readStoredProfile();
   const firstName = profile.name.split(" ")[0] || "there";
 
@@ -597,15 +638,23 @@ function TopBar({ compact }) {
         <Text style={styles.searchIcon}>Q</Text>
         <TextInput
           style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
           placeholder="Search buildings, places, events..."
           placeholderTextColor="#8a8580"
         />
-        <Text style={styles.shortcut}>K</Text>
+        {searchQuery ? (
+          <Pressable accessibilityRole="button" onPress={() => setSearchQuery("")} style={styles.shortcutButton}>
+            <Text style={styles.shortcut}>Clear</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.shortcut}>K</Text>
+        )}
       </View>
       <View style={styles.topActions}>
-        <SquareButton label="Bell" />
-        <SquareButton label="Cal" />
-        <SquareButton label="Ask AI" dark />
+        <SquareButton label="Bell" onPress={() => onOpenSection("inbox")} />
+        <SquareButton label="Cal" onPress={() => onOpenSection("schedule")} />
+        <SquareButton label="Ask AI" dark onPress={() => onOpenSection("recommendations")} />
       </View>
     </View>
   );
@@ -928,19 +977,50 @@ function WeekCard({ schedule, buildingByCode, style }) {
 }
 
 function FocusTimer({ style }) {
+  const [secondsLeft, setSecondsLeft] = useState(25 * 60);
+  const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = window.setInterval(() => {
+      setSecondsLeft((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          setRunning(false);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  const minutes = Math.floor(secondsLeft / 60).toString().padStart(2, "0");
+  const seconds = (secondsLeft % 60).toString().padStart(2, "0");
+
   return (
     <View style={[styles.focusCard, style]}>
       <Text style={styles.sectionCardTitle}>Focus Timer</Text>
       <View style={styles.focusBody}>
         <View style={styles.timerRing}>
-          <Text style={styles.timerText}>25:00</Text>
-          <View style={styles.timerStart}>
-            <Text style={styles.timerStartText}>Start</Text>
-          </View>
+          <Text style={styles.timerText}>{`${minutes}:${seconds}`}</Text>
+          <Pressable onPress={() => setRunning((current) => !current)} style={styles.timerStart}>
+            <Text style={styles.timerStartText}>{running ? "Pause" : secondsLeft === 0 ? "Done" : "Start"}</Text>
+          </Pressable>
         </View>
         <View style={styles.focusCopy}>
           <Text style={styles.focusTitle}>Let's focus!</Text>
-          <Text style={styles.focusText}>You've got this.</Text>
+          <Text style={styles.focusText}>{running ? "Timer is running." : "Use a 25 minute block for deep work."}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setRunning(false);
+              setSecondsLeft(25 * 60);
+            }}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkText}>Reset timer</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -1065,16 +1145,190 @@ function SettingsPanel({ health, loading, syncStatus, buildings, indoorReadyCoun
   );
 }
 
-function PlaceholderPanel({ title, schedule, recommendations, onOpenAssistant }) {
+function SearchResults({ query, buildings, facilities, schedule, recommendations, onOpenSection }) {
+  const normalized = query.trim().toLowerCase();
+  const buildingMatches = buildings.filter((item) =>
+    [item.code, item.name, item.description].some((value) => String(value || "").toLowerCase().includes(normalized)),
+  );
+  const facilityMatches = facilities.filter((item) =>
+    [item.name, item.description, item.buildingCode, item.type].some((value) => String(value || "").toLowerCase().includes(normalized)),
+  );
+  const scheduleMatches = schedule.filter((item) =>
+    [item.title, item.moduleCode, item.location, item.notes].some((value) => String(value || "").toLowerCase().includes(normalized)),
+  );
+  const recommendationMatches = recommendations.filter((item) =>
+    [item.title, item.description, item.location, item.kind].some((value) => String(value || "").toLowerCase().includes(normalized)),
+  );
+  const total = buildingMatches.length + facilityMatches.length + scheduleMatches.length + recommendationMatches.length;
+
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionCardTitle}>{title}</Text>
-      <Text style={styles.bodyText}>
-        {`This workspace is connected to the same campus signals as the dashboard: ${schedule.length} schedule items and ${recommendations.length} assistant suggestions.`}
-      </Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.sectionCardTitle}>Search results</Text>
+        <Text style={styles.pillMuted}>{`${total} matches`}</Text>
+      </View>
+      {total === 0 ? <Text style={styles.bodyText}>No campus matches found.</Text> : null}
+      {buildingMatches.slice(0, 3).map((item) => (
+        <ResultRow
+          key={`building-${item.code}`}
+          label="Building"
+          title={`${item.code} · ${item.name}`}
+          detail={item.description}
+          onPress={() => onOpenSection("map")}
+        />
+      ))}
+      {facilityMatches.slice(0, 3).map((item) => (
+        <ResultRow
+          key={`facility-${item.id}`}
+          label="Facility"
+          title={item.name}
+          detail={`${item.buildingCode} L${item.floor} · ${item.description}`}
+          onPress={() => onOpenSection("facilities")}
+        />
+      ))}
+      {scheduleMatches.slice(0, 3).map((item) => (
+        <ResultRow
+          key={`schedule-${item.id}`}
+          label="Schedule"
+          title={item.title}
+          detail={`${item.moduleCode || "TASK"} · ${timeRange(item)}`}
+          onPress={() => onOpenSection("schedule")}
+        />
+      ))}
+      {recommendationMatches.slice(0, 3).map((item) => (
+        <ResultRow
+          key={`rec-${item.kind}-${item.title}`}
+          label="Assistant"
+          title={item.title}
+          detail={item.description}
+          onPress={() => onOpenSection("recommendations")}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ResultRow({ label, title, detail, onPress }) {
+  return (
+    <Pressable onPress={onPress} style={styles.resultRow}>
+      <Text style={styles.resultLabel}>{label}</Text>
+      <View style={styles.eventCopy}>
+        <Text style={styles.eventTitle}>{title}</Text>
+        <Text style={styles.smallMeta}>{detail}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
+function TasksPanel({ schedule, onDelete, onOpenSchedule }) {
+  return (
+    <View style={styles.twoColumnPanel}>
+      <TasksCard schedule={schedule} onDelete={onDelete} style={styles.bottomPanelWide} />
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Task controls</Text>
+        <Text style={styles.bodyText}>Tasks are generated from your schedule and assistant suggestions. Add a new item from Schedule.</Text>
+        <Pressable onPress={onOpenSchedule} style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>Add schedule item</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function InboxPanel({ health, syncStatus, schedule, recommendations, onOpenAssistant }) {
+  const messages = [
+    {
+      title: health ? "API connection is healthy" : "API needs attention",
+      detail: health ? "Campus data is available." : "Some live data may be unavailable.",
+    },
+    {
+      title: `NUSMods sync: ${syncStatus?.status || "not run"}`,
+      detail: `${syncStatus?.recordsSeen ?? 0} records seen in the latest sync.`,
+    },
+    {
+      title: `${schedule.length} schedule items loaded`,
+      detail: schedule[0] ? `Next: ${schedule[0].title}` : "Create your first schedule item.",
+    },
+    {
+      title: `${recommendations.length} assistant suggestions`,
+      detail: recommendations[0]?.title || "Ask Daily Assistant for a fresh plan.",
+    },
+  ];
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionCardTitle}>Inbox</Text>
+      {messages.map((message) => (
+        <View key={message.title} style={styles.scheduleRow}>
+          <View style={styles.statusDotOnline} />
+          <View style={styles.eventCopy}>
+            <Text style={styles.eventTitle}>{message.title}</Text>
+            <Text style={styles.smallMeta}>{message.detail}</Text>
+          </View>
+        </View>
+      ))}
       <Pressable onPress={onOpenAssistant} style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>Open Daily Assistant</Text>
+        <Text style={styles.primaryButtonText}>Ask Daily Assistant</Text>
       </Pressable>
+    </View>
+  );
+}
+
+function ResourcesPanel({ buildings, facilities, recommendations, onOpenMap }) {
+  return (
+    <View style={styles.twoColumnPanel}>
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Campus resources</Text>
+        <InfoRow label="Buildings indexed" value={buildings.length} />
+        <InfoRow label="Facilities available" value={facilities.length} />
+        <InfoRow label="Study spaces" value={facilities.filter((item) => item.type === "study_space").length} />
+        <InfoRow label="Route suggestions" value={recommendations.length} />
+        <Pressable onPress={onOpenMap} style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>Open campus map</Text>
+        </Pressable>
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Quick facility list</Text>
+        {facilities.slice(0, 5).map((facility) => (
+          <View key={facility.id} style={styles.scheduleRow}>
+            <View style={styles.eventCopy}>
+              <Text style={styles.eventTitle}>{facility.name}</Text>
+              <Text style={styles.smallMeta}>{`${facility.buildingCode} L${facility.floor} · ${facility.crowdLevel}`}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function ClubsPanel({ schedule, onOpenSchedule }) {
+  const clubEvents = [
+    { title: "Computing Club Booth", time: "Today 5:30 PM", location: "COM1 Lobby" },
+    { title: "Orbital Project Sharing", time: "Tomorrow 3:00 PM", location: "Central Library" },
+    { title: "NUS Hackers Friday Hacks", time: "Friday 7:00 PM", location: "UTown" },
+  ];
+
+  return (
+    <View style={styles.twoColumnPanel}>
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Clubs & Events</Text>
+        {clubEvents.map((event) => (
+          <View key={event.title} style={styles.scheduleRow}>
+            <View style={styles.eventCopy}>
+              <Text style={styles.eventTitle}>{event.title}</Text>
+              <Text style={styles.smallMeta}>{`${event.time} · ${event.location}`}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.sectionCardTitle}>Schedule context</Text>
+        <Text style={styles.bodyText}>{`You currently have ${schedule.length} plan items. Add event plans in Schedule so Artemis can include them in recommendations.`}</Text>
+        <Pressable onPress={onOpenSchedule} style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>Plan an event</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -1119,11 +1373,11 @@ function CampusLineArt({ dark = false }) {
   );
 }
 
-function SquareButton({ label, dark }) {
+function SquareButton({ label, dark, onPress }) {
   return (
-    <View style={[styles.squareButton, dark && styles.squareButtonDark]}>
+    <Pressable onPress={onPress} style={[styles.squareButton, dark && styles.squareButtonDark]}>
       <Text style={[styles.squareButtonText, dark && styles.squareButtonTextDark]}>{label}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -1558,12 +1812,16 @@ const styles = StyleSheet.create({
   shortcut: {
     minWidth: 30,
     paddingVertical: 3,
+    paddingHorizontal: 6,
     textAlign: "center",
     color: "#90897f",
     borderWidth: 1,
     borderColor: "rgba(18, 63, 56, 0.12)",
     borderRadius: 8,
     overflow: "hidden",
+  },
+  shortcutButton: {
+    borderRadius: 8,
   },
   topActions: {
     flexDirection: "row",
@@ -1579,6 +1837,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(18, 63, 56, 0.12)",
     backgroundColor: "rgba(255, 252, 243, 0.72)",
+    transitionProperty: "transform, box-shadow, background-color",
+    transitionDuration: "180ms",
   },
   squareButtonDark: {
     borderColor: "rgba(201, 118, 84, 0.28)",
@@ -1837,6 +2097,29 @@ const styles = StyleSheet.create({
     borderColor: "rgba(18, 63, 56, 0.08)",
     borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.42)",
+  },
+  resultRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.34)",
+  },
+  resultLabel: {
+    minWidth: 74,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+    color: "#c97654",
+    backgroundColor: "rgba(217, 155, 104, 0.12)",
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "900",
   },
   dateTile: {
     width: 64,

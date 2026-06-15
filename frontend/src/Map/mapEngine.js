@@ -1,5 +1,14 @@
 import maplibregl from "maplibre-gl";
 
+const ROUTE_MODE_COLORS = {
+  WALK: "#2563eb",
+  FOOT: "#2563eb",
+  BUS: "#dc2626",
+  RAIL: "#16a34a",
+  SUBWAY: "#16a34a",
+  DEFAULT: "#2563eb",
+};
+
 export class MapEngine {
   constructor(map) {
     this.map = map;
@@ -50,13 +59,11 @@ export class MapEngine {
     if (fly) this.flyTo(coord);
   }
 
-  drawRoute(coordinates) {
+  drawRoute(routeInput, { mode = "WALK" } = {}) {
+    const features = normalizeRouteFeatures(routeInput, mode);
     const data = {
-      type: "Feature",
-      geometry: {
-        type: "LineString",
-        coordinates,
-      },
+      type: "FeatureCollection",
+      features,
     };
 
     const source = this.map.getSource("route");
@@ -76,9 +83,66 @@ export class MapEngine {
       type: "line",
       source: "route",
       paint: {
-        "line-color": "#007aff",
-        "line-width": 4,
+        "line-color": [
+          "match",
+          ["get", "mode"],
+          "WALK",
+          ROUTE_MODE_COLORS.WALK,
+          "FOOT",
+          ROUTE_MODE_COLORS.FOOT,
+          "BUS",
+          ROUTE_MODE_COLORS.BUS,
+          "RAIL",
+          ROUTE_MODE_COLORS.RAIL,
+          "SUBWAY",
+          ROUTE_MODE_COLORS.SUBWAY,
+          ROUTE_MODE_COLORS.DEFAULT,
+        ],
+        "line-width": [
+          "match",
+          ["get", "mode"],
+          "WALK",
+          4,
+          "FOOT",
+          4,
+          "BUS",
+          5,
+          "RAIL",
+          5,
+          4,
+        ],
+        "line-opacity": 0.9,
       },
     });
   }
+}
+
+function normalizeRouteFeatures(routeInput, fallbackMode) {
+  if (!Array.isArray(routeInput)) return [];
+
+  const looksLikeCoordinates = Array.isArray(routeInput[0]) && typeof routeInput[0]?.[0] === "number";
+  if (looksLikeCoordinates) {
+    return routeFeature(routeInput, fallbackMode);
+  }
+
+  return routeInput.flatMap((segment) => {
+    const coordinates = segment.coordinates || segment.points || segment.geometry?.coordinates || [];
+    return routeFeature(coordinates, segment.mode || fallbackMode);
+  });
+}
+
+function routeFeature(coordinates, mode) {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return [];
+  return [
+    {
+      type: "Feature",
+      properties: {
+        mode: String(mode || "WALK").toUpperCase(),
+      },
+      geometry: {
+        type: "LineString",
+        coordinates,
+      },
+    },
+  ];
 }
