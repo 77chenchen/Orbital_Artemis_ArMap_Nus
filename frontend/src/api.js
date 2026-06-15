@@ -163,6 +163,34 @@ const demoActiveBuses = {
   ],
 };
 
+function demoOtpPlan(path) {
+  const url = new URL(`https://demo.local${path}`);
+  const from = parsePlace(url.searchParams.get('fromPlace')) || [103.7739, 1.2948];
+  const to = parsePlace(url.searchParams.get('toPlace')) || [103.7723, 1.2966];
+  const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
+  const transitMode = (url.searchParams.get('mode') || '').toUpperCase().includes('TRANSIT') ? 'BUS' : 'WALK';
+  const segments = [
+    { mode: 'WALK', distance: 120, duration: 180, from: 'Start', to: 'Campus transfer', coordinates: [from, mid] },
+    { mode: transitMode, distance: 640, duration: 420, from: 'Campus transfer', to: 'Destination', coordinates: [mid, to] },
+  ];
+  return {
+    source: 'demo-otp',
+    mode: url.searchParams.get('mode') || 'WALK,TRANSIT',
+    distance: 760,
+    duration: 600,
+    points: segments.flatMap((segment) => segment.coordinates),
+    segments,
+    itineraries: [{ duration: 600, walkTime: 180, transit: transitMode !== 'WALK', legs: segments }],
+  };
+}
+
+function parsePlace(value) {
+  if (!value) return null;
+  const [lat, lng] = value.split(',').map((item) => Number(item.trim()));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return [lng, lat];
+}
+
 let demoSchedule = [
   {
     id: 1,
@@ -284,6 +312,7 @@ function demoRequest(path, options = {}) {
     });
   }
   if (path === '/bus/alerts') return Promise.resolve([]);
+  if (path.startsWith('/otp/plan')) return Promise.resolve(demoOtpPlan(path));
   if (path === '/sync/status') return Promise.resolve(demoSyncStatus);
   if (path === '/sync/run' && options.method === 'POST') {
     demoSyncStatus = {
@@ -319,6 +348,14 @@ export const api = {
   busArrivals: (stop) => request(`/bus/arrivals?stop=${encodeURIComponent(stop)}`),
   activeBus: (route) => request(`/bus/active?route=${encodeURIComponent(route)}`),
   busAlerts: () => request('/bus/alerts'),
+  otpPlan: ({ from, to, mode = 'WALK,TRANSIT' }) => {
+    const params = new URLSearchParams({
+      fromPlace: `${from[1]},${from[0]}`,
+      toPlace: `${to[1]},${to[0]}`,
+      mode,
+    });
+    return request(`/otp/plan?${params.toString()}`);
+  },
   syncStatus: () => request('/sync/status'),
   runSync: () => request('/sync/run', { method: 'POST' }),
   dailyAssistant: (payload) =>

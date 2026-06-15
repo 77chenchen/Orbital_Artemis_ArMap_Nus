@@ -16,6 +16,7 @@ type Config struct {
 	NUSBusXAPPAPI     string
 	NUSBusDeviceID    string
 	NUSBusVersion     string
+	OTPBaseURL        string
 	LLMProvider       string
 	LLMAPIKey         string
 	LLMBaseURL        string

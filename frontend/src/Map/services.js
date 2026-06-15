@@ -10,7 +10,7 @@ export async function route(start, end, mode = "foot") {
   if (!start || !end) return null;
 
   const r = await getShortestRoutes(start, end, mode);
-  return r?.points || null;
+  return r || null;
 }
 
 

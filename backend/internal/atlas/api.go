@@ -57,6 +57,7 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/bus/active", api.activeBus)
 	mux.HandleFunc("GET /api/bus/alerts", api.busAlerts)
 	mux.HandleFunc("GET /api/bus/context", api.busContext)
+	mux.HandleFunc("GET /api/otp/plan", api.Protect(api.otpPlan))
 	mux.HandleFunc("POST /api/login", api.login)
 	mux.HandleFunc("POST /api/auth/google", api.googleLogin)
 	mux.HandleFunc("POST /api/register", api.register)

@@ -246,13 +246,14 @@ export default function MapScreen({ embedded = false }) {
     if (!engine) return;
 
     async function runRoute() {
-      const points = await route(startPlace.coords, endPlace.coords);
-      if (!points) return;
+      const routeResult = await route(startPlace.coords, endPlace.coords, "WALK,TRANSIT");
+      const drawableRoute = routeResult?.segments?.length ? routeResult.segments : routeResult?.points;
+      if (!drawableRoute) return;
 
       engine.clear();
       engine.setMarker(startPlace.coords, { fly: true });
       engine.setMarker(endPlace.coords, { fly: false });
-      engine.drawRoute(points, { mode: "WALK" });
+      engine.drawRoute(drawableRoute, { mode: "WALK" });
     }
 
     runRoute();

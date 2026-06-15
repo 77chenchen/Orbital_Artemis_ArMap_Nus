@@ -33,6 +33,7 @@ func main() {
 		NUSBusXAPPAPI:     env("NUS_BUS_X_APP_API", ""),
 		NUSBusDeviceID:    env("NUS_BUS_DEVICE_ID", "atlas-nus-bus-demo-device"),
 		NUSBusVersion:     env("NUS_BUS_VERSION", "2.56.0"),
+		OTPBaseURL:        env("OTP_BASE_URL", ""),
 		LLMProvider:       env("LLM_PROVIDER", "openai-compatible"),
 		LLMAPIKey:         env("LLM_API_KEY", ""),
 		LLMBaseURL:        env("LLM_BASE_URL", ""),
