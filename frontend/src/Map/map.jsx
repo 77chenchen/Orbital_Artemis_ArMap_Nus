@@ -16,7 +16,14 @@ import { route, watchLocation } from "./services";
 import getSuggestions from "./geocoding";
 import RoutingForm from "./(ui)/routingForm";
 import { api } from "../api";
-import { installBusLayers, setActiveBuses, setRoutePickupPoints } from "./busLayer";
+import { installBusLayers } from "./busLayer";
+
+const TRAVEL_MODES = [
+  { id: "WALK", label: "Walk", otpMode: "WALK" },
+  { id: "TRANSIT", label: "Transit", otpMode: "WALK,TRANSIT" },
+  { id: "CAR", label: "Drive", otpMode: "CAR" },
+  { id: "BICYCLE", label: "Bike", otpMode: "BICYCLE" },
+];
 
 export default function MapScreen({ embedded = false }) {
   const [mapHostElement, setMapHostElement] = useState(null);
@@ -28,20 +35,23 @@ export default function MapScreen({ embedded = false }) {
   const [startPlace, setStartPlace] = useState(null);
   const [endPlace, setEndPlace] = useState(null);
   const [routing, setRouting] = useState(false);
+  const [routeResult, setRouteResult] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [routeError, setRouteError] = useState("");
+  const [travelMode, setTravelMode] = useState(TRAVEL_MODES[1].id);
   const [followLocation, setFollowLocation] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeField, setActiveField] = useState(null);
 
   const [busReady, setBusReady] = useState(false);
-  const [busRoutes, setBusRoutes] = useState([]);
-  const [selectedRoute, setSelectedRoute] = useState("D1");
   const [selectedStop, setSelectedStop] = useState(null);
-  const [pickupPoints, setPickupPoints] = useState([]);
+  const [trainAlerts, setTrainAlerts] = useState([]);
   const [arrivalRows, setArrivalRows] = useState([]);
   const [showArrivals, setShowArrivals] = useState(false);
   const [arrivalLoading, setArrivalLoading] = useState(false);
   const [busError, setBusError] = useState("");
+  const [showBusPanel, setShowBusPanel] = useState(false);
 
   const captureMapContainer = useCallback((node) => {
     if (!node) {
@@ -108,16 +118,18 @@ export default function MapScreen({ embedded = false }) {
 
     async function loadBusLayer() {
       try {
-        const [stops, routes] = await Promise.all([api.busStops(), api.busRoutes()]);
+        const [nearbyStops, alerts] = await Promise.all([
+          api.sgNearbyBusStops({ lat: 1.2966, lng: 103.7764, limit: 18 }),
+          api.sgTrainAlerts(),
+        ]);
         if (cancelled) return;
 
+        const stops = (nearbyStops || []).map((item) => ({
+          ...(item.busStop || item),
+          distanceM: item.distanceM,
+        }));
         cleanupBusLayer = installBusLayers(map, stops, handleBusStopSelect);
-        setBusRoutes(routes);
-
-        const preferredRoute = routes.some((item) => item.code === "D1") ? "D1" : routes[0]?.code || "";
-        if (preferredRoute) {
-          setSelectedRoute(preferredRoute);
-        }
+        setTrainAlerts(alerts || []);
 
         if (stops[0]) {
           await handleBusStopSelect({ code: stops[0].code, name: stops[0].name });
@@ -171,56 +183,6 @@ export default function MapScreen({ embedded = false }) {
   }, [mapHostElement]);
 
   useEffect(() => {
-    if (!busReady || !selectedRoute || !mapRef.current) {
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    async function refreshActiveBus() {
-      try {
-        const active = await api.activeBus(selectedRoute);
-        if (!cancelled && mapRef.current) {
-          setActiveBuses(mapRef.current, active.vehicles || []);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setBusError(err.message);
-        }
-      }
-    }
-
-    async function loadPickupPoints() {
-      try {
-        const points = await api.busPickupPoints(selectedRoute);
-        if (!cancelled && mapRef.current) {
-          const sortedPoints = [...(points || [])].sort((a, b) => (a.seq || 0) - (b.seq || 0));
-          const routeCoordinates = await buildRoadRoute(sortedPoints);
-          if (cancelled || !mapRef.current) return;
-          setPickupPoints(sortedPoints);
-          setRoutePickupPoints(mapRef.current, sortedPoints, routeCoordinates);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setPickupPoints([]);
-          setBusError(err.message);
-          if (mapRef.current) {
-            setRoutePickupPoints(mapRef.current, []);
-          }
-        }
-      }
-    }
-
-    loadPickupPoints();
-    refreshActiveBus();
-    const timer = window.setInterval(refreshActiveBus, 15000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [busReady, selectedRoute]);
-
-  useEffect(() => {
     if (!activeField) return undefined;
 
     const value = activeField === "start" ? startText : queryText;
@@ -246,18 +208,32 @@ export default function MapScreen({ embedded = false }) {
     if (!engine) return;
 
     async function runRoute() {
-      const routeResult = await route(startPlace.coords, endPlace.coords, "WALK,TRANSIT");
-      const drawableRoute = routeResult?.segments?.length ? routeResult.segments : routeResult?.points;
-      if (!drawableRoute) return;
+      setRouteLoading(true);
+      setRouteError("");
+      try {
+        const selectedMode = TRAVEL_MODES.find((item) => item.id === travelMode) || TRAVEL_MODES[1];
+        const nextRoute = await route(startPlace.coords, endPlace.coords, selectedMode.otpMode);
+        const displayPlan = await routeForDisplay(nextRoute, selectedMode, startPlace.coords, endPlace.coords);
+        const drawableRoute = displayPlan?.drawableRoute;
+        if (!drawableRoute) {
+          throw new Error("No drawable OTP route returned.");
+        }
 
-      engine.clear();
-      engine.setMarker(startPlace.coords, { fly: true });
-      engine.setMarker(endPlace.coords, { fly: false });
-      engine.drawRoute(drawableRoute, { mode: "WALK" });
+        setRouteResult(displayPlan.routeResult);
+        engine.clear();
+        engine.setMarker(startPlace.coords, { fly: true });
+        engine.setMarker(endPlace.coords, { fly: false });
+        engine.drawRoute(drawableRoute, { mode: selectedMode.id });
+      } catch (err) {
+        setRouteResult(null);
+        setRouteError(err instanceof Error ? err.message : "OTP route failed.");
+      } finally {
+        setRouteLoading(false);
+      }
     }
 
     runRoute();
-  }, [startPlace, endPlace, routing]);
+  }, [startPlace, endPlace, routing, travelMode]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -295,7 +271,21 @@ export default function MapScreen({ embedded = false }) {
 
     engine?.clear();
     engine?.setMarker(coords, { fly: true });
+    setRouteResult(null);
+    setRouteError("");
     setRouting(true);
+  }
+
+  function closeRouting() {
+    const engine = engineRef.current;
+    setRouting(false);
+    setRouteResult(null);
+    setRouteError("");
+    setRouteLoading(false);
+    setActiveField(null);
+    setSuggestions([]);
+    setShowDropdown(false);
+    engine?.clear();
   }
 
   function searchPlace(place) {
@@ -308,12 +298,7 @@ export default function MapScreen({ embedded = false }) {
   }
 
   async function loadRouteArrivalDashboard() {
-    const stopsToCheck =
-      pickupPoints.length > 0
-        ? pickupPoints
-        : selectedStop
-          ? [{ stopCode: selectedStop.code, pickupName: selectedStop.name }]
-          : [];
+    const stopsToCheck = selectedStop ? [{ stopCode: selectedStop.code, pickupName: selectedStop.name }] : [];
     if (stopsToCheck.length === 0) return;
 
     setArrivalLoading(true);
@@ -322,7 +307,7 @@ export default function MapScreen({ embedded = false }) {
       const arrivals = await Promise.all(
         stopsToCheck.map(async (point) => {
           const stopCode = point.stopCode || point.code;
-          const arrival = await api.busArrivals(stopCode);
+          const arrival = await api.sgBusArrivals(stopCode);
           return { point, arrival };
         }),
       );
@@ -352,7 +337,7 @@ export default function MapScreen({ embedded = false }) {
     }
   }
 
-  const arrivalDisabled = arrivalLoading || (!selectedStop && pickupPoints.length === 0);
+  const arrivalDisabled = arrivalLoading || !selectedStop;
   const source = arrivalRows[0]?.source || "no data";
 
   return (
@@ -362,6 +347,8 @@ export default function MapScreen({ embedded = false }) {
         <LegendItem color="#2563eb" label="Walk" />
         <LegendItem color="#dc2626" label="Bus" />
         <LegendItem color="#16a34a" label="Rail" />
+        <LegendItem color="#7c3aed" label="Drive" />
+        <LegendItem color="#ea580c" label="Bike" />
       </View>
 
       {!routing ? (
@@ -406,164 +393,175 @@ export default function MapScreen({ embedded = false }) {
       ) : null}
 
       {routing ? (
-        <RoutingForm
-          start={startText}
-          end={queryText}
-          setStart={setStartText}
-          setEnd={setQueryText}
-          startPlace={startPlace}
-          endPlace={endPlace}
-          suggestions={suggestions}
-          showDropdown={showDropdown}
-          activeField={activeField}
-          setActiveField={setActiveField}
-          setShowDropdown={setShowDropdown}
-          setSuggestions={setSuggestions}
-          setStartPlace={setStartPlace}
-          setEndPlace={setEndPlace}
-        />
+        <View style={styles.routingPanel}>
+          <RoutingForm
+            start={startText}
+            end={queryText}
+            setStart={setStartText}
+            setEnd={setQueryText}
+            startPlace={startPlace}
+            endPlace={endPlace}
+            suggestions={suggestions}
+            showDropdown={showDropdown}
+            activeField={activeField}
+            setActiveField={setActiveField}
+            setShowDropdown={setShowDropdown}
+            setSuggestions={setSuggestions}
+            setStartPlace={setStartPlace}
+            setEndPlace={setEndPlace}
+            travelModes={TRAVEL_MODES}
+            travelMode={travelMode}
+            setTravelMode={setTravelMode}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close route search"
+            onPress={closeRouting}
+            style={({ pressed }) => [styles.routeCloseButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.routeCloseText}>×</Text>
+          </Pressable>
+          <RouteSummary routeResult={routeResult} loading={routeLoading} error={routeError} travelMode={travelMode} />
+        </View>
       ) : null}
 
-      <ScrollView style={styles.busPanel} contentContainerStyle={styles.busPanelContent}>
-        <View style={styles.busPanelHeader}>
-          <View style={styles.busTitleBlock}>
-            <Text style={styles.busKicker}>NUS NextBus</Text>
-            <Text style={styles.busTitle}>Campus Bus Layer</Text>
-          </View>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routeChips}>
-          {busRoutes.length > 0 ? (
-            busRoutes.map((routeItem) => (
-              <Pressable
-                key={routeItem.code}
-                onPress={() => setSelectedRoute(routeItem.code)}
-                style={({ pressed }) => [
-                  styles.routeChip,
-                  selectedRoute === routeItem.code && styles.routeChipActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={[styles.routeChipText, selectedRoute === routeItem.code && styles.routeChipTextActive]}>
-                  {routeItem.code}
-                </Text>
-              </Pressable>
-            ))
-          ) : (
-            <Text style={styles.busMuted}>Routes loading...</Text>
-          )}
-        </ScrollView>
-
-        {selectedStop ? (
-          <View style={styles.busStopCard}>
-            <View style={styles.busTitleBlock}>
-              <Text style={styles.busKicker}>Selected Stop</Text>
-              <Text style={styles.busStopTitle}>{selectedStop.name || selectedStop.code}</Text>
-            </View>
-            <Text style={styles.stopCode}>{selectedStop.code}</Text>
-          </View>
-        ) : (
-          <Text style={styles.busMuted}>Loading campus shuttle stops...</Text>
-        )}
-
+      {!showBusPanel ? (
         <Pressable
-          disabled={arrivalDisabled}
-          onPress={loadRouteArrivalDashboard}
-          style={({ pressed }) => [
-            styles.busArrivalToggle,
-            arrivalDisabled && styles.busArrivalToggleDisabled,
-            pressed && !arrivalDisabled && styles.pressed,
-          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Open NUS bus dashboard"
+          onPress={() => setShowBusPanel(true)}
+          style={({ pressed }) => [styles.busLayerButton, pressed && styles.pressed]}
         >
-          <Text style={styles.busArrivalToggleText}>
-            {arrivalLoading ? "Loading arrival dashboard..." : "View bus arrival dashboard"}
-          </Text>
+          <Text style={styles.busLayerButtonIcon}>Bus</Text>
+          <View style={styles.busLayerButtonTextBlock}>
+            <Text style={styles.busLayerButtonTitle}>SG Transit</Text>
+            <Text style={styles.busLayerButtonMeta}>{selectedStop?.code || "Stops"} · {busReady ? "ready" : "loading"}</Text>
+          </View>
         </Pressable>
-
-        {showArrivals ? (
-          <View style={styles.busArrivalDashboard}>
-            <View style={styles.busArrivalDashboardHead}>
-              <Text style={styles.busKicker}>Arrival Dashboard</Text>
-              <Text style={[styles.sourceBadge, sourceBadgeStyle(source)]}>{source}</Text>
+      ) : (
+        <ScrollView style={styles.busPanel} contentContainerStyle={styles.busPanelContent}>
+          <View style={styles.busPanelHeader}>
+            <View style={styles.busTitleBlock}>
+              <Text style={styles.busKicker}>LTA DataMall</Text>
+              <Text style={styles.busTitle}>Singapore Transit</Text>
             </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close Singapore transit dashboard"
+              onPress={() => setShowBusPanel(false)}
+              style={({ pressed }) => [styles.panelCloseButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.panelCloseText}>×</Text>
+            </Pressable>
+          </View>
 
-            {arrivalRows.length > 0 ? (
-              <View style={styles.busArrivalTable}>
-                <View style={[styles.busArrivalTableRow, styles.busArrivalTableHeader]}>
-                  <Text style={styles.headerText}>Location</Text>
-                  <Text style={styles.headerText}>Bus</Text>
-                  <Text style={styles.headerText}>Arrival</Text>
+          {selectedStop ? (
+            <View style={styles.busStopCard}>
+              <View style={styles.busTitleBlock}>
+                <Text style={styles.busKicker}>Selected Singapore Bus Stop</Text>
+                <Text style={styles.busStopTitle}>{selectedStop.name || selectedStop.code}</Text>
+              </View>
+              <Text style={styles.stopCode}>{selectedStop.code}</Text>
+            </View>
+          ) : (
+            <Text style={styles.busMuted}>Loading nearby Singapore bus stops...</Text>
+          )}
+
+          <Pressable
+            disabled={arrivalDisabled}
+            onPress={loadRouteArrivalDashboard}
+            style={({ pressed }) => [
+              styles.busArrivalToggle,
+              arrivalDisabled && styles.busArrivalToggleDisabled,
+              pressed && !arrivalDisabled && styles.pressed,
+            ]}
+          >
+            <Text style={styles.busArrivalToggleText}>
+              {arrivalLoading ? "Loading arrivals..." : "Show arrivals"}
+            </Text>
+          </Pressable>
+
+          {showArrivals ? (
+            <View style={styles.busArrivalDashboard}>
+              <View style={styles.busArrivalDashboardHead}>
+                <Text style={styles.busKicker}>Arrivals</Text>
+                <Text style={[styles.sourceBadge, sourceBadgeStyle(source)]}>{source}</Text>
+              </View>
+
+              {arrivalRows.length > 0 ? (
+                <View style={styles.busArrivalTable}>
+                  <View style={[styles.busArrivalTableRow, styles.busArrivalTableHeader]}>
+                    <Text style={styles.headerText}>Location</Text>
+                    <Text style={styles.headerText}>Bus</Text>
+                    <Text style={styles.headerText}>Arrival</Text>
+                  </View>
+                  {arrivalRows.map((row, index) => (
+                    <View style={styles.busArrivalTableRow} key={`${row.stopCode}-${row.routeCode}-${index}`}>
+                      <View style={styles.tableCellWide}>
+                        <Text numberOfLines={1} style={styles.rowStrong}>
+                          {row.stopName || row.stopCode}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.rowSmall}>
+                          {row.stopCode}
+                        </Text>
+                      </View>
+                      <View style={styles.tableCellBus}>
+                        <Text style={styles.rowStrong}>{row.routeCode}</Text>
+                        {row.vehiclePlate ? (
+                          <Text numberOfLines={1} style={styles.rowSmall}>
+                            Now {row.vehiclePlate}
+                          </Text>
+                        ) : null}
+                        {row.nextArrivalVehicle ? (
+                          <Text numberOfLines={1} style={styles.rowSmall}>
+                            Next {row.nextArrivalVehicle}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={styles.tableCellArrival}>
+                        <Text style={styles.rowStrong}>{formatArrivalPair(row)}</Text>
+                        <Text style={[styles.crowd, crowdStyle(row.crowdLevel)]}>{row.crowdLevel || "live"}</Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-                {arrivalRows.map((row, index) => (
-                  <View style={styles.busArrivalTableRow} key={`${row.stopCode}-${row.routeCode}-${index}`}>
-                    <View style={styles.tableCellWide}>
-                      <Text numberOfLines={1} style={styles.rowStrong}>
-                        {row.stopName || row.stopCode}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.rowSmall}>
-                        {row.stopCode}
-                      </Text>
-                    </View>
-                    <View style={styles.tableCellBus}>
-                      <Text style={styles.rowStrong}>{row.routeCode}</Text>
-                      {row.vehiclePlate ? (
-                        <Text numberOfLines={1} style={styles.rowSmall}>
-                          Now {row.vehiclePlate}
-                        </Text>
-                      ) : null}
-                      {row.nextArrivalVehicle ? (
-                        <Text numberOfLines={1} style={styles.rowSmall}>
-                          Next {row.nextArrivalVehicle}
-                        </Text>
-                      ) : null}
-                    </View>
-                    <View style={styles.tableCellArrival}>
-                      <Text style={styles.rowStrong}>{formatArrivalPair(row)}</Text>
-                      <Text style={[styles.crowd, crowdStyle(row.crowdLevel)]}>{row.crowdLevel || "live"}</Text>
+              ) : (
+                <Text style={styles.busMuted}>No real-time arrivals returned for this stop yet.</Text>
+              )}
+
+              {arrivalRows[0]?.source === "demo-lta" ? (
+                <Text style={styles.busDemoNote}>
+                  Demo ETA shown. Configure LTA_ACCOUNT_KEY to display live Singapore bus arrivals.
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.busPickupList}>
+            <Text style={styles.busKicker}>MRT/LRT Service Status</Text>
+            {trainAlerts.length > 0 ? (
+              <View style={styles.pickupItems}>
+                {trainAlerts.slice(0, 6).map((alert, index) => (
+                  <View style={styles.pickupItem} key={`${alert.line}-${alert.status}-${index}`}>
+                    <Text style={styles.trainLineBadge}>{alert.line || "MRT"}</Text>
+                    <View style={styles.trainAlertTextBlock}>
+                      <Text style={styles.pickupName}>{alert.status}</Text>
+                      {alert.message ? <Text style={styles.rowSmall}>{alert.message}</Text> : null}
                     </View>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.busMuted}>No arrival data returned for this route yet.</Text>
+              <Text style={styles.busMuted}>No train service alert loaded yet.</Text>
             )}
-
-            {arrivalRows[0]?.source === "demo" ? (
-              <Text style={styles.busDemoNote}>
-                Demo ETA shown. Configure NUS bus API credentials to display live NUS arrivals.
-              </Text>
-            ) : null}
           </View>
-        ) : null}
 
-        {!showArrivals && selectedStop ? (
-          <Text style={styles.busMuted}>
-            Click the button to fetch each bus arrival time at each pickup point in the selected route.
+          {busError ? <Text style={styles.busError}>{busError}</Text> : null}
+          <Text style={styles.busFooter}>
+            Source: {arrivalRows[0]?.source || trainAlerts[0]?.source || "loading"}
           </Text>
-        ) : null}
-
-        <View style={styles.busPickupList}>
-          <Text style={styles.busKicker}>{selectedRoute || "Route"} Pickup Points</Text>
-          {pickupPoints.length > 0 ? (
-            <View style={styles.pickupItems}>
-              {pickupPoints.slice(0, 6).map((point) => (
-                <View style={styles.pickupItem} key={`${point.routeCode}-${point.seq}-${point.stopCode}`}>
-                  <Text style={styles.pickupSeq}>{point.seq}</Text>
-                  <Text style={styles.pickupName}>{point.pickupName || point.longName || point.stopCode}</Text>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.busMuted}>No pickup points loaded for this route.</Text>
-          )}
-        </View>
-
-        {busError ? <Text style={styles.busError}>{busError}</Text> : null}
-        <Text style={styles.busFooter}>
-          Source: {arrivalRows[0]?.source || pickupPoints[0]?.source || "loading"} - live when NUS bus credentials are
-          configured
-        </Text>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       <View style={styles.functionalButtons}>
         <Pressable
@@ -592,6 +590,107 @@ function LegendItem({ color, label }) {
   );
 }
 
+function RouteSummary({ routeResult, loading, error, travelMode }) {
+  if (loading) {
+    return (
+      <View style={styles.routeSummary}>
+        <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
+        <Text style={styles.routeSummaryMuted}>Calculating with OpenTripPlanner...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.routeSummary, styles.routeSummaryError]}>
+        <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
+        <Text style={styles.routeSummaryErrorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!routeResult) return null;
+
+  const segments = routeResult.segments || [];
+  return (
+    <View style={styles.routeSummary}>
+      <View style={styles.routeSummaryHeader}>
+        <View>
+          <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
+          <Text style={styles.routeSummaryTitle}>{formatDistance(routeResult.distance)} · {formatDuration(routeResult.time)}</Text>
+        </View>
+        <Text style={styles.routeSourceBadge}>{routeResult.source || "otp"}</Text>
+      </View>
+
+      <View style={styles.routeSegmentList}>
+        {segments.map((segment, index) => (
+          <View style={styles.routeSegmentItem} key={`${segment.mode}-${index}`}>
+            <View style={[styles.routeSegmentStripe, { backgroundColor: modeColor(segment.mode) }]} />
+            <View style={styles.routeSegmentTextBlock}>
+              <View style={styles.routeSegmentTopLine}>
+                <Text style={styles.routeSegmentMode}>{displaySegmentMode(segment)}</Text>
+                {segment.routeCode ? <Text style={styles.routeLineBadge}>{segment.routeCode}</Text> : null}
+              </View>
+              <Text style={styles.routeSegmentMeta}>
+                {formatDistance(segment.distance)} · {formatDuration(segment.duration)}
+              </Text>
+              {segment.from || segment.to ? (
+                <Text numberOfLines={1} style={styles.routeSegmentStops}>
+                  {[segment.from, segment.to].filter(Boolean).join(" to ")}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function displayMode(mode) {
+  const text = String(mode || "WALK").toUpperCase();
+  if (text === "FOOT") return "WALK";
+  if (text === "BICYCLE") return "BIKE";
+  if (text === "CAR") return "DRIVE";
+  return text;
+}
+
+function displaySegmentMode(segment) {
+  const mode = displayMode(segment?.mode);
+  return mode;
+}
+
+function travelModeLabel(mode) {
+  const selected = TRAVEL_MODES.find((item) => item.id === mode);
+  return selected?.label || "Route";
+}
+
+function modeColor(mode) {
+  const text = displayMode(mode);
+  if (text === "BUS" || text === "COACH") return "#dc2626";
+  if (text === "DRIVE") return "#7c3aed";
+  if (text === "BIKE") return "#ea580c";
+  if (["RAIL", "METRO", "SUBWAY", "TRAM"].includes(text)) return "#16a34a";
+  return "#2563eb";
+}
+
+function formatDistance(meters) {
+  const value = Number(meters);
+  if (!Number.isFinite(value)) return "-";
+  if (value >= 1000) return `${(value / 1000).toFixed(1)} km`;
+  return `${Math.round(value)} m`;
+}
+
+function formatDuration(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value)) return "-";
+  const minutes = Math.max(1, Math.round(value / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+}
+
 function resolveHostElement(node) {
   if (typeof HTMLElement !== "undefined" && node instanceof HTMLElement) {
     return node;
@@ -601,8 +700,8 @@ function resolveHostElement(node) {
 }
 
 function sourceBadgeStyle(source) {
-  if (source === "nus") return styles.sourceNus;
-  if (source === "demo") return styles.sourceDemo;
+  if (source === "nus" || source === "lta") return styles.sourceNus;
+  if (source === "demo" || source === "demo-lta") return styles.sourceDemo;
   return null;
 }
 
@@ -653,27 +752,173 @@ function formatClock(timestamp) {
   return `${hour}:${match[2]}${suffix}`;
 }
 
-async function buildRoadRoute(points = []) {
-  const sortedPoints = points
-    .filter((point) => point.latitude && point.longitude)
-    .sort((a, b) => (a.seq || 0) - (b.seq || 0));
+async function routeForDisplay(routeResult, selectedMode, start, end) {
+  if (!routeResult) return null;
 
-  if (sortedPoints.length < 2) {
-    return [];
+  if (selectedMode?.id === "CAR" || selectedMode?.id === "BICYCLE") {
+    const profile = selectedMode.id === "CAR" ? "driving" : "bike";
+    const direct = await osrmDirectRoute(start, end, profile);
+    if (direct.coordinates.length >= 2) {
+      const segment = {
+        mode: selectedMode.id,
+        distance: direct.distance,
+        duration: direct.duration,
+        coordinates: direct.coordinates,
+      };
+      return {
+        routeResult: {
+          ...routeResult,
+          distance: direct.distance,
+          time: direct.duration,
+          duration: direct.duration,
+          points: direct.coordinates,
+          segments: [segment],
+          source: `${routeResult.source || "otp"}+osrm-${profile}`,
+        },
+        drawableRoute: [segment],
+      };
+    }
   }
+
+  const segments = routeResult.segments || [];
+  if (segments.length === 0) {
+    return { routeResult, drawableRoute: routeResult.points };
+  }
+
+  const refined = await Promise.all(
+    segments.map(async (segment) => {
+      const coordinates = segment.coordinates || [];
+      const profile = osrmProfileForMode(segment.mode);
+      if (!profile || coordinates.length < 2) return segment;
+
+      const snapped = await osrmRouteForCoordinates(coordinates, profile);
+      if (snapped.length >= 2) return { ...segment, coordinates: snapped, displaySnapped: true };
+
+      if (isTransitMode(segment.mode)) {
+        return { ...segment, coordinates: [], displayHidden: true };
+      }
+
+      return segment;
+    }),
+  );
+  const drawableRoute = refined.filter((segment) => (segment.coordinates || []).length >= 2);
+
+  return {
+    routeResult: { ...routeResult, segments: refined },
+    drawableRoute,
+  };
+}
+
+function osrmProfileForMode(mode) {
+  const value = String(mode || "").toUpperCase();
+  if (value === "WALK" || value === "FOOT") return "foot";
+  if (value === "BUS" || value === "COACH" || value === "TRANSIT" || value === "CAR") return "driving";
+  if (value === "BICYCLE" || value === "BIKE") return "bike";
+  return "";
+}
+
+async function osrmRouteForCoordinates(coordinates, profile) {
+  const waypoints = sampleWaypoints(dedupeCoordinates(coordinates), 18);
+  if (waypoints.length < 2) return [];
 
   try {
-    const coordinates = sortedPoints.map((point) => `${point.longitude},${point.latitude}`).join(";");
-    const response = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&continue_straight=false`,
-    );
-    const data = await response.json();
-    const routeCoordinates = data?.routes?.[0]?.geometry?.coordinates;
-    return Array.isArray(routeCoordinates) ? routeCoordinates : [];
+    const pairwise = await osrmPairwiseRoute(waypoints, profile);
+    if (pairwise.length >= 2) return pairwise;
+
+    const direct = await osrmMultiWaypointRoute(waypoints, profile);
+    return direct.length >= 2 ? direct : [];
   } catch (err) {
-    console.error("OSRM bus route error:", err);
+    console.warn("OSRM display route error:", err);
     return [];
   }
+}
+
+async function osrmPairwiseRoute(waypoints, profile) {
+  const pieces = [];
+  for (let index = 0; index < waypoints.length - 1; index += 1) {
+    const segment = await osrmDirectRoute(waypoints[index], waypoints[index + 1], profile);
+    if (segment.coordinates.length < 2) {
+      return [];
+    }
+    if (pieces.length) {
+      pieces.push(...segment.coordinates.slice(1));
+    } else {
+      pieces.push(...segment.coordinates);
+    }
+  }
+  return pieces;
+}
+
+async function osrmMultiWaypointRoute(waypoints, profile) {
+  const url =
+    `https://router.project-osrm.org/route/v1/${profile}/` +
+    `${waypoints.map((point) => `${point[0]},${point[1]}`).join(";")}?overview=full&geometries=geojson`;
+  const response = await fetch(url);
+  if (!response.ok) return [];
+  const data = await response.json();
+  const coordinates = data?.routes?.[0]?.geometry?.coordinates;
+  return Array.isArray(coordinates) ? coordinates : [];
+}
+
+async function osrmDirectRoute(start, end, profile) {
+  if (!start || !end) return { coordinates: [], distance: 0, duration: 0 };
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/${profile}/` +
+      `${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`;
+    const response = await fetch(url);
+    if (!response.ok) return { coordinates: [], distance: 0, duration: 0 };
+    const data = await response.json();
+    const route = data?.routes?.[0];
+    const coordinates = route?.geometry?.coordinates;
+    return {
+      coordinates: Array.isArray(coordinates) ? coordinates : [],
+      distance: Number(route?.distance) || 0,
+      duration: Number(route?.duration) || 0,
+    };
+  } catch (err) {
+    console.warn("OSRM direct route error:", err);
+    return { coordinates: [], distance: 0, duration: 0 };
+  }
+}
+
+function isTransitMode(mode) {
+  const value = String(mode || "").toUpperCase();
+  return (
+    value === "BUS" ||
+    value === "COACH" ||
+    value === "TRANSIT" ||
+    value === "RAIL" ||
+    value === "METRO" ||
+    value === "SUBWAY" ||
+    value === "TRAM"
+  );
+}
+
+function dedupeCoordinates(coordinates) {
+  if (!Array.isArray(coordinates)) return [];
+  const result = [];
+  for (const coordinate of coordinates) {
+    if (!Array.isArray(coordinate) || coordinate.length < 2) continue;
+    const lng = Number(coordinate[0]);
+    const lat = Number(coordinate[1]);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+    const previous = result[result.length - 1];
+    if (previous && Math.abs(previous[0] - lng) < 0.000001 && Math.abs(previous[1] - lat) < 0.000001) continue;
+    result.push([lng, lat]);
+  }
+  return result;
+}
+
+function sampleWaypoints(coordinates, maxPoints) {
+  if (!Array.isArray(coordinates) || coordinates.length <= maxPoints) return coordinates || [];
+  const result = [coordinates[0]];
+  const step = (coordinates.length - 1) / (maxPoints - 1);
+  for (let index = 1; index < maxPoints - 1; index += 1) {
+    result.push(coordinates[Math.round(index * step)]);
+  }
+  result.push(coordinates[coordinates.length - 1]);
+  return result;
 }
 
 const styles = StyleSheet.create({
@@ -724,6 +969,146 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  routingPanel: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    pointerEvents: "box-none",
+  },
+  routeCloseButton: {
+    position: "absolute",
+    top: 28,
+    left: 344,
+    zIndex: 55,
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(15, 23, 42, 0.12)",
+    borderRadius: 999,
+    backgroundColor: "#ffffff",
+    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.14)",
+  },
+  routeCloseText: {
+    color: "#0f172a",
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: "800",
+  },
+  routeSummary: {
+    position: "absolute",
+    top: 244,
+    left: 20,
+    zIndex: 40,
+    width: 360,
+    maxWidth: "calc(100vw - 40px)",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "rgba(15, 23, 42, 0.12)",
+    borderRadius: 8,
+    padding: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    boxShadow: "0 18px 44px rgba(15, 23, 42, 0.16)",
+  },
+  routeSummaryHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  routeSummaryKicker: {
+    color: "#0f766e",
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  routeSummaryTitle: {
+    color: "#111827",
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "900",
+  },
+  routeSummaryMuted: {
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  routeSummaryError: {
+    borderColor: "#fecaca",
+    backgroundColor: "rgba(254, 242, 242, 0.96)",
+  },
+  routeSummaryErrorText: {
+    color: "#991b1b",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+  routeSourceBadge: {
+    flexShrink: 0,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 9,
+    color: "#0f766e",
+    backgroundColor: "#ccfbf1",
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  routeSegmentList: {
+    gap: 8,
+  },
+  routeSegmentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    backgroundColor: "#f8fafc",
+  },
+  routeSegmentStripe: {
+    width: 28,
+    height: 5,
+    borderRadius: 999,
+  },
+  routeSegmentTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  routeSegmentTopLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  routeSegmentMode: {
+    color: "#111827",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "900",
+  },
+  routeLineBadge: {
+    flexShrink: 0,
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    color: "#ffffff",
+    backgroundColor: "#dc2626",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  routeSegmentMeta: {
+    color: "#64748b",
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "700",
+  },
+  routeSegmentStops: {
+    color: "#475569",
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "600",
+  },
   searchBox: {
     position: "absolute",
     top: 20,
@@ -772,6 +1157,52 @@ const styles = StyleSheet.create({
   pressed: {
     transform: [{ scale: 0.985 }],
   },
+  busLayerButton: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    minWidth: 156,
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(15, 118, 110, 0.22)",
+    borderRadius: 999,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.16)",
+    backdropFilter: "blur(10px)",
+  },
+  busLayerButtonIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    color: "#ffffff",
+    backgroundColor: "#0f766e",
+    fontSize: 11,
+    lineHeight: 34,
+    textAlign: "center",
+    fontWeight: "900",
+  },
+  busLayerButtonTextBlock: {
+    minWidth: 0,
+    gap: 1,
+  },
+  busLayerButtonTitle: {
+    color: "#0f172a",
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "900",
+  },
+  busLayerButtonMeta: {
+    color: "#64748b",
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "700",
+  },
   busPanel: {
     position: "absolute",
     top: 20,
@@ -795,6 +1226,23 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
+  },
+  panelCloseButton: {
+    flexShrink: 0,
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#dbe6e2",
+    borderRadius: 999,
+    backgroundColor: "#ffffff",
+  },
+  panelCloseText: {
+    color: "#0f172a",
+    fontSize: 20,
+    lineHeight: 22,
+    fontWeight: "800",
   },
   busTitleBlock: {
     minWidth: 0,
@@ -1023,6 +1471,24 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 22,
     textAlign: "center",
+  },
+  trainLineBadge: {
+    minWidth: 42,
+    maxWidth: 70,
+    minHeight: 24,
+    borderRadius: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 7,
+    color: "#ffffff",
+    backgroundColor: "#16a34a",
+    fontSize: 10,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  trainAlertTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   pickupName: {
     flex: 1,

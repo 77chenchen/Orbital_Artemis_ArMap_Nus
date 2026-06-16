@@ -1,31 +1,25 @@
 import maplibregl from "maplibre-gl";
 
+const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const SG_MY_BOUNDS = [
+  [99.35, 0.65],
+  [119.55, 7.75],
+];
+
 export default function initMap(container) {
-  return new maplibregl.Map({
+  const map = new maplibregl.Map({
     container,
-
-    style: {
-      version: 8,
-      sources: {
-        osm: {
-          type: "raster",
-          tiles: [
-            "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          ],
-          tileSize: 256
-        }
-      },
-      layers: [
-        {
-          id: "osm",
-          type: "raster",
-          source: "osm"
-        }
-      ]
-    },
-
-    center: [103.7764, 1.2966], // center to be nus
-    zoom: 16
+    style: import.meta.env.VITE_MAP_STYLE_URL || DEFAULT_MAP_STYLE,
+    center: [103.7764, 1.2966],
+    zoom: 16.5,
+    minZoom: 6,
+    maxZoom: 20,
+    maxBounds: SG_MY_BOUNDS,
+    attributionControl: true,
   });
-}
 
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+  map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+
+  return map;
+}

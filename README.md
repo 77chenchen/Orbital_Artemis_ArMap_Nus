@@ -150,11 +150,15 @@ NUS_BUS_X_HTD_API=
 NUS_BUS_X_APP_API=
 NUS_BUS_DEVICE_ID=atlas-nus-bus-demo-device
 NUS_BUS_VERSION=2.56.0
+LTA_DATAMALL_BASE=https://datamall2.mytransport.sg/ltaodataservice
+LTA_ACCOUNT_KEY=
 ```
 
 `GOOGLE_CLIENT_ID` is optional for the demo because the backend has a default client ID. Set it only when you want to use your own OAuth client.
 
 `NUS_BUS_X_HTD_API` and `NUS_BUS_X_APP_API` are optional for local development. When they are empty, the bus endpoints return demo data; when they are configured, the backend proxies NUS bus data server-side and caches live responses.
+
+`LTA_ACCOUNT_KEY` enables Singapore-wide LTA DataMall transit data. When it is set, `/api/sg/bus/*` returns live public bus arrivals and `/api/sg/train/alerts` returns MRT/LRT service alerts. LTA DataMall does not provide live MRT arrival ETAs.
 
 ### Frontend
 
@@ -188,6 +192,11 @@ GET    /api/bus/arrivals?stop=COM2
 GET    /api/bus/active?route=D1
 GET    /api/bus/alerts
 GET    /api/bus/context?lat=1.2966&lng=103.7764
+
+GET    /api/sg/bus/stops
+GET    /api/sg/bus/nearby?lat=1.2966&lng=103.7764&limit=8
+GET    /api/sg/bus/arrivals?stop=16009
+GET    /api/sg/train/alerts
 ```
 
 Most app data routes require:
@@ -196,7 +205,7 @@ Most app data routes require:
 Authorization: Bearer <app-jwt>
 ```
 
-The `/api/bus/*` routes are public backend proxy routes because they do not expose user-specific data. This allows demo-mode users to still fetch live shuttle data when NUS bus credentials are configured on the backend.
+The `/api/bus/*` and `/api/sg/*` routes are public backend proxy routes because they do not expose user-specific data. This allows demo-mode users to still fetch live shuttle or Singapore transit data when backend credentials are configured.
 
 ### NUS NextBus Pickup Points
 
@@ -286,6 +295,7 @@ Create a `.env` file:
 ```text
 JWT_SECRET=replace-with-a-long-random-secret
 GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+OTP_BASE_URL=http://otp:8080/otp/routers/default
 ```
 
 The deployed frontend receives the Google client ID from the backend runtime config endpoint. If `GOOGLE_CLIENT_ID` is omitted, the backend uses the demo client ID.
@@ -293,12 +303,16 @@ The deployed frontend receives the Google client ID from the backend runtime con
 Start the stack:
 
 ```bash
+sh scripts/setup-otp-data.sh
 docker compose up -d --build
 ```
+
+OpenTripPlanner needs real routing data before it can serve routes. The setup script downloads Singapore-area OpenStreetMap data into `otp/osm.pbf`, optionally downloads `GTFS_URL` into `otp/gtfs.zip`, builds an OTP graph, and starts the stack. For transit routes, set `GTFS_URL` or add a real GTFS `.zip` file to `otp/` before running the script.
 
 The production stack includes:
 
 - `app`: Go API plus built React frontend.
+- `otp`: OpenTripPlanner route planning service.
 - `caddy`: HTTPS reverse proxy for `7chen.online`.
 - `atlas_data`: persistent SQLite data volume.
 

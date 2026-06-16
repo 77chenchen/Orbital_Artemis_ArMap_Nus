@@ -73,18 +73,25 @@ Copy the generated value:
 cat > .env <<'EOF'
 JWT_SECRET=<paste-generated-secret-here>
 GOOGLE_CLIENT_ID=<optional-custom-google-oauth-client-id.apps.googleusercontent.com>
+LTA_ACCOUNT_KEY=<optional-lta-datamall-account-key>
+OTP_BASE_URL=http://otp:8080/otp/routers/default
 EOF
 ```
 
 For Google sign-in, create an OAuth 2.0 Web client in Google Cloud Console and add `https://7chen.online` to the authorized JavaScript origins. The app exposes the client ID to the frontend through `GET /api/config`. If `GOOGLE_CLIENT_ID` is omitted, the backend uses the built-in demo client ID.
 
+Set `LTA_ACCOUNT_KEY` to enable live Singapore public bus arrivals and MRT/LRT service alerts through the backend proxy. Without it, the app shows labelled demo transit data.
+
 ## 5. Start the site
 
 ```bash
+sh scripts/setup-otp-data.sh
 docker compose up -d --build
 ```
 
 Caddy will request and renew HTTPS certificates automatically.
+
+OpenTripPlanner serves real routes from files in `otp/`. The setup script downloads Singapore-area OpenStreetMap data and can download `GTFS_URL` before building the graph. Add a GTFS `.zip` to `otp/` or set `GTFS_URL` before running it if transit routes are required.
 
 ## 6. Verify
 

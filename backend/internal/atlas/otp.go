@@ -1,11 +1,11 @@
 package atlas
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -30,12 +30,90 @@ type otpItinerary struct {
 
 type otpSegment struct {
 	Mode        string      `json:"mode"`
+	RouteCode   string      `json:"routeCode,omitempty"`
+	RouteName   string      `json:"routeName,omitempty"`
 	Distance    float64     `json:"distance"`
 	Duration    float64     `json:"duration"`
 	From        string      `json:"from,omitempty"`
 	To          string      `json:"to,omitempty"`
 	Coordinates [][]float64 `json:"coordinates"`
 }
+
+const otpTripQuery = `
+query Route($from: Location!, $to: Location!, $modes: Modes!) {
+  trip(from: $from, to: $to, modes: $modes, numTripPatterns: 3) {
+    routingErrors {
+      code
+      description
+    }
+    tripPatterns {
+      duration
+      streetDistance
+      walkTime
+      legs {
+        mode
+        distance
+        duration
+        line {
+          publicCode
+          name
+        }
+        fromPlace {
+          name
+          latitude
+          longitude
+        }
+        toPlace {
+          name
+          latitude
+          longitude
+        }
+        pointsOnLink {
+          points
+          length
+          distance
+        }
+      }
+    }
+  }
+}
+`
+
+const otpTripQueryWithoutLine = `
+query Route($from: Location!, $to: Location!, $modes: Modes!) {
+  trip(from: $from, to: $to, modes: $modes, numTripPatterns: 3) {
+    routingErrors {
+      code
+      description
+    }
+    tripPatterns {
+      duration
+      streetDistance
+      walkTime
+      legs {
+        mode
+        distance
+        duration
+        fromPlace {
+          name
+          latitude
+          longitude
+        }
+        toPlace {
+          name
+          latitude
+          longitude
+        }
+        pointsOnLink {
+          points
+          length
+          distance
+        }
+      }
+    }
+  }
+}
+`
 
 func (api *API) otpPlan(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
@@ -51,91 +129,137 @@ func (api *API) otpPlan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.TrimSpace(api.cfg.OTPBaseURL) == "" {
-		writeJSON(w, http.StatusOK, demoOTPPlan(fromPlace, toPlace, mode))
+		writeError(w, http.StatusServiceUnavailable, errors.New("OTP_BASE_URL is required for route planning"))
 		return
 	}
 
-	planURL, err := api.buildOTPPlanURL(query)
+	raw, err := api.queryOTPGraphQL(r, fromPlace, toPlace, mode)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
+		writeError(w, http.StatusBadGateway, err)
 		return
+	}
+	response := normalizeOTPTrip(raw, mode)
+	if !hasDrawableOTPRoute(response) && wantsTransit(mode) {
+		walkRaw, walkErr := api.queryOTPGraphQL(r, fromPlace, toPlace, "WALK")
+		if walkErr == nil {
+			walkResponse := normalizeOTPTrip(walkRaw, "WALK")
+			if hasDrawableOTPRoute(walkResponse) {
+				walkResponse.Source = "otp-graphql-walk-fallback"
+				writeJSON(w, http.StatusOK, walkResponse)
+				return
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
+func (api *API) queryOTPGraphQL(r *http.Request, fromPlace string, toPlace string, mode string) (map[string]any, error) {
+	from, err := parseOTPPlace(fromPlace)
+	if err != nil {
+		return nil, err
+	}
+	to, err := parseOTPPlace(toPlace)
+	if err != nil {
+		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, planURL, nil)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
+	raw, err := api.executeOTPGraphQL(r, from, to, mode, otpTripQuery)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "line") {
+		return api.executeOTPGraphQL(r, from, to, mode, otpTripQueryWithoutLine)
 	}
+	return raw, err
+}
+
+func (api *API) executeOTPGraphQL(r *http.Request, from otpPlace, to otpPlace, mode string, query string) (map[string]any, error) {
+	body := map[string]any{
+		"query": query,
+		"variables": map[string]any{
+			"from": map[string]any{
+				"name": "Start",
+				"coordinates": map[string]float64{
+					"latitude":  from.lat,
+					"longitude": from.lng,
+				},
+			},
+			"to": map[string]any{
+				"name": "Destination",
+				"coordinates": map[string]float64{
+					"latitude":  to.lat,
+					"longitude": to.lng,
+				},
+			},
+			"modes": otpModes(mode),
+		},
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, api.otpGraphQLEndpoint(), bytes.NewReader(encoded))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
 	client := &http.Client{Timeout: api.cfg.HTTPClientTimeout}
 	if client.Timeout <= 0 {
 		client.Timeout = 10 * time.Second
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, fmt.Errorf("otp request failed: %w", err))
-		return
+		return nil, fmt.Errorf("otp request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	var raw map[string]any
 	if err := json.NewDecoder(res.Body).Decode(&raw); err != nil {
-		writeError(w, http.StatusBadGateway, fmt.Errorf("invalid otp response: %w", err))
-		return
+		return nil, fmt.Errorf("invalid otp response: %w", err)
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		writeJSON(w, http.StatusBadGateway, map[string]any{
-			"error":  "otp returned an error",
-			"status": res.StatusCode,
-			"raw":    raw,
-		})
-		return
+		return nil, fmt.Errorf("otp returned status %d", res.StatusCode)
 	}
-
-	writeJSON(w, http.StatusOK, normalizeOTPPlan(raw, mode))
+	if errorsValue, ok := raw["errors"]; ok {
+		return nil, fmt.Errorf("otp graphql error: %v", errorsValue)
+	}
+	return raw, nil
 }
 
-func (api *API) buildOTPPlanURL(source url.Values) (string, error) {
-	base, err := url.Parse(strings.TrimRight(api.cfg.OTPBaseURL, "/") + "/plan")
-	if err != nil {
-		return "", err
+func (api *API) otpGraphQLEndpoint() string {
+	base := strings.TrimRight(api.cfg.OTPBaseURL, "/")
+	if strings.Contains(base, "/graphql") {
+		return base
 	}
-	q := url.Values{}
-	for key, values := range source {
-		for _, value := range values {
-			q.Add(key, value)
-		}
+	if strings.HasSuffix(base, "/otp") {
+		return base + "/routers/default/transmodel/index/graphql"
 	}
-	if q.Get("numItineraries") == "" {
-		q.Set("numItineraries", "3")
-	}
-	if q.Get("showIntermediateStops") == "" {
-		q.Set("showIntermediateStops", "true")
-	}
-	base.RawQuery = q.Encode()
-	return base.String(), nil
+	return base + "/transmodel/index/graphql"
 }
 
-func normalizeOTPPlan(raw map[string]any, fallbackMode string) otpPlanResponse {
-	plan, _ := raw["plan"].(map[string]any)
-	rawItineraries, _ := plan["itineraries"].([]any)
+func normalizeOTPTrip(raw map[string]any, fallbackMode string) otpPlanResponse {
+	data, _ := raw["data"].(map[string]any)
+	trip, _ := data["trip"].(map[string]any)
+	rawPatterns, _ := trip["tripPatterns"].([]any)
 	response := otpPlanResponse{
-		Source: "otp",
+		Source: "otp-graphql",
 		Mode:   fallbackMode,
 		Raw:    raw,
 	}
-	for _, item := range rawItineraries {
-		rawItinerary, _ := item.(map[string]any)
+	for _, item := range rawPatterns {
+		rawPattern, _ := item.(map[string]any)
 		itinerary := otpItinerary{
-			Duration: numberValue(rawItinerary["duration"]),
-			WalkTime: numberValue(rawItinerary["walkTime"]),
-			Transit:  boolValue(rawItinerary["transit"]),
+			Duration: numberValue(rawPattern["duration"]),
+			WalkTime: numberValue(rawPattern["walkTime"]),
 		}
-		rawLegs, _ := rawItinerary["legs"].([]any)
+		rawLegs, _ := rawPattern["legs"].([]any)
 		for _, rawLegItem := range rawLegs {
 			rawLeg, _ := rawLegItem.(map[string]any)
-			segment := normalizeOTPLeg(rawLeg)
+			segment := normalizeOTPGraphQLLeg(rawLeg)
 			if len(segment.Coordinates) < 2 {
 				continue
+			}
+			if segment.Mode != "FOOT" && segment.Mode != "WALK" {
+				itinerary.Transit = true
 			}
 			itinerary.Legs = append(itinerary.Legs, segment)
 		}
@@ -156,14 +280,47 @@ func normalizeOTPPlan(raw map[string]any, fallbackMode string) otpPlanResponse {
 	return response
 }
 
+func hasDrawableOTPRoute(response otpPlanResponse) bool {
+	for _, segment := range response.Segments {
+		if len(segment.Coordinates) >= 2 {
+			return true
+		}
+	}
+	return len(response.Points) >= 2
+}
+
+func normalizeOTPGraphQLLeg(raw map[string]any) otpSegment {
+	mode := strings.ToUpper(strings.TrimSpace(stringValue(raw["mode"])))
+	if mode == "FOOT" {
+		mode = "WALK"
+	}
+	segment := otpSegment{
+		Mode:      mode,
+		RouteCode: lineValue(raw["line"], "publicCode"),
+		RouteName: lineValue(raw["line"], "name"),
+		Distance:  numberValue(raw["distance"]),
+		Duration:  numberValue(raw["duration"]),
+		From:      placeName(raw["fromPlace"]),
+		To:        placeName(raw["toPlace"]),
+	}
+	if link, _ := raw["pointsOnLink"].(map[string]any); link != nil {
+		segment.Coordinates = decodePolyline(stringValue(link["points"]))
+	}
+	segment.Coordinates = append(placeCoordinates(raw["fromPlace"]), segment.Coordinates...)
+	segment.Coordinates = append(segment.Coordinates, placeCoordinates(raw["toPlace"])...)
+	return dedupeCoordinates(segment)
+}
+
 func normalizeOTPLeg(raw map[string]any) otpSegment {
 	mode := strings.ToUpper(strings.TrimSpace(stringValue(raw["mode"])))
 	segment := otpSegment{
-		Mode:     mode,
-		Distance: numberValue(raw["distance"]),
-		Duration: numberValue(raw["duration"]),
-		From:     placeName(raw["from"]),
-		To:       placeName(raw["to"]),
+		Mode:      mode,
+		RouteCode: firstNonEmpty(stringValue(raw["routeShortName"]), stringValue(raw["route"])),
+		RouteName: firstNonEmpty(stringValue(raw["routeLongName"]), stringValue(raw["agencyName"])),
+		Distance:  numberValue(raw["distance"]),
+		Duration:  numberValue(raw["duration"]),
+		From:      placeName(raw["from"]),
+		To:        placeName(raw["to"]),
 	}
 	segment.Coordinates = append(segment.Coordinates, placeCoordinates(raw["from"])...)
 	if coordinates := geometryCoordinates(raw["geometry"]); len(coordinates) > 0 {
@@ -176,57 +333,102 @@ func normalizeOTPLeg(raw map[string]any) otpSegment {
 	return dedupeCoordinates(segment)
 }
 
-func demoOTPPlan(fromPlace string, toPlace string, mode string) otpPlanResponse {
-	from := parsePlaceCoordinate(fromPlace)
-	to := parsePlaceCoordinate(toPlace)
-	segmentMode := "WALK"
-	if strings.Contains(strings.ToUpper(mode), "BUS") || strings.Contains(strings.ToUpper(mode), "TRANSIT") {
-		segmentMode = "BUS"
+type otpPlace struct {
+	lat float64
+	lng float64
+}
+
+func parseOTPPlace(raw string) (otpPlace, error) {
+	parts := strings.Split(raw, ",")
+	if len(parts) != 2 {
+		return otpPlace{}, errors.New("places must use lat,lng format")
 	}
-	mid := []float64{(from[0] + to[0]) / 2, (from[1] + to[1]) / 2}
-	segments := []otpSegment{
-		{
-			Mode:        "WALK",
-			Distance:    120,
-			Duration:    180,
-			From:        "Start",
-			To:          "Campus transfer",
-			Coordinates: [][]float64{from, mid},
-		},
-		{
-			Mode:        segmentMode,
-			Distance:    640,
-			Duration:    420,
-			From:        "Campus transfer",
-			To:          "Destination",
-			Coordinates: [][]float64{mid, to},
-		},
+	lat := parseFloat(strings.TrimSpace(parts[0]), 0)
+	lng := parseFloat(strings.TrimSpace(parts[1]), 0)
+	if lat == 0 || lng == 0 {
+		return otpPlace{}, errors.New("places must contain valid coordinates")
 	}
-	points := [][]float64{}
-	for _, segment := range segments {
-		points = append(points, segment.Coordinates...)
+	return otpPlace{lat: lat, lng: lng}, nil
+}
+
+func otpModes(mode string) map[string]any {
+	modes := map[string]any{}
+	if wantsTransit(mode) {
+		modes["accessMode"] = "foot"
+		modes["egressMode"] = "foot"
+		modes["transportModes"] = []map[string]string{
+			{"transportMode": "bus"},
+			{"transportMode": "rail"},
+			{"transportMode": "metro"},
+			{"transportMode": "tram"},
+		}
+		return modes
 	}
-	return otpPlanResponse{
-		Source:   "demo-otp",
-		Mode:     mode,
-		Distance: 760,
-		Duration: 600,
-		Points:   points,
-		Segments: segments,
-		Itineraries: []otpItinerary{
-			{Duration: 600, WalkTime: 180, Transit: segmentMode != "WALK", Legs: segments},
-		},
+	modes["directMode"] = directOTPMode(mode)
+	modes["transportModes"] = []map[string]string{}
+	return modes
+}
+
+func directOTPMode(mode string) string {
+	upperMode := strings.ToUpper(mode)
+	switch {
+	case strings.Contains(upperMode, "CAR") || strings.Contains(upperMode, "DRIVE"):
+		return "car"
+	case strings.Contains(upperMode, "BICYCLE") || strings.Contains(upperMode, "BIKE") || strings.Contains(upperMode, "CYCLE"):
+		return "bicycle"
+	default:
+		return "foot"
 	}
 }
 
-func parsePlaceCoordinate(raw string) []float64 {
-	parts := strings.Split(raw, ",")
-	if len(parts) != 2 {
-		return []float64{103.7739, 1.2948}
+func wantsTransit(mode string) bool {
+	upperMode := strings.ToUpper(mode)
+	return strings.Contains(upperMode, "TRANSIT") ||
+		strings.Contains(upperMode, "BUS") ||
+		strings.Contains(upperMode, "RAIL") ||
+		strings.Contains(upperMode, "METRO") ||
+		strings.Contains(upperMode, "SUBWAY") ||
+		strings.Contains(upperMode, "TRAM")
+}
+
+func decodePolyline(encoded string) [][]float64 {
+	coordinates := [][]float64{}
+	var lat int
+	var lng int
+	for index := 0; index < len(encoded); {
+		deltaLat, next := decodePolylineValue(encoded, index)
+		if next <= index {
+			break
+		}
+		index = next
+		deltaLng, next := decodePolylineValue(encoded, index)
+		if next <= index {
+			break
+		}
+		index = next
+		lat += deltaLat
+		lng += deltaLng
+		coordinates = append(coordinates, []float64{float64(lng) / 1e5, float64(lat) / 1e5})
 	}
-	lat := parseFloat(strings.TrimSpace(parts[0]), 1.2948)
-	lng := parseFloat(strings.TrimSpace(parts[1]), 103.7739)
-	return []float64{lng, lat}
+	return coordinates
+}
+
+func decodePolylineValue(encoded string, index int) (int, int) {
+	var result int
+	var shift uint
+	for index < len(encoded) {
+		value := int(encoded[index]) - 63
+		index++
+		result |= (value & 0x1f) << shift
+		shift += 5
+		if value < 0x20 {
+			break
+		}
+	}
+	if result&1 != 0 {
+		return ^(result >> 1), index
+	}
+	return result >> 1, index
 }
 
 func placeCoordinates(value any) [][]float64 {
@@ -274,6 +476,11 @@ func dedupeCoordinates(segment otpSegment) otpSegment {
 func placeName(value any) string {
 	place, _ := value.(map[string]any)
 	return stringValue(place["name"])
+}
+
+func lineValue(value any, key string) string {
+	line, _ := value.(map[string]any)
+	return stringValue(line[key])
 }
 
 func numericPlaceValue(place map[string]any, keys ...string) (float64, bool) {

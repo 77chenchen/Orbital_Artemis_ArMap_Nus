@@ -47,6 +47,10 @@ export function installBusLayers(map, stops, onStopClick) {
     id: "route-pickup-line",
     type: "line",
     source: "route-pickup-line",
+    layout: {
+      "line-cap": "round",
+      "line-join": "round",
+    },
     paint: {
       "line-color": "#f97316",
       "line-width": 4,

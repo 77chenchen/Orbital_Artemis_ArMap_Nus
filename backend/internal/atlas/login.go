@@ -75,6 +75,29 @@ func (s *Store) resetPasswordWithSecurityAnswer(ctx context.Context, cred Creden
 	return true, nil
 }
 
+func (s *Store) changePassword(ctx context.Context, email, currentPassword, nextPassword string) (bool, error) {
+	var currentHash string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT password FROM credentials WHERE email = ?
+	`, strings.TrimSpace(email)).Scan(&currentHash)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, ErrNotFound
+		}
+		return false, err
+	}
+	if !validatePassword(currentHash, currentPassword) {
+		return false, nil
+	}
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE credentials SET password = ? WHERE email = ?
+	`, hash(nextPassword), strings.TrimSpace(email))
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func normalizeSecurityAnswer(answer string) string {
 	return strings.ToLower(strings.TrimSpace(answer))
 }

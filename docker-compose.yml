@@ -17,10 +17,26 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-}
+      LTA_DATAMALL_BASE: ${LTA_DATAMALL_BASE:-https://datamall2.mytransport.sg/ltaodataservice}
+      LTA_ACCOUNT_KEY: ${LTA_ACCOUNT_KEY:-}
+      OTP_BASE_URL: ${OTP_BASE_URL:-http://otp:8080/otp/routers/default}
       SYNC_INTERVAL: "21600"
       HTTP_CLIENT_TIMEOUT: "10"
     volumes:
       - atlas_data:/data
+    depends_on:
+      - otp
+
+  otp:
+    image: opentripplanner/opentripplanner:${OTP_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      JAVA_TOOL_OPTIONS: ${OTP_JAVA_TOOL_OPTIONS:--Xmx6g}
+    command: ["--load", "--serve"]
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./otp:/var/opentripplanner
 
   caddy:
     image: caddy:2.10-alpine

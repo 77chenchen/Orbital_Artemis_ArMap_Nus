@@ -8,3 +8,5 @@ dist/
 *.sqlite3
 backend/atlas.db
 frontend/.vite/
+otp/*
+!otp/.gitkeep

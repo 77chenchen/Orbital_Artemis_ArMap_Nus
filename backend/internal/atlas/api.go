@@ -23,6 +23,7 @@ type API struct {
 	store     *Store
 	client    *NUSModsClient
 	busClient *NUSBusClient
+	sgTransit *SingaporeTransitClient
 	agent     *DailyAssistantAgent
 	secretKey []byte
 }
@@ -32,7 +33,7 @@ func NewAPI(cfg Config, store *Store, client *NUSModsClient) *API {
 	if secret == "" {
 		secret = "8f4c1d9a73be52f6c1a8e4b97d3f62a1e5c8b0d7f4a9c2e6b1d3f8a7c5e9b2d4"
 	}
-	return &API{cfg: cfg, store: store, client: client, busClient: NewNUSBusClient(cfg), agent: NewDailyAssistantAgent(NewLLMClient(cfg)),
+	return &API{cfg: cfg, store: store, client: client, busClient: NewNUSBusClient(cfg), sgTransit: NewSingaporeTransitClient(cfg), agent: NewDailyAssistantAgent(NewLLMClient(cfg)),
 		secretKey: []byte(secret),
 	}
 }
@@ -57,12 +58,17 @@ func (api *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/bus/active", api.activeBus)
 	mux.HandleFunc("GET /api/bus/alerts", api.busAlerts)
 	mux.HandleFunc("GET /api/bus/context", api.busContext)
+	mux.HandleFunc("GET /api/sg/bus/stops", api.sgBusStops)
+	mux.HandleFunc("GET /api/sg/bus/nearby", api.sgNearbyBusStops)
+	mux.HandleFunc("GET /api/sg/bus/arrivals", api.sgBusArrivals)
+	mux.HandleFunc("GET /api/sg/train/alerts", api.sgTrainAlerts)
 	mux.HandleFunc("GET /api/otp/plan", api.Protect(api.otpPlan))
 	mux.HandleFunc("POST /api/login", api.login)
 	mux.HandleFunc("POST /api/auth/google", api.googleLogin)
 	mux.HandleFunc("POST /api/register", api.register)
 	mux.HandleFunc("POST /api/password/security-question", api.passwordSecurityQuestion)
 	mux.HandleFunc("POST /api/password/reset", api.resetPassword)
+	mux.HandleFunc("POST /api/password/change", api.Protect(api.changePassword))
 	if api.cfg.StaticDir != "" {
 		mux.HandleFunc("/", api.serveStaticApp)
 	}
@@ -207,6 +213,67 @@ func (api *API) resetPassword(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "password reset ok",
 	})
+}
+
+func (api *API) changePassword(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, errors.New("invalid JSON body"))
+		return
+	}
+	email, err := api.authenticatedEmail(r)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, errors.New("invalid token"))
+		return
+	}
+	if payload.CurrentPassword == "" || len(payload.NewPassword) < 6 {
+		writeError(w, http.StatusBadRequest, errors.New("invalid password change request"))
+		return
+	}
+	ok, err := api.store.changePassword(r.Context(), email, payload.CurrentPassword, payload.NewPassword)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, ErrNotFound) {
+			status = http.StatusNotFound
+		}
+		writeError(w, status, errors.New("password change failed"))
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusUnauthorized, errors.New("current password did not match"))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "password changed",
+	})
+}
+
+func (api *API) authenticatedEmail(r *http.Request) (string, error) {
+	authHeader := r.Header.Get("Authorization")
+	tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+	token, err := jwt.Parse(
+		tokenString,
+		func(token *jwt.Token) (interface{}, error) {
+			return api.secretKey, nil
+		},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+	)
+	if err != nil || !token.Valid {
+		return "", errors.New("invalid token")
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid token claims")
+	}
+	email, _ := claims["email"].(string)
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return "", errors.New("missing token email")
+	}
+	return email, nil
 }
 
 func (api *API) login(w http.ResponseWriter, r *http.Request) {

@@ -56,8 +56,55 @@ const fallbackProfile = {
   provider: "demo",
 };
 
+const defaultPersonalSettings = {
+  preferredName: "",
+  avatarUrl: "",
+  studyStyle: "balanced",
+  commuteMode: "walking",
+  assistantTone: "concise",
+  theme: "atlas",
+  density: "comfortable",
+  defaultSection: "dashboard",
+  dailyReminder: "09:00",
+  quietMode: false,
+  reduceMotion: false,
+};
+
+const studyStyleOptions = [
+  { value: "focused", label: "Focused" },
+  { value: "balanced", label: "Balanced" },
+  { value: "social", label: "Social" },
+];
+
+const commuteModeOptions = [
+  { value: "walking", label: "Walking" },
+  { value: "bus", label: "Bus" },
+  { value: "cycling", label: "Cycling" },
+];
+
+const assistantToneOptions = [
+  { value: "concise", label: "Concise" },
+  { value: "friendly", label: "Friendly" },
+  { value: "coach", label: "Coach" },
+];
+
+const themeOptions = [
+  { value: "atlas", label: "Atlas" },
+  { value: "sunrise", label: "Sunrise" },
+  { value: "night", label: "Night" },
+];
+
+const densityOptions = [
+  { value: "comfortable", label: "Comfort" },
+  { value: "compact", label: "Compact" },
+];
+
+const defaultSectionOptions = navItems
+  .filter((item) => ["dashboard", "map", "recommendations", "schedule", "tasks"].includes(item.key))
+  .map((item) => ({ value: item.key, label: item.label }));
+
 export default function Dashboard() {
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState(() => readPersonalSettings().defaultSection || "dashboard");
   const [health, setHealth] = useState(null);
   const [buildings, setBuildings] = useState([]);
   const [facilities, setFacilities] = useState([]);
@@ -77,6 +124,8 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [profile, setProfile] = useState(() => readStoredProfile());
+  const [personalSettings, setPersonalSettings] = useState(() => readPersonalSettings());
+  const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
   const { width } = useWindowDimensions();
 
   const compact = width < 980;
@@ -139,6 +188,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setProfile(readStoredProfile());
+    setPersonalSettings(readPersonalSettings());
   }, []);
 
   useEffect(() => {
@@ -203,6 +253,30 @@ export default function Dashboard() {
     }
   }
 
+  async function changePassword(passwords) {
+    setError("");
+    setNotice("");
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      setError("New passwords do not match.");
+      return false;
+    }
+    if (passwords.newPassword.length < 6) {
+      setError("New password must be at least 6 characters.");
+      return false;
+    }
+    try {
+      await api.changePassword({
+        currentPassword: passwords.currentPassword,
+        newPassword: passwords.newPassword,
+      });
+      setNotice("Password changed.");
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  }
+
   async function submitDailyAssistant() {
     const message = assistantMessage.trim();
     setAssistantError("");
@@ -229,6 +303,7 @@ export default function Dashboard() {
           })),
           recommendations: recommendations.slice(0, 5),
           syncStatus: syncStatus?.status || "never_run",
+          personalSettings,
           campusSignal: {
             buildings: buildings.length,
             indoorReadyBuildings: indoorReadyCount,
@@ -300,6 +375,8 @@ export default function Dashboard() {
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             onOpenSection={setActiveSection}
+            profile={profile}
+            personalSettings={personalSettings}
           />
           {(notice || error) && (
             <View style={[styles.notice, error && styles.noticeError]}>
@@ -466,7 +543,20 @@ export default function Dashboard() {
   }
 
   return (
-    <View style={[styles.shell, compact && styles.shellCompact]}>
+    <View
+      dataSet={{
+        atlasTheme: personalSettings.theme,
+        atlasDensity: personalSettings.density,
+        atlasReduceMotion: personalSettings.reduceMotion ? "true" : "false",
+      }}
+      style={[
+        styles.shell,
+        compact && styles.shellCompact,
+        personalSettings.theme === "sunrise" && styles.shellThemeSunrise,
+        personalSettings.theme === "night" && styles.shellThemeNight,
+        personalSettings.density === "compact" && styles.shellDensityCompact,
+      ]}
+    >
       <Sidebar
         activeSection={activeSection}
         setActiveSection={setActiveSection}
@@ -474,14 +564,47 @@ export default function Dashboard() {
         loading={loading}
         schedule={schedule}
         profile={profile}
+        personalSettings={personalSettings}
+        settingsOpen={profileSettingsOpen}
+        setSettingsOpen={setProfileSettingsOpen}
+        onSaveSettings={(nextSettings) => {
+          const saved = savePersonalSettings(nextSettings, profile);
+          setPersonalSettings(saved.settings);
+          setProfile(saved.profile);
+          setActiveSection(saved.settings.defaultSection || "dashboard");
+          setNotice("Personal settings saved.");
+          setError("");
+        }}
+        onChangePassword={changePassword}
         compact={compact}
       />
-      <View style={styles.main}>{renderMain()}</View>
+      <View
+        style={[
+          styles.main,
+          personalSettings.theme === "sunrise" && styles.mainThemeSunrise,
+          personalSettings.theme === "night" && styles.mainThemeNight,
+        ]}
+      >
+        {renderMain()}
+      </View>
     </View>
   );
 }
 
-function Sidebar({ activeSection, setActiveSection, health, loading, schedule, profile, compact }) {
+function Sidebar({
+  activeSection,
+  setActiveSection,
+  health,
+  loading,
+  schedule,
+  profile,
+  personalSettings,
+  settingsOpen,
+  setSettingsOpen,
+  onSaveSettings,
+  onChangePassword,
+  compact,
+}) {
   const initials = initialsFromProfile(profile);
   const meta = profile.email || (profile.provider === "demo" ? "Demo mode" : "Signed in");
 
@@ -512,15 +635,39 @@ function Sidebar({ activeSection, setActiveSection, health, loading, schedule, p
         ))}
       </View>
 
-      <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
-        <View style={styles.profileCopy}>
-          <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
-          <Text style={styles.profileMeta} numberOfLines={1}>{meta}</Text>
-        </View>
-        <Text style={styles.profileChevron}>v</Text>
+      <View style={styles.profileDock}>
+        {settingsOpen ? (
+          <ProfileSettingsPopover
+            profile={profile}
+            settings={personalSettings}
+            onSave={(nextSettings) => {
+              onSaveSettings(nextSettings);
+              setSettingsOpen(false);
+            }}
+            onClose={() => setSettingsOpen(false)}
+            onChangePassword={onChangePassword}
+            compact={compact}
+          />
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSettingsOpen((current) => !current)}
+          style={[styles.profileCard, settingsOpen && styles.profileCardActive]}
+        >
+          <View style={styles.avatar}>
+            {profile.picture ? (
+              <Image source={{ uri: profile.picture }} style={styles.avatarImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </View>
+          <View style={styles.profileCopy}>
+            <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
+            <Text style={styles.profileMeta} numberOfLines={1}>{meta}</Text>
+          </View>
+          <Text style={styles.profileChevron}>{settingsOpen ? "^" : "v"}</Text>
+        </Pressable>
+        <Text style={styles.profileHint} numberOfLines={1}>{`${settingsLabel(themeOptions, personalSettings.theme)} theme · ${settingsLabel(densityOptions, personalSettings.density)}`}</Text>
       </View>
 
       <View style={styles.statusCard}>
@@ -537,6 +684,244 @@ function Sidebar({ activeSection, setActiveSection, health, loading, schedule, p
       <Text style={styles.statusSmall}>{`${schedule.length} plan items loaded`}</Text>
       </View>
     </View>
+  );
+}
+
+function ProfileSettingsPopover({ profile, settings, onSave, onClose, onChangePassword, compact }) {
+  const [draft, setDraft] = useState(() => ({
+    ...defaultPersonalSettings,
+    ...settings,
+    preferredName: settings.preferredName || profile.name || "",
+    avatarUrl: settings.avatarUrl || profile.picture || "",
+  }));
+  const [passwordDraft, setPasswordDraft] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+
+  function updateDraft(key, value) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function updatePasswordDraft(key, value) {
+    setPasswordDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSave() {
+    onSave(draft);
+  }
+
+  async function handlePasswordSave() {
+    setPasswordMessage("");
+    setPasswordSaving(true);
+    const ok = await onChangePassword(passwordDraft);
+    setPasswordSaving(false);
+    if (!ok) return;
+    setPasswordDraft({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setPasswordMessage("Password updated.");
+  }
+
+  return (
+    <View style={[styles.profilePopover, compact && styles.profilePopoverCompact]}>
+      <View style={styles.popoverHeader}>
+        <View>
+          <Text style={styles.popoverKicker}>Personalization</Text>
+          <Text style={styles.popoverTitle}>Your Artemis setup</Text>
+        </View>
+        <Pressable accessibilityRole="button" onClick={onClose} onPress={onClose} style={styles.iconTextButton}>
+          <Text style={styles.iconTextButtonText}>x</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView style={styles.preferenceScroll} contentContainerStyle={styles.preferenceForm}>
+        <View style={styles.avatarPreviewRow}>
+          <View style={styles.avatarPreview}>
+            {draft.avatarUrl ? (
+              <Image source={{ uri: draft.avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+            ) : (
+              <Text style={styles.avatarText}>{initialsFromProfile({ ...profile, name: draft.preferredName })}</Text>
+            )}
+          </View>
+          <View style={styles.eventCopy}>
+            <Text style={styles.preferenceLabel}>Avatar</Text>
+            <Text style={styles.preferenceHelp}>Use an image URL or leave it empty for initials.</Text>
+          </View>
+        </View>
+        <FormInput
+          value={draft.preferredName}
+          onChangeText={(preferredName) => updateDraft("preferredName", preferredName)}
+          placeholder="Preferred name"
+          style={styles.preferenceInput}
+        />
+        <FormInput
+          value={draft.avatarUrl}
+          onChangeText={(avatarUrl) => updateDraft("avatarUrl", avatarUrl)}
+          placeholder="Avatar image URL"
+          style={styles.preferenceInput}
+        />
+
+        <PreferenceGroup title="Theme">
+          {themeOptions.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={draft.theme === option.value}
+              onPress={() => updateDraft("theme", option.value)}
+            />
+          ))}
+        </PreferenceGroup>
+
+        <PreferenceGroup title="Dashboard density">
+          {densityOptions.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={draft.density === option.value}
+              onPress={() => updateDraft("density", option.value)}
+            />
+          ))}
+        </PreferenceGroup>
+
+        <PreferenceGroup title="Default page">
+          {defaultSectionOptions.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={draft.defaultSection === option.value}
+              onPress={() => updateDraft("defaultSection", option.value)}
+            />
+          ))}
+        </PreferenceGroup>
+
+        <PreferenceGroup title="Study style">
+          {studyStyleOptions.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={draft.studyStyle === option.value}
+              onPress={() => updateDraft("studyStyle", option.value)}
+            />
+          ))}
+        </PreferenceGroup>
+
+        <PreferenceGroup title="Route preference">
+          {commuteModeOptions.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={draft.commuteMode === option.value}
+              onPress={() => updateDraft("commuteMode", option.value)}
+            />
+          ))}
+        </PreferenceGroup>
+
+        <PreferenceGroup title="Assistant tone">
+          {assistantToneOptions.map((option) => (
+            <FilterChip
+              key={option.value}
+              label={option.label}
+              selected={draft.assistantTone === option.value}
+              onPress={() => updateDraft("assistantTone", option.value)}
+            />
+          ))}
+        </PreferenceGroup>
+
+        <View style={styles.preferenceInline}>
+          <Text style={styles.preferenceLabel}>Daily reminder</Text>
+          <TextInput
+            value={draft.dailyReminder}
+            onChangeText={(dailyReminder) => updateDraft("dailyReminder", dailyReminder)}
+            placeholder="09:00"
+            placeholderTextColor="#8a8580"
+            style={styles.timeInput}
+          />
+        </View>
+
+        <PreferenceToggle
+          label="Quiet mode"
+          value={draft.quietMode}
+          onPress={() => updateDraft("quietMode", !draft.quietMode)}
+        />
+        <PreferenceToggle
+          label="Reduce motion"
+          value={draft.reduceMotion}
+          onPress={() => updateDraft("reduceMotion", !draft.reduceMotion)}
+        />
+
+        <View style={styles.passwordPanel}>
+          <Text style={styles.preferenceLabel}>Change password</Text>
+          <FormInput
+            value={passwordDraft.currentPassword}
+            onChangeText={(currentPassword) => updatePasswordDraft("currentPassword", currentPassword)}
+            placeholder="Current password"
+            secureTextEntry
+            style={styles.preferenceInput}
+          />
+          <FormInput
+            value={passwordDraft.newPassword}
+            onChangeText={(newPassword) => updatePasswordDraft("newPassword", newPassword)}
+            placeholder="New password"
+            secureTextEntry
+            style={styles.preferenceInput}
+          />
+          <FormInput
+            value={passwordDraft.confirmPassword}
+            onChangeText={(confirmPassword) => updatePasswordDraft("confirmPassword", confirmPassword)}
+            placeholder="Confirm new password"
+            secureTextEntry
+            style={styles.preferenceInput}
+          />
+          <button
+            type="button"
+            disabled={passwordSaving || !passwordDraft.currentPassword || !passwordDraft.newPassword || !passwordDraft.confirmPassword}
+            onClick={handlePasswordSave}
+            style={{
+              ...webSecondaryButtonStyle,
+              alignSelf: "flex-start",
+              opacity:
+                passwordSaving || !passwordDraft.currentPassword || !passwordDraft.newPassword || !passwordDraft.confirmPassword
+                  ? 0.58
+                  : 1,
+            }}
+          >
+            {passwordSaving ? "Saving..." : "Update password"}
+          </button>
+          {passwordMessage ? <Text style={styles.preferenceSuccess}>{passwordMessage}</Text> : null}
+        </View>
+
+        <View style={styles.popoverActions}>
+          <button type="button" onClick={onClose} style={webSecondaryButtonStyle}>
+            Cancel
+          </button>
+          <button type="button" onClick={handleSave} style={webSaveProfileButtonStyle}>
+            Save
+          </button>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function PreferenceGroup({ title, children }) {
+  return (
+    <View style={styles.preferenceGroup}>
+      <Text style={styles.preferenceLabel}>{title}</Text>
+      <View style={styles.preferenceChips}>{children}</View>
+    </View>
+  );
+}
+
+function PreferenceToggle({ label, value, onPress }) {
+  return (
+    <Pressable accessibilityRole="switch" accessibilityState={{ checked: value }} onPress={onPress} style={styles.preferenceToggle}>
+      <Text style={styles.preferenceLabel}>{label}</Text>
+      <View style={[styles.toggleTrack, value && styles.toggleTrackOn]}>
+        <View style={[styles.toggleKnob, value && styles.toggleKnobOn]} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -621,9 +1006,9 @@ function SidebarIcon({ name, active }) {
   );
 }
 
-function TopBar({ compact, searchQuery, setSearchQuery, onOpenSection }) {
-  const profile = readStoredProfile();
-  const firstName = profile.name.split(" ")[0] || "there";
+function TopBar({ compact, searchQuery, setSearchQuery, onOpenSection, profile, personalSettings }) {
+  const displayName = personalSettings.preferredName || profile.name;
+  const firstName = displayName.split(" ")[0] || "there";
 
   return (
     <View style={[styles.topBar, compact && styles.topBarCompact]}>
@@ -675,6 +1060,61 @@ function readStoredProfile() {
 
   const tokenProfile = readJwtPayload(token);
   return normalizeProfile(tokenProfile || fallbackProfile);
+}
+
+function readPersonalSettings() {
+  if (typeof window === "undefined") return defaultPersonalSettings;
+  const stored = safeParseJSON(window.localStorage.getItem("atlas_user_settings"));
+  return normalizePersonalSettings(stored || {});
+}
+
+function savePersonalSettings(settings, currentProfile) {
+  const normalizedSettings = normalizePersonalSettings(settings);
+  const preferredName = normalizedSettings.preferredName.trim();
+  const avatarUrl = normalizedSettings.avatarUrl.trim();
+  const nextProfile = normalizeProfile({
+    ...currentProfile,
+    name: preferredName || currentProfile.name,
+    picture: avatarUrl,
+  });
+
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem("atlas_user_settings", JSON.stringify(normalizedSettings));
+    window.localStorage.setItem("atlas_user", JSON.stringify(nextProfile));
+  }
+
+  return { settings: normalizedSettings, profile: nextProfile };
+}
+
+function normalizePersonalSettings(settings) {
+  const allowedStudyStyles = new Set(studyStyleOptions.map((option) => option.value));
+  const allowedCommuteModes = new Set(commuteModeOptions.map((option) => option.value));
+  const allowedAssistantTones = new Set(assistantToneOptions.map((option) => option.value));
+  const allowedThemes = new Set(themeOptions.map((option) => option.value));
+  const allowedDensities = new Set(densityOptions.map((option) => option.value));
+  const allowedDefaultSections = new Set(defaultSectionOptions.map((option) => option.value));
+
+  return {
+    preferredName: typeof settings.preferredName === "string" ? settings.preferredName.trim() : "",
+    avatarUrl: typeof settings.avatarUrl === "string" ? settings.avatarUrl.trim() : "",
+    studyStyle: allowedStudyStyles.has(settings.studyStyle) ? settings.studyStyle : defaultPersonalSettings.studyStyle,
+    commuteMode: allowedCommuteModes.has(settings.commuteMode) ? settings.commuteMode : defaultPersonalSettings.commuteMode,
+    assistantTone: allowedAssistantTones.has(settings.assistantTone) ? settings.assistantTone : defaultPersonalSettings.assistantTone,
+    theme: allowedThemes.has(settings.theme) ? settings.theme : defaultPersonalSettings.theme,
+    density: allowedDensities.has(settings.density) ? settings.density : defaultPersonalSettings.density,
+    defaultSection: allowedDefaultSections.has(settings.defaultSection)
+      ? settings.defaultSection
+      : defaultPersonalSettings.defaultSection,
+    dailyReminder: normalizeReminderTime(settings.dailyReminder),
+    quietMode: Boolean(settings.quietMode),
+    reduceMotion: Boolean(settings.reduceMotion),
+  };
+}
+
+function normalizeReminderTime(value) {
+  if (typeof value !== "string") return defaultPersonalSettings.dailyReminder;
+  const trimmed = value.trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(trimmed) ? trimmed : defaultPersonalSettings.dailyReminder;
 }
 
 function normalizeProfile(profile) {
@@ -1383,7 +1823,7 @@ function SquareButton({ label, dark, onPress }) {
 
 function FilterChip({ label, selected, onPress }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
       <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{label}</Text>
     </Pressable>
   );
@@ -1515,6 +1955,36 @@ function sectionSubtitle(section) {
   return subtitles[section] || "Campus life at a glance.";
 }
 
+function settingsLabel(options, value) {
+  return options.find((option) => option.value === value)?.label || options[0]?.label || "";
+}
+
+const webSecondaryButtonStyle = {
+  minHeight: 38,
+  padding: "0 14px",
+  border: "1px solid rgba(18, 63, 56, 0.14)",
+  borderRadius: 10,
+  color: "#40504a",
+  background: "rgba(255, 255, 255, 0.46)",
+  font: "inherit",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const webSaveProfileButtonStyle = {
+  minHeight: 38,
+  padding: "0 16px",
+  border: 0,
+  borderRadius: 10,
+  color: "#fff8e2",
+  background: "#123f38",
+  font: "inherit",
+  fontSize: 13,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
 const styles = StyleSheet.create({
   shell: {
     flexDirection: "row",
@@ -1529,7 +1999,21 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     overflow: "auto",
   },
+  shellThemeSunrise: {
+    backgroundColor: "#f4e0cf",
+    backgroundImage:
+      "radial-gradient(circle at 18% 12%, rgba(222, 105, 68, 0.18), transparent 24%), radial-gradient(circle at 84% 18%, rgba(219, 138, 86, 0.18), transparent 28%), linear-gradient(135deg, #f7e2cc 0%, #ead8c1 48%, #dbe4d5 100%)",
+  },
+  shellThemeNight: {
+    backgroundColor: "#111b22",
+    backgroundImage:
+      "radial-gradient(circle at 18% 12%, rgba(71, 118, 184, 0.2), transparent 24%), radial-gradient(circle at 84% 18%, rgba(151, 223, 198, 0.12), transparent 28%), linear-gradient(135deg, #101920 0%, #182830 48%, #1d352f 100%)",
+  },
+  shellDensityCompact: {
+    minHeight: 640,
+  },
   sidebar: {
+    zIndex: 10,
     width: 248,
     flexShrink: 0,
     gap: 14,
@@ -1623,17 +2107,27 @@ const styles = StyleSheet.create({
     color: "#fff8e2",
     fontWeight: "900",
   },
+  profileDock: {
+    position: "relative",
+    marginTop: "auto",
+    gap: 7,
+    zIndex: 4,
+  },
   profileCard: {
+    zIndex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginTop: "auto",
     padding: 10,
     borderWidth: 1,
     borderColor: "rgba(255, 243, 208, 0.13)",
     borderRadius: 16,
     backgroundColor: "rgba(255, 248, 226, 0.075)",
     boxShadow: "0 14px 34px rgba(5, 18, 18, 0.12)",
+  },
+  profileCardActive: {
+    borderColor: "rgba(240, 201, 134, 0.48)",
+    backgroundColor: "rgba(255, 248, 226, 0.13)",
   },
   avatar: {
     width: 46,
@@ -1642,6 +2136,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 23,
     backgroundColor: "#f0c986",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   avatarText: {
     color: "#123a3b",
@@ -1662,6 +2161,205 @@ const styles = StyleSheet.create({
   },
   profileChevron: {
     color: "#fff8e2",
+    fontWeight: "900",
+  },
+  profileHint: {
+    paddingHorizontal: 4,
+    color: "rgba(255, 248, 226, 0.52)",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  profilePopover: {
+    position: "absolute",
+    zIndex: 8,
+    left: 0,
+    bottom: 88,
+    width: 326,
+    maxHeight: "78vh",
+    gap: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(240, 201, 134, 0.34)",
+    borderRadius: 18,
+    backgroundColor: "#fff8e8",
+    boxShadow: "0 22px 56px rgba(5, 18, 18, 0.28)",
+  },
+  profilePopoverCompact: {
+    position: "relative",
+    bottom: "auto",
+    width: "100%",
+  },
+  popoverHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  popoverKicker: {
+    color: "#c97654",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  popoverTitle: {
+    marginTop: 4,
+    color: "#123f38",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  iconTextButton: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.52)",
+  },
+  iconTextButtonText: {
+    color: "#123f38",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  preferenceForm: {
+    gap: 12,
+    paddingBottom: 2,
+  },
+  preferenceScroll: {
+    maxHeight: "68vh",
+  },
+  preferenceInput: {
+    minHeight: 42,
+    backgroundColor: "rgba(255, 255, 255, 0.66)",
+  },
+  preferenceGroup: {
+    gap: 7,
+  },
+  preferenceLabel: {
+    color: "#40504a",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  preferenceHelp: {
+    color: "#6d7280",
+    fontSize: 12,
+  },
+  preferenceSuccess: {
+    color: "#2e7058",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  avatarPreviewRow: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.09)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.44)",
+  },
+  avatarPreview: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 24,
+    backgroundColor: "#f0c986",
+  },
+  passwordPanel: {
+    gap: 9,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.42)",
+  },
+  preferenceChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+  },
+  preferenceInline: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  timeInput: {
+    width: 92,
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    borderRadius: 10,
+    color: "#123f38",
+    backgroundColor: "rgba(255, 255, 255, 0.66)",
+    outlineStyle: "none",
+  },
+  preferenceToggle: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  toggleTrack: {
+    width: 46,
+    height: 26,
+    justifyContent: "center",
+    padding: 3,
+    borderRadius: 13,
+    backgroundColor: "rgba(18, 63, 56, 0.18)",
+  },
+  toggleTrackOn: {
+    backgroundColor: "#2e7058",
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#fff8e8",
+    boxShadow: "0 4px 10px rgba(5, 18, 18, 0.18)",
+  },
+  toggleKnobOn: {
+    marginLeft: 20,
+  },
+  popoverActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 9,
+    paddingTop: 4,
+  },
+  secondaryButton: {
+    minHeight: 38,
+    justifyContent: "center",
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.14)",
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.46)",
+  },
+  secondaryButtonText: {
+    color: "#40504a",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  saveProfileButton: {
+    minHeight: 38,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#123f38",
+  },
+  saveProfileButtonText: {
+    color: "#fff8e2",
+    fontSize: 13,
     fontWeight: "900",
   },
   statusCard: {
@@ -1735,6 +2433,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   main: {
+    zIndex: 0,
     flex: 1,
     minWidth: 0,
     minHeight: 0,
@@ -1742,6 +2441,16 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 249, 236, 0.72)",
     backgroundImage:
       "repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(18, 78, 69, 0.08), transparent 28%), radial-gradient(circle at 20% 86%, rgba(217, 155, 104, 0.1), transparent 30%)",
+  },
+  mainThemeSunrise: {
+    backgroundColor: "rgba(255, 246, 236, 0.78)",
+    backgroundImage:
+      "repeating-linear-gradient(0deg, rgba(78, 43, 28, 0.03) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(219, 138, 86, 0.12), transparent 28%), radial-gradient(circle at 20% 86%, rgba(46, 112, 88, 0.08), transparent 30%)",
+  },
+  mainThemeNight: {
+    backgroundColor: "rgba(16, 25, 32, 0.9)",
+    backgroundImage:
+      "repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(71, 118, 184, 0.12), transparent 28%), radial-gradient(circle at 20% 86%, rgba(120, 208, 177, 0.08), transparent 30%)",
   },
   scroll: {
     flex: 1,

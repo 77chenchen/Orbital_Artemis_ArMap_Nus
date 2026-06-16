@@ -17,6 +17,9 @@ export default function RoutingForm({
   setSuggestions,
   setStartPlace,
   setEndPlace,
+  travelModes = [],
+  travelMode,
+  setTravelMode,
 }) {
   return (
     <View style={styles.routingContainer}>
@@ -70,6 +73,31 @@ export default function RoutingForm({
             <Text style={styles.swapText}>A/B</Text>
           </Pressable>
         </View>
+
+        {travelModes.length > 0 ? (
+          <View style={styles.modeSelector}>
+            {travelModes.map((mode) => {
+              const active = travelMode === mode.id;
+              return (
+                <Pressable
+                  key={mode.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Route by ${mode.label}`}
+                  onPress={() => setTravelMode(mode.id)}
+                  style={({ pressed }) => [
+                    styles.modeButton,
+                    active && styles.modeButtonActive,
+                    pressed && styles.modeButtonPressed,
+                  ]}
+                >
+                  <Text style={[styles.modeButtonText, active && styles.modeButtonTextActive]}>
+                    {mode.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
 
         {showDropdown && suggestions?.length > 0 ? (
           <SelectList
@@ -183,5 +211,39 @@ const styles = StyleSheet.create({
     color: "#202124",
     fontSize: 16,
     fontWeight: "800",
+  },
+  modeSelector: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    backgroundColor: "#ffffff",
+  },
+  modeButton: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  modeButtonActive: {
+    borderColor: "#1a73e8",
+    backgroundColor: "#eff6ff",
+  },
+  modeButtonPressed: {
+    backgroundColor: "#e5e7eb",
+  },
+  modeButtonText: {
+    color: "#374151",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  modeButtonTextActive: {
+    color: "#1d4ed8",
   },
 });

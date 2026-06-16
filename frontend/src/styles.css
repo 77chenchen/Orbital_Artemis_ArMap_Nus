@@ -54,6 +54,24 @@ textarea {
   font: inherit;
 }
 
+[data-atlas-density="compact"] :where(button, input, textarea) {
+  min-height: 34px !important;
+}
+
+[data-atlas-theme="night"] input,
+[data-atlas-theme="night"] textarea {
+  color: #fff8e2 !important;
+}
+
+[data-atlas-reduce-motion="true"] *,
+[data-atlas-reduce-motion="true"] *::before,
+[data-atlas-reduce-motion="true"] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  scroll-behavior: auto !important;
+}
+
 @keyframes atlasAgentPeek {
   0%,
   100% {

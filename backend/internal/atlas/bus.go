@@ -683,6 +683,45 @@ func (api *API) busContext(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, context)
 }
 
+func (api *API) sgBusStops(w http.ResponseWriter, r *http.Request) {
+	stops, err := api.sgTransit.BusStops(r.Context())
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, stops)
+}
+
+func (api *API) sgNearbyBusStops(w http.ResponseWriter, r *http.Request) {
+	lat := parseFloat(r.URL.Query().Get("lat"), 1.2966)
+	lng := parseFloat(r.URL.Query().Get("lng"), 103.7764)
+	limit := firstPositiveInt(parseInt(r.URL.Query().Get("limit"), 8), 8)
+	stops, err := api.sgTransit.NearbyBusStops(r.Context(), lat, lng, limit)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, stops)
+}
+
+func (api *API) sgBusArrivals(w http.ResponseWriter, r *http.Request) {
+	arrival, err := api.sgTransit.BusArrivals(r.Context(), r.URL.Query().Get("stop"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, arrival)
+}
+
+func (api *API) sgTrainAlerts(w http.ResponseWriter, r *http.Request) {
+	alerts, err := api.sgTransit.TrainAlerts(r.Context())
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, alerts)
+}
+
 func firstArray(root map[string]any, keys ...string) []map[string]any {
 	for _, key := range keys {
 		value, ok := root[key]
@@ -761,6 +800,21 @@ func firstInt(root map[string]any, keys ...string) int {
 		}
 	}
 	return 0
+}
+
+func parseInt(raw string, fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func firstPositiveInt(value int, fallback int) int {
+	if value > 0 {
+		return value
+	}
+	return fallback
 }
 
 func firstFloat(root map[string]any, keys ...string) float64 {
