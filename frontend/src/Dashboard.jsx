@@ -13,6 +13,8 @@ import { api } from "./api.js";
 import MapScreen from "./Map/map";
 import teamLogo from "./assets/brand/team_logo.jpg";
 
+const PENDING_DASHBOARD_SECTION_KEY = "atlas.pendingDashboardSection";
+
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: "home" },
   { key: "map", label: "AR Map", icon: "route" },
@@ -194,9 +196,28 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
+    const openSection = (section) => {
+      if (navItems.some((item) => item.key === section)) setActiveSection(section);
+    };
+
+    try {
+      const pendingSection = window.sessionStorage.getItem(PENDING_DASHBOARD_SECTION_KEY);
+      if (pendingSection) {
+        window.sessionStorage.removeItem(PENDING_DASHBOARD_SECTION_KEY);
+        openSection(pendingSection);
+      }
+    } catch {
+      // Section navigation events still work when storage is unavailable.
+    }
+
     function handleAgentSection(event) {
       const section = event.detail?.section;
-      if (navItems.some((item) => item.key === section)) setActiveSection(section);
+      try {
+        window.sessionStorage.removeItem(PENDING_DASHBOARD_SECTION_KEY);
+      } catch {
+        // Ignore storage failures; the in-memory event is enough.
+      }
+      openSection(section);
     }
 
     window.addEventListener("atlas:dashboard-section", handleAgentSection);
@@ -585,10 +606,62 @@ export default function Dashboard() {
           personalSettings.theme === "night" && styles.mainThemeNight,
         ]}
       >
-        {renderMain()}
+        <DashboardSectionBoundary section={activeSection} onOpenSection={setActiveSection}>
+          <DashboardSectionContent render={renderMain} />
+        </DashboardSectionBoundary>
       </View>
     </View>
   );
+}
+
+class DashboardSectionBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error, info) {
+    console.error("Atlas dashboard section failed", error, info);
+  }
+
+  componentDidUpdate(previousProps) {
+    if (previousProps.section !== this.props.section && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    const message = this.state.error instanceof Error ? this.state.error.message : "This section failed to render.";
+
+    return (
+      <View style={styles.sectionError}>
+        <Text style={styles.sectionErrorKicker}>Section recovery</Text>
+        <Text style={styles.sectionErrorTitle}>{`${sectionTitle(this.props.section)} could not render`}</Text>
+        <Text style={styles.sectionErrorText}>{message}</Text>
+        <View style={styles.sectionErrorActions}>
+          <Pressable onPress={() => this.setState({ error: null })} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>Try again</Text>
+          </Pressable>
+          <Pressable onPress={() => this.props.onOpenSection?.("recommendations")} style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Open Daily Assistant</Text>
+          </Pressable>
+          <Pressable onPress={() => this.props.onOpenSection?.("dashboard")} style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+}
+
+function DashboardSectionContent({ render }) {
+  return render();
 }
 
 function Sidebar({
@@ -2451,6 +2524,37 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(16, 25, 32, 0.9)",
     backgroundImage:
       "repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(71, 118, 184, 0.12), transparent 28%), radial-gradient(circle at 20% 86%, rgba(120, 208, 177, 0.08), transparent 30%)",
+  },
+  sectionError: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 12,
+    padding: 34,
+  },
+  sectionErrorKicker: {
+    color: "#c97654",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  sectionErrorTitle: {
+    color: "#123f38",
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "900",
+  },
+  sectionErrorText: {
+    maxWidth: 620,
+    color: "#686f78",
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  sectionErrorActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 4,
   },
   scroll: {
     flex: 1,

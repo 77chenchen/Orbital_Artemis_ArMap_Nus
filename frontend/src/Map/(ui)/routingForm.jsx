@@ -10,6 +10,7 @@ export default function RoutingForm({
   startPlace,
   endPlace,
   suggestions,
+  suggestionLoading = false,
   showDropdown,
   activeField,
   setActiveField,
@@ -17,6 +18,7 @@ export default function RoutingForm({
   setSuggestions,
   setStartPlace,
   setEndPlace,
+  onPlaceSelected,
   travelModes = [],
   travelMode,
   setTravelMode,
@@ -36,7 +38,10 @@ export default function RoutingForm({
               value={start}
               placeholder="Starting point"
               placeholderTextColor="#888888"
-              onFocus={() => setActiveField("start")}
+              onFocus={() => {
+                setActiveField("start");
+                setShowDropdown(true);
+              }}
               onChangeText={(value) => {
                 setStart(value);
                 setActiveField("start");
@@ -49,7 +54,10 @@ export default function RoutingForm({
               value={end}
               placeholder="Destination"
               placeholderTextColor="#888888"
-              onFocus={() => setActiveField("query")}
+              onFocus={() => {
+                setActiveField("query");
+                setShowDropdown(true);
+              }}
               onChangeText={(value) => {
                 setEnd(value);
                 setActiveField("query");
@@ -99,12 +107,16 @@ export default function RoutingForm({
           </View>
         ) : null}
 
-        {showDropdown && suggestions?.length > 0 ? (
+        {showDropdown ? (
           <SelectList
             items={suggestions}
+            loading={suggestionLoading}
+            query={activeField === "start" ? start : end}
             onClick={(place) => {
               const label = place.properties.label;
               const coords = place.geometry.coordinates;
+              const query = activeField === "start" ? start : end;
+              onPlaceSelected?.(place, query);
 
               if (activeField === "start") {
                 setStart(label);

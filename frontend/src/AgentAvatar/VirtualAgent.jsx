@@ -5,6 +5,8 @@ import { api } from "../api";
 import agentModelUrl from "../assets/agent/atlas_agent_model.svg";
 import agentModules from "../assets/agent/atlas_agent_modules.json";
 
+const PENDING_DASHBOARD_SECTION_KEY = "atlas.pendingDashboardSection";
+
 function chooseReply(action) {
   if (!action?.replies?.length) return "I'm here whenever you need me.";
   return action.replies[Math.floor(Math.random() * action.replies.length)];
@@ -27,6 +29,25 @@ function formatTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatArrivalMinutes(value) {
+  if (value === undefined || value === null || value === "") return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  if (text.toLowerCase() === "arr") return "Arriving";
+  const minutes = Number(text);
+  if (Number.isFinite(minutes)) return minutes <= 0 ? "Arriving" : `${minutes} min`;
+  return text;
+}
+
+function llmMeta(response) {
+  if (!response) return [];
+  return [
+    response.provider ? `Provider ${response.provider}` : "",
+    response.model ? `Model ${response.model}` : "",
+    response.success ? "Live LLM" : "Fallback",
+  ].filter(Boolean);
 }
 
 function buildAssistantContext(data) {
@@ -75,6 +96,11 @@ export default function VirtualAgent() {
   );
 
   function openDashboardSection(section) {
+    try {
+      window.sessionStorage.setItem(PENDING_DASHBOARD_SECTION_KEY, section);
+    } catch {
+      // Navigation still works when storage is unavailable.
+    }
     navigate("/Dashboard");
     window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent("atlas:dashboard-section", { detail: { section } }));
@@ -129,9 +155,12 @@ export default function VirtualAgent() {
         topRecommendation?.description ||
         "Schedule, facility, sync, and bus context loaded. Daily Assistant can now plan from this state.",
       meta: [
+        `${data.schedule.length} schedule items`,
+        `${data.recommendations.length} recommendations`,
         `${data.buildings.length} buildings`,
         `${data.facilities.length} facilities`,
         `${data.busRoutes.length} bus routes`,
+        data.syncStatus?.status ? `Sync ${data.syncStatus.status}` : "",
       ],
       actionLabel: "Open Daily Assistant",
       actionSection: "recommendations",
@@ -150,7 +179,7 @@ export default function VirtualAgent() {
     setResult({
       title: response.success ? "AI plan" : "Plan fallback",
       body: compactReply(response.reply),
-      meta: [response.provider, response.model].filter(Boolean),
+      meta: llmMeta(response),
       actionLabel: "Open Daily Assistant",
       actionSection: "recommendations",
     });
@@ -160,7 +189,7 @@ export default function VirtualAgent() {
     const data = await loadAgentContext();
     const nextRecommendation = data.recommendations.find((item) => item.kind === "route") || data.recommendations[0];
     const firstArrival = data.arrival?.routes?.[0];
-    const eta = firstArrival?.arrivalMinutes?.[0] || firstArrival?.arrivalTime;
+    const eta = formatArrivalMinutes(firstArrival?.arrivalMinutes?.[0] ?? firstArrival?.arrivalTime);
 
     openDashboardSection("map");
     setMessage(
@@ -175,7 +204,8 @@ export default function VirtualAgent() {
         "Map view is open. Bus route context is loaded and ready for the campus layer.",
       meta: [
         nextRecommendation?.location ? `Target ${nextRecommendation.location}` : "",
-        eta ? `Next bus ${eta} min` : "",
+        eta ? `Next bus ${eta}` : "",
+        firstArrival?.routeCode ? `Route ${firstArrival.routeCode}` : "",
         data.arrival?.source ? `Source ${data.arrival.source}` : "",
       ].filter(Boolean),
       actionLabel: "Stay on map",
@@ -195,7 +225,7 @@ export default function VirtualAgent() {
     setResult({
       title: response.success ? "Wrap-up summary" : "Wrap-up fallback",
       body: compactReply(response.reply),
-      meta: [response.provider, response.model].filter(Boolean),
+      meta: llmMeta(response),
       actionLabel: "Open Schedule",
       actionSection: "schedule",
     });
@@ -325,7 +355,7 @@ export default function VirtualAgent() {
 
       <Pressable
         testID="atlas-agent-body"
-        dataSet={{ action: activeAction, awake: isAwake ? "true" : "false" }}
+        dataSet={{ action: activeAction, awake: isAwake ? "true" : "false", working: isWorking ? "true" : "false" }}
         accessibilityRole="button"
         onPress={wakeAgent}
         accessibilityLabel={isAwake ? "Artemis is awake" : "Wake Artemis"}
@@ -334,7 +364,9 @@ export default function VirtualAgent() {
           styles.bodyButton,
           !isAwake && styles.bodyButtonDocked,
           activeAction === "think" && styles.bodyButtonThinking,
+          activeAction === "route" && styles.bodyButtonRoute,
           activeAction === "celebrate" && styles.bodyButtonCelebrate,
+          isWorking && styles.bodyButtonWorking,
           pressed && styles.bodyButtonPressed,
         ]}
       >
@@ -569,9 +601,21 @@ const styles = StyleSheet.create({
   },
   bodyButtonThinking: {
     borderColor: "rgba(53, 199, 177, 0.54)",
+    backgroundImage: "linear-gradient(145deg, rgba(246, 255, 252, 0.96), rgba(208, 247, 238, 0.86))",
+  },
+  bodyButtonRoute: {
+    borderColor: "rgba(46, 105, 255, 0.46)",
+    backgroundImage: "linear-gradient(145deg, rgba(248, 251, 255, 0.96), rgba(218, 232, 255, 0.86))",
   },
   bodyButtonCelebrate: {
     borderColor: "rgba(255, 122, 89, 0.54)",
+    backgroundImage: "linear-gradient(145deg, rgba(255, 252, 246, 0.96), rgba(255, 232, 198, 0.9))",
+  },
+  bodyButtonWorking: {
+    animationName: "atlasAgentWorkFrame",
+    animationDuration: "1.35s",
+    animationTimingFunction: "ease-in-out",
+    animationIterationCount: "infinite",
   },
   bodyButtonPressed: {
     opacity: 0.9,

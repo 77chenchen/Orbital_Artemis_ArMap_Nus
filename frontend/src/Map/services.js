@@ -2,7 +2,7 @@ import getSuggestions from "./geocoding";
 import getShortestRoutes from "./routing";
 
 export async function geocode(query, size = 1) {
-  const res = await getSuggestions(query, size);
+  const res = await getSuggestions(query, { opts: size });
   return res?.[0]?.geometry?.coordinates;
 }
 

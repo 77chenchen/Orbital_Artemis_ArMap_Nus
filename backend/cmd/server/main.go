@@ -17,7 +17,9 @@ import (
 
 func main() {
 	loadDotEnv(".env")
+	loadDotEnv("backend/.env")
 	loadDotEnv("../.env")
+	loadDotEnv("../../.env")
 
 	cfg := atlas.Config{
 		Port:              env("PORT", "8080"),

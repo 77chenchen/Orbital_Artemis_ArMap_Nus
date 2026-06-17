@@ -13,10 +13,10 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import SelectList from "./(ui)/selectList";
 import { MapEngine } from "./mapEngine";
 import { route, watchLocation } from "./services";
-import getSuggestions from "./geocoding";
+import getSuggestions, { getCampusPlaceMatches, getRecommendedPlaces, recordPlaceSelection } from "./geocoding";
 import RoutingForm from "./(ui)/routingForm";
 import { api } from "../api";
-import { installBusLayers } from "./busLayer";
+import { installBusLayers, setActiveBuses, setBusRouteOverlayVisible, setRoutePickupPoints } from "./busLayer";
 
 const TRAVEL_MODES = [
   { id: "WALK", label: "Walk", otpMode: "WALK" },
@@ -36,22 +36,28 @@ export default function MapScreen({ embedded = false }) {
   const [endPlace, setEndPlace] = useState(null);
   const [routing, setRouting] = useState(false);
   const [routeResult, setRouteResult] = useState(null);
+  const [routeOptions, setRouteOptions] = useState([]);
+  const [selectedRouteOptionIndex, setSelectedRouteOptionIndex] = useState(0);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [travelMode, setTravelMode] = useState(TRAVEL_MODES[1].id);
   const [followLocation, setFollowLocation] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeField, setActiveField] = useState(null);
 
   const [busReady, setBusReady] = useState(false);
+  const [busRoutes, setBusRoutes] = useState([]);
+  const [selectedRoute, setSelectedRoute] = useState("D1");
   const [selectedStop, setSelectedStop] = useState(null);
-  const [trainAlerts, setTrainAlerts] = useState([]);
+  const [pickupPoints, setPickupPoints] = useState([]);
   const [arrivalRows, setArrivalRows] = useState([]);
   const [showArrivals, setShowArrivals] = useState(false);
   const [arrivalLoading, setArrivalLoading] = useState(false);
   const [busError, setBusError] = useState("");
   const [showBusPanel, setShowBusPanel] = useState(false);
+  const [showBusRouteOverlay, setShowBusRouteOverlay] = useState(false);
 
   const captureMapContainer = useCallback((node) => {
     if (!node) {
@@ -118,18 +124,17 @@ export default function MapScreen({ embedded = false }) {
 
     async function loadBusLayer() {
       try {
-        const [nearbyStops, alerts] = await Promise.all([
-          api.sgNearbyBusStops({ lat: 1.2966, lng: 103.7764, limit: 18 }),
-          api.sgTrainAlerts(),
-        ]);
+        const [stops, routes] = await Promise.all([api.busStops(), api.busRoutes()]);
         if (cancelled) return;
 
-        const stops = (nearbyStops || []).map((item) => ({
-          ...(item.busStop || item),
-          distanceM: item.distanceM,
-        }));
         cleanupBusLayer = installBusLayers(map, stops, handleBusStopSelect);
-        setTrainAlerts(alerts || []);
+        setBusRouteOverlayVisible(map, false);
+        setBusRoutes(routes);
+
+        const preferredRoute = routes.some((item) => item.code === "D1") ? "D1" : routes[0]?.code || "";
+        if (preferredRoute) {
+          setSelectedRoute(preferredRoute);
+        }
 
         if (stops[0]) {
           await handleBusStopSelect({ code: stops[0].code, name: stops[0].name });
@@ -163,7 +168,11 @@ export default function MapScreen({ embedded = false }) {
       window.cancelAnimationFrame(animationFrame);
       window.clearTimeout(timer);
       resizeObserver?.disconnect();
-      map.off("load", loadBusLayer);
+      try {
+        map.off("load", loadBusLayer);
+      } catch (err) {
+        console.warn("Map load listener cleanup failed", err);
+      }
       try {
         cleanupBusLayer?.();
       } catch (err) {
@@ -176,29 +185,102 @@ export default function MapScreen({ embedded = false }) {
       } catch (err) {
         console.warn("Map cleanup failed", err);
       }
-      if (mount.isConnected) {
-        mount.remove();
+      try {
+        if (mount.isConnected) {
+          mount.remove();
+        }
+      } catch (err) {
+        console.warn("Map mount cleanup failed", err);
       }
     };
   }, [mapHostElement]);
+
+  useEffect(() => {
+    if (!busReady || !selectedRoute || !mapRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function refreshActiveBus() {
+      try {
+        const active = await api.activeBus(selectedRoute);
+        if (!cancelled && mapRef.current) {
+          setActiveBuses(mapRef.current, active.vehicles || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setBusError(err.message);
+        }
+      }
+    }
+
+    async function loadPickupPoints() {
+      try {
+        const points = await api.busPickupPoints(selectedRoute);
+        if (!cancelled && mapRef.current) {
+          const sortedPoints = [...(points || [])].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+          const routeCoordinates = await buildRoadRoute(sortedPoints);
+          if (cancelled || !mapRef.current) return;
+          setPickupPoints(sortedPoints);
+          setRoutePickupPoints(mapRef.current, sortedPoints, routeCoordinates);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setPickupPoints([]);
+          setBusError(err.message);
+          if (mapRef.current) {
+            setRoutePickupPoints(mapRef.current, []);
+          }
+        }
+      }
+    }
+
+    loadPickupPoints();
+    refreshActiveBus();
+    const timer = window.setInterval(refreshActiveBus, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [busReady, selectedRoute]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    setBusRouteOverlayVisible(mapRef.current, showBusPanel && showBusRouteOverlay);
+  }, [showBusPanel, showBusRouteOverlay, busReady]);
 
   useEffect(() => {
     if (!activeField) return undefined;
 
     const value = activeField === "start" ? startText : queryText;
     if (!value.trim()) {
-      setSuggestions([]);
-      setShowDropdown(false);
+      setSuggestionLoading(false);
+      setSuggestions(getRecommendedPlaces());
+      setShowDropdown(true);
       return undefined;
     }
 
+    let cancelled = false;
+    const localMatches = getCampusPlaceMatches(value);
+    setSuggestions(localMatches);
+    setShowDropdown(true);
+    setSuggestionLoading(true);
     const timer = window.setTimeout(async () => {
-      const res = await getSuggestions(value);
+      const res = await Promise.race([
+        getSuggestions(value),
+        new Promise((resolve) => window.setTimeout(() => resolve(localMatches), 2500)),
+      ]);
+      if (cancelled) return;
       setSuggestions(res || []);
+      setSuggestionLoading(false);
       setShowDropdown(true);
     }, 500);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [queryText, startText, activeField]);
 
   useEffect(() => {
@@ -210,22 +292,24 @@ export default function MapScreen({ embedded = false }) {
     async function runRoute() {
       setRouteLoading(true);
       setRouteError("");
+      setRouteOptions([]);
+      setSelectedRouteOptionIndex(0);
       try {
         const selectedMode = TRAVEL_MODES.find((item) => item.id === travelMode) || TRAVEL_MODES[1];
         const nextRoute = await route(startPlace.coords, endPlace.coords, selectedMode.otpMode);
-        const displayPlan = await routeForDisplay(nextRoute, selectedMode, startPlace.coords, endPlace.coords);
-        const drawableRoute = displayPlan?.drawableRoute;
-        if (!drawableRoute) {
+        const displayOptions = await routeOptionsForDisplay(nextRoute, selectedMode, startPlace.coords, endPlace.coords);
+        const firstOption = displayOptions[0];
+        if (!firstOption?.drawableRoute) {
           throw new Error("No drawable OTP route returned.");
         }
 
-        setRouteResult(displayPlan.routeResult);
-        engine.clear();
-        engine.setMarker(startPlace.coords, { fly: true });
-        engine.setMarker(endPlace.coords, { fly: false });
-        engine.drawRoute(drawableRoute, { mode: selectedMode.id });
+        setRouteOptions(displayOptions);
+        setRouteResult(firstOption.routeResult);
+        drawDisplayRoute(firstOption, { fly: true });
       } catch (err) {
         setRouteResult(null);
+        setRouteOptions([]);
+        engine.clearRoute();
         setRouteError(err instanceof Error ? err.message : "OTP route failed.");
       } finally {
         setRouteLoading(false);
@@ -234,6 +318,23 @@ export default function MapScreen({ embedded = false }) {
 
     runRoute();
   }, [startPlace, endPlace, routing, travelMode]);
+
+  function drawDisplayRoute(displayOption, { fly = false } = {}) {
+    const engine = engineRef.current;
+    if (!engine || !startPlace || !endPlace || !displayOption?.drawableRoute) return;
+    engine.clear();
+    engine.setMarker(startPlace.coords, { fly });
+    engine.setMarker(endPlace.coords, { fly: false });
+    engine.drawRoute(displayOption.drawableRoute, { mode: travelMode });
+  }
+
+  function selectRouteOption(index) {
+    const option = routeOptions[index];
+    if (!option) return;
+    setSelectedRouteOptionIndex(index);
+    setRouteResult(option.routeResult);
+    drawDisplayRoute(option, { fly: false });
+  }
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -263,15 +364,19 @@ export default function MapScreen({ embedded = false }) {
 
     const label = place.properties.label;
     const coords = place.geometry.coordinates;
+    recordPlaceSelection(place, queryText);
 
     setQueryText(label);
     setEndPlace({ label, coords });
     setSuggestions([]);
+    setSuggestionLoading(false);
     setShowDropdown(false);
 
     engine?.clear();
     engine?.setMarker(coords, { fly: true });
     setRouteResult(null);
+    setRouteOptions([]);
+    setSelectedRouteOptionIndex(0);
     setRouteError("");
     setRouting(true);
   }
@@ -280,10 +385,13 @@ export default function MapScreen({ embedded = false }) {
     const engine = engineRef.current;
     setRouting(false);
     setRouteResult(null);
+    setRouteOptions([]);
+    setSelectedRouteOptionIndex(0);
     setRouteError("");
     setRouteLoading(false);
     setActiveField(null);
     setSuggestions([]);
+    setSuggestionLoading(false);
     setShowDropdown(false);
     engine?.clear();
   }
@@ -292,13 +400,19 @@ export default function MapScreen({ embedded = false }) {
     const engine = engineRef.current;
 
     if (!routing && place?.geometry?.coordinates) {
+      recordPlaceSelection(place, queryText);
       engine?.clear();
       engine?.setMarker(place.geometry.coordinates, { fly: true });
     }
   }
 
   async function loadRouteArrivalDashboard() {
-    const stopsToCheck = selectedStop ? [{ stopCode: selectedStop.code, pickupName: selectedStop.name }] : [];
+    const stopsToCheck =
+      pickupPoints.length > 0
+        ? pickupPoints
+        : selectedStop
+          ? [{ stopCode: selectedStop.code, pickupName: selectedStop.name }]
+          : [];
     if (stopsToCheck.length === 0) return;
 
     setArrivalLoading(true);
@@ -307,7 +421,7 @@ export default function MapScreen({ embedded = false }) {
       const arrivals = await Promise.all(
         stopsToCheck.map(async (point) => {
           const stopCode = point.stopCode || point.code;
-          const arrival = await api.sgBusArrivals(stopCode);
+          const arrival = await api.busArrivals(stopCode);
           return { point, arrival };
         }),
       );
@@ -353,12 +467,18 @@ export default function MapScreen({ embedded = false }) {
 
       {!routing ? (
         <View style={styles.searchBox}>
+          <View style={styles.searchIconWrap}>
+            <Text style={styles.searchIcon}>⌕</Text>
+          </View>
           <View style={styles.inputContainer}>
             <TextInput
-              placeholder="Search in Singapore"
+              placeholder="Search NUS or Singapore"
               placeholderTextColor="#777777"
               value={queryText}
-              onFocus={() => setActiveField("query")}
+              onFocus={() => {
+                setActiveField("query");
+                setShowDropdown(true);
+              }}
               onChangeText={(value) => {
                 setQueryText(value);
                 setActiveField("query");
@@ -368,9 +488,12 @@ export default function MapScreen({ embedded = false }) {
               style={styles.searchInput}
             />
 
-            {showDropdown && suggestions.length > 0 ? (
+            {showDropdown ? (
               <SelectList
                 items={suggestions}
+                loading={suggestionLoading}
+                query={queryText}
+                menuStyle={styles.searchSuggestions}
                 onClick={(place) => {
                   const label = place.properties.label;
                   const coords = place.geometry.coordinates;
@@ -380,13 +503,19 @@ export default function MapScreen({ embedded = false }) {
                   setActiveField(null);
                   setShowDropdown(false);
                   setSuggestions([]);
+                  setSuggestionLoading(false);
                   searchPlace(place);
                 }}
               />
             ) : null}
           </View>
 
-          <Pressable onPress={handleSubmit} style={({ pressed }) => [styles.goButton, pressed && styles.pressed]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search selected place"
+            onPress={handleSubmit}
+            style={({ pressed }) => [styles.goButton, pressed && styles.pressed]}
+          >
             <Text style={styles.goButtonText}>Go</Text>
           </Pressable>
         </View>
@@ -402,6 +531,7 @@ export default function MapScreen({ embedded = false }) {
             startPlace={startPlace}
             endPlace={endPlace}
             suggestions={suggestions}
+            suggestionLoading={suggestionLoading}
             showDropdown={showDropdown}
             activeField={activeField}
             setActiveField={setActiveField}
@@ -409,6 +539,7 @@ export default function MapScreen({ embedded = false }) {
             setSuggestions={setSuggestions}
             setStartPlace={setStartPlace}
             setEndPlace={setEndPlace}
+            onPlaceSelected={(place, query) => recordPlaceSelection(place, query)}
             travelModes={TRAVEL_MODES}
             travelMode={travelMode}
             setTravelMode={setTravelMode}
@@ -421,7 +552,15 @@ export default function MapScreen({ embedded = false }) {
           >
             <Text style={styles.routeCloseText}>×</Text>
           </Pressable>
-          <RouteSummary routeResult={routeResult} loading={routeLoading} error={routeError} travelMode={travelMode} />
+          <RouteSummary
+            routeResult={routeResult}
+            routeOptions={routeOptions}
+            selectedRouteOptionIndex={selectedRouteOptionIndex}
+            onSelectRouteOption={selectRouteOption}
+            loading={routeLoading}
+            error={routeError}
+            travelMode={travelMode}
+          />
         </View>
       ) : null}
 
@@ -434,7 +573,7 @@ export default function MapScreen({ embedded = false }) {
         >
           <Text style={styles.busLayerButtonIcon}>Bus</Text>
           <View style={styles.busLayerButtonTextBlock}>
-            <Text style={styles.busLayerButtonTitle}>SG Transit</Text>
+            <Text style={styles.busLayerButtonTitle}>NUS Bus</Text>
             <Text style={styles.busLayerButtonMeta}>{selectedStop?.code || "Stops"} · {busReady ? "ready" : "loading"}</Text>
           </View>
         </Pressable>
@@ -442,29 +581,72 @@ export default function MapScreen({ embedded = false }) {
         <ScrollView style={styles.busPanel} contentContainerStyle={styles.busPanelContent}>
           <View style={styles.busPanelHeader}>
             <View style={styles.busTitleBlock}>
-              <Text style={styles.busKicker}>LTA DataMall</Text>
-              <Text style={styles.busTitle}>Singapore Transit</Text>
+              <Text style={styles.busKicker}>NUS Shuttle</Text>
+              <Text style={styles.busTitle}>Campus Bus</Text>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close Singapore transit dashboard"
-              onPress={() => setShowBusPanel(false)}
+              accessibilityLabel="Close NUS bus dashboard"
+              onPress={() => {
+                setShowBusPanel(false);
+                setShowBusRouteOverlay(false);
+              }}
               style={({ pressed }) => [styles.panelCloseButton, pressed && styles.pressed]}
             >
               <Text style={styles.panelCloseText}>×</Text>
             </Pressable>
           </View>
 
+          {busRoutes.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.routeChips}>
+              {busRoutes.map((routeItem) => (
+                <Pressable
+                  key={routeItem.code}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setSelectedRoute(routeItem.code);
+                    setShowArrivals(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.routeChip,
+                    selectedRoute === routeItem.code && styles.routeChipActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={[styles.routeChipText, selectedRoute === routeItem.code && styles.routeChipTextActive]}>
+                    {routeItem.name || routeItem.code}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="switch"
+            accessibilityState={{ checked: showBusRouteOverlay }}
+            accessibilityLabel={showBusRouteOverlay ? "Hide NUS bus route on map" : "Show NUS bus route on map"}
+            onPress={() => setShowBusRouteOverlay((current) => !current)}
+            style={({ pressed }) => [
+              styles.busMapToggle,
+              showBusRouteOverlay && styles.busMapToggleActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.busMapToggleText, showBusRouteOverlay && styles.busMapToggleTextActive]}>
+              {showBusRouteOverlay ? "Hide route on map" : "Show route on map"}
+            </Text>
+          </Pressable>
+
           {selectedStop ? (
             <View style={styles.busStopCard}>
               <View style={styles.busTitleBlock}>
-                <Text style={styles.busKicker}>Selected Singapore Bus Stop</Text>
+                <Text style={styles.busKicker}>Selected NUS Bus Stop</Text>
                 <Text style={styles.busStopTitle}>{selectedStop.name || selectedStop.code}</Text>
               </View>
               <Text style={styles.stopCode}>{selectedStop.code}</Text>
             </View>
           ) : (
-            <Text style={styles.busMuted}>Loading nearby Singapore bus stops...</Text>
+            <Text style={styles.busMuted}>Loading NUS bus stops...</Text>
           )}
 
           <Pressable
@@ -531,34 +713,33 @@ export default function MapScreen({ embedded = false }) {
 
               {arrivalRows[0]?.source === "demo-lta" ? (
                 <Text style={styles.busDemoNote}>
-                  Demo ETA shown. Configure LTA_ACCOUNT_KEY to display live Singapore bus arrivals.
+                  Demo ETA shown. Configure NUS bus credentials to display live campus arrivals.
                 </Text>
               ) : null}
             </View>
           ) : null}
 
           <View style={styles.busPickupList}>
-            <Text style={styles.busKicker}>MRT/LRT Service Status</Text>
-            {trainAlerts.length > 0 ? (
+            <Text style={styles.busKicker}>Route Pickup Points</Text>
+            {pickupPoints.length > 0 ? (
               <View style={styles.pickupItems}>
-                {trainAlerts.slice(0, 6).map((alert, index) => (
-                  <View style={styles.pickupItem} key={`${alert.line}-${alert.status}-${index}`}>
-                    <Text style={styles.trainLineBadge}>{alert.line || "MRT"}</Text>
-                    <View style={styles.trainAlertTextBlock}>
-                      <Text style={styles.pickupName}>{alert.status}</Text>
-                      {alert.message ? <Text style={styles.rowSmall}>{alert.message}</Text> : null}
-                    </View>
+                {pickupPoints.slice(0, 8).map((point) => (
+                  <View style={styles.pickupItem} key={`${point.routeCode}-${point.stopCode}-${point.seq}`}>
+                    <Text style={styles.pickupSeq}>{point.seq}</Text>
+                    <Text numberOfLines={1} style={styles.pickupName}>
+                      {point.pickupName || point.longName || point.stopCode}
+                    </Text>
                   </View>
                 ))}
               </View>
             ) : (
-              <Text style={styles.busMuted}>No train service alert loaded yet.</Text>
+              <Text style={styles.busMuted}>Select a route to show pickup points.</Text>
             )}
           </View>
 
           {busError ? <Text style={styles.busError}>{busError}</Text> : null}
           <Text style={styles.busFooter}>
-            Source: {arrivalRows[0]?.source || trainAlerts[0]?.source || "loading"}
+            Source: {arrivalRows[0]?.source || pickupPoints[0]?.source || "loading"}
           </Text>
         </ScrollView>
       )}
@@ -590,7 +771,15 @@ function LegendItem({ color, label }) {
   );
 }
 
-function RouteSummary({ routeResult, loading, error, travelMode }) {
+function RouteSummary({
+  routeResult,
+  routeOptions = [],
+  selectedRouteOptionIndex = 0,
+  onSelectRouteOption,
+  loading,
+  error,
+  travelMode,
+}) {
   if (loading) {
     return (
       <View style={styles.routeSummary}>
@@ -614,6 +803,34 @@ function RouteSummary({ routeResult, loading, error, travelMode }) {
   const segments = routeResult.segments || [];
   return (
     <View style={styles.routeSummary}>
+      {routeOptions.length > 1 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.routeOptionScroll}>
+          {routeOptions.map((option, index) => {
+            const active = index === selectedRouteOptionIndex;
+            return (
+              <Pressable
+                key={option.routeResult?.id || `route-option-${index}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Select route ${index + 1}`}
+                onPress={() => onSelectRouteOption?.(index)}
+                style={({ pressed }) => [
+                  styles.routeOptionChip,
+                  active && styles.routeOptionChipActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={[styles.routeOptionTitle, active && styles.routeOptionTitleActive]}>
+                  {option.routeResult?.label || `Route ${index + 1}`}
+                </Text>
+                <Text style={[styles.routeOptionMeta, active && styles.routeOptionMetaActive]}>
+                  {formatDuration(option.routeResult?.time)} · {routeModeSummary(option.routeResult)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       <View style={styles.routeSummaryHeader}>
         <View>
           <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
@@ -658,6 +875,12 @@ function displayMode(mode) {
 function displaySegmentMode(segment) {
   const mode = displayMode(segment?.mode);
   return mode;
+}
+
+function routeModeSummary(routeResult = {}) {
+  const modes = [...new Set((routeResult.segments || []).map((segment) => displayMode(segment.mode)))];
+  if (modes.length === 0) return "Route";
+  return modes.slice(0, 3).join(" + ");
 }
 
 function travelModeLabel(mode) {
@@ -752,10 +975,49 @@ function formatClock(timestamp) {
   return `${hour}:${match[2]}${suffix}`;
 }
 
+async function buildRoadRoute(points = []) {
+  const coordinates = points
+    .filter((point) => point.longitude && point.latitude)
+    .map((point) => [Number(point.longitude), Number(point.latitude)]);
+  if (coordinates.length < 2) return [];
+  const snapped = await osrmRouteForCoordinates(coordinates, "driving");
+  return snapped.length >= 2 ? snapped : coordinates;
+}
+
+async function routeOptionsForDisplay(routeResult, selectedMode, start, end) {
+  const alternatives = routeResult?.alternatives?.length ? routeResult.alternatives : routeResult ? [routeResult] : [];
+  const displayOptions = await Promise.all(
+    alternatives.map(async (option, index) => {
+      const displayPlan = await routeForDisplay(
+        {
+          ...option,
+          label: option.label || `Route ${index + 1}`,
+          id: option.id || `route-${index + 1}`,
+          source: option.source || routeResult.source,
+        },
+        selectedMode,
+        start,
+        end,
+      );
+      if (!displayPlan?.drawableRoute || displayPlan.drawableRoute.length === 0) return null;
+      return {
+        ...displayPlan,
+        routeResult: {
+          ...displayPlan.routeResult,
+          id: option.id || `route-${index + 1}`,
+          label: option.label || `Route ${index + 1}`,
+        },
+      };
+    }),
+  );
+
+  return displayOptions.filter(Boolean);
+}
+
 async function routeForDisplay(routeResult, selectedMode, start, end) {
   if (!routeResult) return null;
 
-  if (selectedMode?.id === "CAR" || selectedMode?.id === "BICYCLE") {
+  if ((selectedMode?.id === "CAR" || selectedMode?.id === "BICYCLE") && !hasDrawableSegments(routeResult)) {
     const profile = selectedMode.id === "CAR" ? "driving" : "bike";
     const direct = await osrmDirectRoute(start, end, profile);
     if (direct.coordinates.length >= 2) {
@@ -782,25 +1044,16 @@ async function routeForDisplay(routeResult, selectedMode, start, end) {
 
   const segments = routeResult.segments || [];
   if (segments.length === 0) {
-    return { routeResult, drawableRoute: routeResult.points };
+    const points = sanitizeRouteCoordinates(routeResult.points);
+    return { routeResult: { ...routeResult, points }, drawableRoute: points.length >= 2 ? points : [] };
   }
 
-  const refined = await Promise.all(
-    segments.map(async (segment) => {
-      const coordinates = segment.coordinates || [];
-      const profile = osrmProfileForMode(segment.mode);
-      if (!profile || coordinates.length < 2) return segment;
-
-      const snapped = await osrmRouteForCoordinates(coordinates, profile);
-      if (snapped.length >= 2) return { ...segment, coordinates: snapped, displaySnapped: true };
-
-      if (isTransitMode(segment.mode)) {
-        return { ...segment, coordinates: [], displayHidden: true };
-      }
-
-      return segment;
-    }),
-  );
+  const refined = segments
+    .map((segment) => ({
+      ...segment,
+      coordinates: sanitizeRouteCoordinates(segment.coordinates),
+    }))
+    .filter((segment) => segment.coordinates.length >= 2);
   const drawableRoute = refined.filter((segment) => (segment.coordinates || []).length >= 2);
 
   return {
@@ -809,12 +1062,16 @@ async function routeForDisplay(routeResult, selectedMode, start, end) {
   };
 }
 
-function osrmProfileForMode(mode) {
-  const value = String(mode || "").toUpperCase();
-  if (value === "WALK" || value === "FOOT") return "foot";
-  if (value === "BUS" || value === "COACH" || value === "TRANSIT" || value === "CAR") return "driving";
-  if (value === "BICYCLE" || value === "BIKE") return "bike";
-  return "";
+function hasDrawableSegments(routeResult = {}) {
+  return (routeResult.segments || []).some((segment) => sanitizeRouteCoordinates(segment.coordinates).length >= 2);
+}
+
+function sanitizeRouteCoordinates(coordinates) {
+  return dedupeCoordinates(coordinates).filter((coordinate) => {
+    const lng = Number(coordinate?.[0]);
+    const lat = Number(coordinate?.[1]);
+    return Number.isFinite(lng) && Number.isFinite(lat) && Math.abs(lng) <= 180 && Math.abs(lat) <= 90;
+  });
 }
 
 async function osrmRouteForCoordinates(coordinates, profile) {
@@ -880,19 +1137,6 @@ async function osrmDirectRoute(start, end, profile) {
     console.warn("OSRM direct route error:", err);
     return { coordinates: [], distance: 0, duration: 0 };
   }
-}
-
-function isTransitMode(mode) {
-  const value = String(mode || "").toUpperCase();
-  return (
-    value === "BUS" ||
-    value === "COACH" ||
-    value === "TRANSIT" ||
-    value === "RAIL" ||
-    value === "METRO" ||
-    value === "SUBWAY" ||
-    value === "TRAM"
-  );
 }
 
 function dedupeCoordinates(coordinates) {
@@ -1055,6 +1299,44 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     textTransform: "uppercase",
   },
+  routeOptionScroll: {
+    marginBottom: 2,
+  },
+  routeOptionChip: {
+    minWidth: 112,
+    minHeight: 54,
+    justifyContent: "center",
+    gap: 2,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#dbe6e2",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#ffffff",
+  },
+  routeOptionChipActive: {
+    borderColor: "#0f766e",
+    backgroundColor: "#ecfdf5",
+  },
+  routeOptionTitle: {
+    color: "#0f172a",
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "900",
+  },
+  routeOptionTitleActive: {
+    color: "#0f766e",
+  },
+  routeOptionMeta: {
+    color: "#64748b",
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "700",
+  },
+  routeOptionMetaActive: {
+    color: "#115e59",
+  },
   routeSegmentList: {
     gap: 8,
   },
@@ -1114,40 +1396,65 @@ const styles = StyleSheet.create({
     top: 20,
     left: 20,
     zIndex: 10,
-    width: 400,
+    width: 430,
     maxWidth: "calc(100vw - 40px)",
-    minHeight: 70,
+    minHeight: 64,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.08)",
-    borderRadius: 25,
-    backgroundColor: "#ffffff",
+    borderColor: "rgba(15, 23, 42, 0.12)",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    boxShadow: "0 18px 48px rgba(15, 23, 42, 0.16)",
     backdropFilter: "blur(10px)",
+  },
+  searchIconWrap: {
+    flexShrink: 0,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#cfe2dc",
+    borderRadius: 8,
+    backgroundColor: "#f2faf7",
+  },
+  searchIcon: {
+    color: "#0f766e",
+    fontSize: 22,
+    lineHeight: 24,
+    fontWeight: "900",
   },
   inputContainer: {
     position: "relative",
     flex: 1,
     zIndex: 20,
   },
+  searchSuggestions: {
+    left: -64,
+    width: "calc(100% + 138px)",
+  },
   searchInput: {
     width: "100%",
     borderWidth: 0,
     outlineStyle: "none",
-    color: "#111111",
+    color: "#0f172a",
     backgroundColor: "transparent",
-    fontSize: 17,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "800",
   },
   goButton: {
-    minWidth: 44,
-    minHeight: 38,
+    flexShrink: 0,
+    minWidth: 48,
+    minHeight: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 999,
-    backgroundColor: "#ae04dd",
+    borderRadius: 8,
+    backgroundColor: "#0f766e",
   },
   goButtonText: {
     color: "#ffffff",
@@ -1286,6 +1593,28 @@ const styles = StyleSheet.create({
   },
   routeChipTextActive: {
     color: "#ffffff",
+  },
+  busMapToggle: {
+    minHeight: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#ffffff",
+  },
+  busMapToggleActive: {
+    borderColor: "#f97316",
+    backgroundColor: "#fff7ed",
+  },
+  busMapToggleText: {
+    color: "#334155",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  busMapToggleTextActive: {
+    color: "#c2410c",
   },
   busStopCard: {
     flexDirection: "row",

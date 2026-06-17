@@ -11,9 +11,7 @@ export default function App() {
   return (
     <View style={styles.app}>
       <BrowserRouter>
-        <RouteErrorBoundary>
-          <AppRoutes />
-        </RouteErrorBoundary>
+        <AppRoutes />
       </BrowserRouter>
     </View>
   );
@@ -33,13 +31,20 @@ class RouteErrorBoundary extends React.Component {
     console.error("Atlas route render failed", error, info);
   }
 
+  componentDidUpdate(previousProps) {
+    if (previousProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
   render() {
     if (this.state.error) {
       const message = this.state.error instanceof Error ? this.state.error.message : "The view failed to render.";
+      const title = this.props.title || "Atlas view failed to render";
 
       return (
         <View style={styles.errorBoundary}>
-          <Text style={styles.errorTitle}>Atlas view failed to render</Text>
+          <Text style={styles.errorTitle}>{title}</Text>
           <Text style={styles.errorMessage}>{message}</Text>
           <Pressable onPress={() => this.setState({ error: null })} style={styles.errorAction}>
             <Text style={styles.errorActionText}>Try again</Text>
@@ -55,7 +60,7 @@ class RouteErrorBoundary extends React.Component {
 function AppRoutes() {
   const location = useLocation();
   const path = location.pathname.toLowerCase();
-  const showAgent = path !== "/" && path !== "/dashboard";
+  const showAgent = path !== "/";
 
   return (
     <>
@@ -64,30 +69,38 @@ function AppRoutes() {
         <Route
           path="/Dashboard"
           element={
-            <Protected>
+            <ProtectedRouteBoundary resetKey={location.pathname} title="Dashboard failed to render">
               <Dashboard />
-            </Protected>
+            </ProtectedRouteBoundary>
           }
         />
         <Route
           path="/Map"
           element={
-            <Protected>
+            <ProtectedRouteBoundary resetKey={location.pathname} title="Map failed to render">
               <MapScreen />
-            </Protected>
+            </ProtectedRouteBoundary>
           }
         />
         <Route
           path="/map"
           element={
-            <Protected>
+            <ProtectedRouteBoundary resetKey={location.pathname} title="Map failed to render">
               <MapScreen />
-            </Protected>
+            </ProtectedRouteBoundary>
           }
         />
       </Routes>
       {showAgent ? <VirtualAgent /> : null}
     </>
+  );
+}
+
+function ProtectedRouteBoundary({ children, resetKey, title }) {
+  return (
+    <RouteErrorBoundary resetKey={resetKey} title={title}>
+      <Protected>{children}</Protected>
+    </RouteErrorBoundary>
   );
 }
 
