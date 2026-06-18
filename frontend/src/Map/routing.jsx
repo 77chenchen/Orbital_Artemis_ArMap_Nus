@@ -8,7 +8,71 @@ export default async function getShortestRoutes(start, end, mode = "WALK,TRANSIT
 }
 
 function normalizeOtpRoute(plan) {
-  const segments = (plan?.segments || plan?.itineraries?.[0]?.legs || [])
+  const source = plan?.source || "otp";
+  const itineraryOptions = (plan?.itineraries || [])
+    .map((itinerary, index) => normalizeItinerary(itinerary, { index, source }))
+    .filter(Boolean);
+  const fallbackOption = normalizePlanSegments(plan, source);
+  const alternatives = itineraryOptions.length ? itineraryOptions : fallbackOption ? [fallbackOption] : [];
+
+  if (alternatives.length === 0) return null;
+
+  return {
+    ...alternatives[0],
+    alternatives,
+    raw: plan?.raw || plan,
+  };
+}
+
+function normalizePlanSegments(plan, source) {
+  const segments = normalizeSegments(plan?.segments || []);
+  const points = normalizeCoordinates(plan?.points);
+  const routePoints = points.length >= 2 ? points : flattenSegmentCoordinates(segments);
+  if (routePoints.length < 2 && segments.length === 0) return null;
+
+  return routeOption({
+    id: "route-1",
+    index: 0,
+    distance: plan.distance,
+    time: plan.duration,
+    points: routePoints,
+    segments: segments.length ? segments : [{ mode: "WALK", coordinates: routePoints }],
+    source,
+  });
+}
+
+function normalizeItinerary(itinerary, { index, source }) {
+  const segments = normalizeSegments(itinerary?.legs || itinerary?.segments || []);
+  const routePoints = flattenSegmentCoordinates(segments);
+  if (routePoints.length < 2 && segments.length === 0) return null;
+
+  return routeOption({
+    id: `route-${index + 1}`,
+    index,
+    distance: sumNumbers(segments.map((segment) => segment.distance)),
+    time: itinerary?.duration,
+    walkTime: itinerary?.walkTime,
+    transit: Boolean(itinerary?.transit),
+    points: routePoints,
+    segments,
+    source,
+  });
+}
+
+function routeOption(option) {
+  const time = Number(option.time);
+  return {
+    ...option,
+    label: `Route ${option.index + 1}`,
+    time: Number.isFinite(time) ? time : sumNumbers((option.segments || []).map((segment) => segment.duration)),
+    distance: Number.isFinite(Number(option.distance)) ? Number(option.distance) : 0,
+    segments: option.segments || [],
+    points: option.points || [],
+  };
+}
+
+function normalizeSegments(segments) {
+  return segments
     .map((segment) => ({
       ...segment,
       mode: String(segment.mode || "WALK").toUpperCase(),
@@ -17,19 +81,26 @@ function normalizeOtpRoute(plan) {
       coordinates: normalizeCoordinates(segment.coordinates || segment.geometry?.coordinates || segment.points),
     }))
     .filter((segment) => segment.coordinates.length >= 2);
+}
 
-  const points = normalizeCoordinates(plan?.points);
-  const routePoints = points.length >= 2 ? points : segments.flatMap((segment) => segment.coordinates);
-  if (routePoints.length < 2 && segments.length === 0) return null;
+function flattenSegmentCoordinates(segments) {
+  const coordinates = [];
+  for (const segment of segments) {
+    const segmentCoordinates = segment.coordinates || [];
+    if (coordinates.length && segmentCoordinates.length) {
+      coordinates.push(...segmentCoordinates.slice(1));
+    } else {
+      coordinates.push(...segmentCoordinates);
+    }
+  }
+  return coordinates;
+}
 
-  return {
-    distance: plan.distance,
-    time: plan.duration,
-    points: routePoints,
-    segments: segments.length ? segments : [{ mode: "WALK", coordinates: routePoints }],
-    source: plan.source || "otp",
-    raw: plan.raw || plan,
-  };
+function sumNumbers(values) {
+  return values.reduce((total, value) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? total + number : total;
+  }, 0);
 }
 
 function normalizeCoordinates(value) {

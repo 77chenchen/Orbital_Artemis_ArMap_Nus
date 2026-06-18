@@ -50,6 +50,7 @@ export function installBusLayers(map, stops, onStopClick) {
     layout: {
       "line-cap": "round",
       "line-join": "round",
+      visibility: "none",
     },
     paint: {
       "line-color": "#f97316",
@@ -67,6 +68,9 @@ export function installBusLayers(map, stops, onStopClick) {
     id: "route-pickup-points",
     type: "circle",
     source: "route-pickup-points",
+    layout: {
+      visibility: "none",
+    },
     paint: {
       "circle-color": "#f97316",
       "circle-radius": 8,
@@ -84,6 +88,7 @@ export function installBusLayers(map, stops, onStopClick) {
       "text-size": 11,
       "text-offset": [0, -1.4],
       "text-anchor": "bottom",
+      visibility: "none",
     },
     paint: {
       "text-color": "#7c2d12",
@@ -96,6 +101,9 @@ export function installBusLayers(map, stops, onStopClick) {
     id: "active-bus-dots",
     type: "circle",
     source: "active-buses",
+    layout: {
+      visibility: "none",
+    },
     paint: {
       "circle-color": [
         "match",
@@ -123,6 +131,7 @@ export function installBusLayers(map, stops, onStopClick) {
       "text-size": 10,
       "text-offset": [0, -1.4],
       "text-anchor": "bottom",
+      visibility: "none",
     },
     paint: {
       "text-color": "#111827",
@@ -173,6 +182,21 @@ export function setRoutePickupPoints(map, points, routeCoordinates = []) {
   if (pointSource) {
     pointSource.setData(routePickupPointsGeoJSON(points));
   }
+}
+
+export function setBusRouteOverlayVisible(map, visible) {
+  const visibility = visible ? "visible" : "none";
+  [
+    "route-pickup-line",
+    "route-pickup-points",
+    "route-pickup-labels",
+    "active-bus-dots",
+    "active-bus-labels",
+  ].forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setLayoutProperty(layerId, "visibility", visibility);
+    }
+  });
 }
 
 function busStopsGeoJSON(stops) {

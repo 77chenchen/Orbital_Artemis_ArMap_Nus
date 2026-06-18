@@ -52,6 +52,17 @@ export class MapEngine {
     }
     this.markers = [];
     this.closeLocation();
+    this.clearRoute();
+  }
+
+  clearRoute() {
+    const source = this.map.getSource("route");
+    if (source) {
+      source.setData({
+        type: "FeatureCollection",
+        features: [],
+      });
+    }
   }
 
   setMarker(coord, { fly = true } = {}) {
