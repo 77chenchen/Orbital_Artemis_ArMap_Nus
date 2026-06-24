@@ -1385,9 +1385,9 @@ function CampusPreview({ buildings, recommendations, onOpenMap }) {
   return (
     <View style={styles.mapCard}>
       <View style={styles.mapHeader}>
-        <Text style={styles.mapTitle}>Campus Map (AR)</Text>
+        <Text style={styles.mapTitle}>Campus Map</Text>
         <Pressable onPress={onOpenMap} style={styles.darkMiniButton}>
-          <Text style={styles.darkMiniButtonText}>Open AR Map</Text>
+          <Text style={styles.darkMiniButtonText}>Open Map</Text>
         </Pressable>
       </View>
       <View style={styles.mapIllustration}>

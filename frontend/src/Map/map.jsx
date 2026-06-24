@@ -11,7 +11,6 @@ import initMap from "./fetch";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import SelectList from "./(ui)/selectList";
-import ArRouteView from "./ArRouteView";
 import { MapEngine } from "./mapEngine";
 import { route, watchLocation } from "./services";
 import getSuggestions, { getCampusPlaceMatches, getRecommendedPlaces, recordPlaceSelection } from "./geocoding";
@@ -59,7 +58,6 @@ export default function MapScreen({ embedded = false }) {
   const [busError, setBusError] = useState("");
   const [showBusPanel, setShowBusPanel] = useState(false);
   const [showBusRouteOverlay, setShowBusRouteOverlay] = useState(false);
-  const [showArRoute, setShowArRoute] = useState(false);
 
   const captureMapContainer = useCallback((node) => {
     if (!node) {
@@ -68,20 +66,6 @@ export default function MapScreen({ embedded = false }) {
     }
 
     setMapHostElement(resolveHostElement(node));
-  }, []);
-
-  useEffect(() => {
-    const onLoaded = () => {
-      console.log("XR8 =", window.XR8);
-    };
-
-    if (window.XR8) {
-      onLoaded();
-      return undefined;
-    }
-
-    window.addEventListener("xrloaded", onLoaded, { once: true });
-    return () => window.removeEventListener("xrloaded", onLoaded);
   }, []);
 
   useEffect(() => {
@@ -338,42 +322,6 @@ export default function MapScreen({ embedded = false }) {
     drawDisplayRoute(option, { fly: false });
   }
 
-  async function refreshArRouteFromGps(position, reason = {}) {
-    const engine = engineRef.current;
-    if (!Array.isArray(position) || position.length < 2) {
-      throw new Error("GPS position is not available yet.");
-    }
-    if (!endPlace?.coords) {
-      throw new Error("Choose a destination before starting AR navigation.");
-    }
-
-    const selectedMode = TRAVEL_MODES.find((item) => item.id === travelMode) || TRAVEL_MODES[1];
-    const nextRoute = await route(position, endPlace.coords, selectedMode.otpMode);
-    const displayOptions = await routeOptionsForDisplay(nextRoute, selectedMode, position, endPlace.coords);
-    const firstOption = displayOptions[0];
-    if (!firstOption?.drawableRoute) {
-      throw new Error("No drawable route returned for current GPS position.");
-    }
-
-    const gpsStart = { label: reason.reason === "off-route" ? "Re-routed from GPS" : "Current GPS", coords: position };
-    setStartPlace(gpsStart);
-    setStartText(gpsStart.label);
-    setRouting(true);
-    setRouteOptions(displayOptions);
-    setSelectedRouteOptionIndex(0);
-    setRouteResult(firstOption.routeResult);
-    setRouteError("");
-
-    if (engine) {
-      engine.clear();
-      engine.setMarker(position, { fly: true });
-      engine.setMarker(endPlace.coords, { fly: false });
-      engine.drawRoute(firstOption.drawableRoute, { mode: travelMode });
-    }
-
-    return firstOption.routeResult;
-  }
-
   useEffect(() => {
     const engine = engineRef.current;
     if (!followLocation || !engine) return undefined;
@@ -598,7 +546,6 @@ export default function MapScreen({ embedded = false }) {
             loading={routeLoading}
             error={routeError}
             travelMode={travelMode}
-            onOpenAr={() => setShowArRoute(true)}
           />
         </View>
       ) : null}
@@ -786,14 +733,6 @@ export default function MapScreen({ embedded = false }) {
       <View style={styles.functionalButtons}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open AR route view"
-          onPress={() => setShowArRoute(true)}
-          style={({ pressed }) => [styles.arButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.arButtonText}>AR</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
           accessibilityLabel={followLocation ? "Stop GPS tracking" : "Start GPS tracking"}
           onPress={() => setFollowLocation((current) => !current)}
           style={({ pressed }) => [
@@ -805,16 +744,6 @@ export default function MapScreen({ embedded = false }) {
           <Text style={[styles.gpsButtonText, followLocation && styles.gpsButtonTextActive]}>GPS</Text>
         </Pressable>
       </View>
-
-      {showArRoute ? (
-        <ArRouteView
-          routeResult={routeResult}
-          startPlace={startPlace}
-          endPlace={endPlace}
-          onRequestRoute={refreshArRouteFromGps}
-          onClose={() => setShowArRoute(false)}
-        />
-      ) : null}
     </View>
   );
 }
@@ -836,7 +765,6 @@ function RouteSummary({
   loading,
   error,
   travelMode,
-  onOpenAr,
 }) {
   if (loading) {
     return (
@@ -894,17 +822,7 @@ function RouteSummary({
           <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
           <Text style={styles.routeSummaryTitle}>{formatDistance(routeResult.distance)} · {formatDuration(routeResult.time)}</Text>
         </View>
-        <View style={styles.routeSummaryActions}>
-          <Text style={styles.routeSourceBadge}>{routeResult.source || "otp"}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open this route in AR"
-            onPress={onOpenAr}
-            style={({ pressed }) => [styles.routeArButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.routeArButtonText}>Start AR</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.routeSourceBadge}>{routeResult.source || "route"}</Text>
       </View>
 
       <View style={styles.routeSegmentList}>
@@ -1332,11 +1250,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  routeSummaryActions: {
-    flexShrink: 0,
-    alignItems: "flex-end",
-    gap: 8,
-  },
   routeSummaryKicker: {
     color: "#0f766e",
     fontSize: 11,
@@ -1375,22 +1288,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "900",
     textTransform: "uppercase",
-  },
-  routeArButton: {
-    minWidth: 88,
-    minHeight: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#123431",
-  },
-  routeArButtonText: {
-    color: "#ffffff",
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "900",
   },
   routeOptionScroll: {
     marginBottom: 2,
@@ -1944,22 +1841,6 @@ const styles = StyleSheet.create({
     zIndex: 45,
     flexDirection: "row",
     gap: 10,
-  },
-  arButton: {
-    width: 54,
-    height: 54,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(47, 107, 255, 0.26)",
-    borderRadius: 999,
-    backgroundColor: "#123431",
-    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.18)",
-  },
-  arButtonText: {
-    color: "#ffffff",
-    fontSize: 13,
-    fontWeight: "900",
   },
   gpsButton: {
     width: 54,
