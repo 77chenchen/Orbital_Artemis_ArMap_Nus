@@ -3,10 +3,10 @@ import { Pressable, StyleSheet, Text, TextInput, View, findNodeHandle } from "re
 import { useNavigate } from "react-router-dom";
 import { API_BASE } from "../api";
 
-const GOOGLE_SCRIPT_URL = "https://accounts.google.com/gsi/client";
+const GOOGLE_SCRIPT_URL = "https://accounts.google.com/gsi/client?hl=en";
 const GOOGLE_SCRIPT_TIMEOUT_MS = 10000;
 const GOOGLE_AUTH_TIMEOUT_MS = 12000;
-const REMEMBERED_CREDENTIALS_KEY = "atlas_remembered_credentials";
+const REMEMBERED_EMAIL_KEY = "atlas_remembered_email";
 let googleScriptPromise: Promise<void> | null = null;
 
 type GoogleCredentialResponse = {
@@ -34,7 +34,7 @@ declare global {
             options: {
               theme: "outline";
               size: "large";
-              text: "continue_with";
+              text: "continue_with" | "signin_with";
               shape: "rectangular";
               logo_alignment: "left";
               width: number;
@@ -56,7 +56,9 @@ export default function Login({
   const [focusedField, setFocusedField] = useState<"email" | "password" | null>(null);
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success">("idle");
   const [googleHovered, setGoogleHovered] = useState(false);
-  const [rememberCredentials, setRememberCredentials] = useState(false);
+  const [rememberEmail, setRememberEmail] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [newPasswordVisible, setNewPasswordVisible] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [securityQuestion, setSecurityQuestion] = useState("");
@@ -74,13 +76,12 @@ export default function Login({
   const navigate = useNavigate();
 
   useEffect(() => {
-    const remembered = readRememberedCredentials();
-    if (!remembered) {
+    const rememberedEmail = readRememberedEmail();
+    if (!rememberedEmail) {
       return;
     }
-    setEmail(remembered.email);
-    setPassword(remembered.password);
-    setRememberCredentials(true);
+    setEmail(rememberedEmail);
+    setRememberEmail(true);
   }, []);
 
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function Login({
           return;
         }
 
-        const buttonWidth = Math.max(240, Math.round(element.getBoundingClientRect().width || 320));
+        const buttonWidth = Math.max(320, Math.round(element.clientWidth || element.parentElement?.clientWidth || 420));
         element.innerHTML = "";
         window.google.accounts.id.initialize({
           client_id: googleClientId,
@@ -137,7 +138,7 @@ export default function Login({
         window.google.accounts.id.renderButton(element, {
           theme: "outline",
           size: "large",
-          text: "continue_with",
+          text: "signin_with",
           shape: "rectangular",
           logo_alignment: "left",
           width: buttonWidth,
@@ -186,7 +187,7 @@ export default function Login({
       const data = await res.json();
       localStorage.setItem("token", data.token);
       saveAuthenticatedUser(data.user, data.token, email);
-      persistRememberedCredentials(rememberCredentials, email, password);
+      persistRememberedEmail(rememberEmail, email);
       setSubmitState("success");
       window.setTimeout(() => navigate("/Dashboard"), 420);
     } catch {
@@ -296,7 +297,7 @@ export default function Login({
       }
       setEmail(resetEmail);
       setPassword(newPassword);
-      persistRememberedCredentials(rememberCredentials, resetEmail, newPassword);
+      persistRememberedEmail(rememberEmail, resetEmail);
       setSecurityAnswer("");
       setNewPassword("");
       setResetMessage("Password reset. You can sign in now.");
@@ -360,14 +361,24 @@ export default function Login({
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>New Password</Text>
-                <TextInput
-                  onChangeText={setNewPassword}
-                  placeholder="At least 6 characters"
-                  placeholderTextColor="#72817b"
-                  secureTextEntry
-                  style={styles.input}
-                  value={newPassword}
-                />
+                <View style={styles.passwordInputWrap}>
+                  <TextInput
+                    onChangeText={setNewPassword}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor="#6c7682"
+                    secureTextEntry={!newPasswordVisible}
+                    style={[styles.input, styles.passwordInput]}
+                    value={newPassword}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={newPasswordVisible ? "Hide new password" : "Show new password"}
+                    onPress={() => setNewPasswordVisible((current) => !current)}
+                    style={styles.passwordToggle}
+                  >
+                    <Text style={styles.passwordToggleText}>{newPasswordVisible ? "Hide" : "Show"}</Text>
+                  </Pressable>
+                </View>
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -408,41 +419,56 @@ export default function Login({
           onBlur={() => setFocusedField((current) => (current === "email" ? null : current))}
           onSubmitEditing={submit}
           placeholder="you@example.com"
-          placeholderTextColor="#72817b"
-          style={[styles.input, focusedField === "email" && styles.inputFocused]}
+          placeholderTextColor="#6c7682"
+          style={[styles.input, focusedField === "email" && styles.inputFocused, loginFailed && !email.trim() && styles.inputError]}
           value={email}
         />
       </View>
 
       <View style={[styles.field, focusedField === "password" && styles.fieldFocused]}>
         <Text style={[styles.label, focusedField === "password" && styles.labelFocused]}>Password</Text>
-        <TextInput
-          onChangeText={(value) => {
-            setPassword(value);
-            setLoginFailed(false);
-          }}
-          onFocus={() => setFocusedField("password")}
-          onBlur={() => setFocusedField((current) => (current === "password" ? null : current))}
-          onSubmitEditing={submit}
-          placeholder="Enter password"
-          placeholderTextColor="#72817b"
-          secureTextEntry
-          style={[styles.input, focusedField === "password" && styles.inputFocused]}
-          value={password}
-        />
+        <View style={styles.passwordInputWrap}>
+          <TextInput
+            onChangeText={(value) => {
+              setPassword(value);
+              setLoginFailed(false);
+            }}
+            onFocus={() => setFocusedField("password")}
+            onBlur={() => setFocusedField((current) => (current === "password" ? null : current))}
+            onSubmitEditing={submit}
+            placeholder="Enter password"
+            placeholderTextColor="#6c7682"
+            secureTextEntry={!passwordVisible}
+            style={[
+              styles.input,
+              styles.passwordInput,
+              focusedField === "password" && styles.inputFocused,
+              loginFailed && !password && styles.inputError,
+            ]}
+            value={password}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={passwordVisible ? "Hide password" : "Show password"}
+            onPress={() => setPasswordVisible((current) => !current)}
+            style={styles.passwordToggle}
+          >
+            <Text style={styles.passwordToggleText}>{passwordVisible ? "Hide" : "Show"}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.formMetaRow}>
         <Pressable
           accessibilityRole="checkbox"
-          accessibilityState={{ checked: rememberCredentials }}
-          onPress={() => setRememberCredentials((current) => !current)}
+          accessibilityState={{ checked: rememberEmail }}
+          onPress={() => setRememberEmail((current) => !current)}
           style={styles.rememberControl}
         >
-          <View style={[styles.checkbox, rememberCredentials && styles.checkboxChecked]}>
-            {rememberCredentials ? <Text style={styles.checkboxTick}>✓</Text> : null}
+          <View style={[styles.checkbox, rememberEmail && styles.checkboxChecked]}>
+            {rememberEmail ? <Text style={styles.checkboxTick}>✓</Text> : null}
           </View>
-          <Text style={styles.rememberText}>Remember username & password</Text>
+          <Text style={styles.rememberText}>Remember email</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -458,7 +484,7 @@ export default function Login({
         </Pressable>
       </View>
 
-      {loginFailed ? <Text style={styles.error}>Login failed. Please try again.</Text> : null}
+      {loginFailed ? <Text style={styles.error}>We could not sign you in. Check your email and password.</Text> : null}
 
       <Pressable
         accessibilityRole="button"
@@ -477,7 +503,7 @@ export default function Login({
         ) : submitState === "success" ? (
           <Text style={styles.successIcon}>✓</Text>
         ) : (
-          <Text style={styles.primaryButtonText}>Sign In</Text>
+          <Text style={styles.primaryButtonText}>Sign in</Text>
         )}
       </Pressable>
 
@@ -488,7 +514,11 @@ export default function Login({
           onMouseEnter={() => setGoogleHovered(true)}
           onMouseLeave={() => setGoogleHovered(false)}
         >
-          <View ref={googleButtonRef as never} style={[styles.googleMount, googleHovered && styles.googleMountHover]} />
+          <View
+            nativeID="atlas-google-signin"
+            ref={googleButtonRef as never}
+            style={[styles.googleMount, googleHovered && styles.googleMountHover]}
+          />
           {googleLoading ? (
             <View style={styles.googleLoading}>
               <Text style={styles.googleLoadingText}>Signing in...</Text>
@@ -504,9 +534,7 @@ export default function Login({
           style={[styles.googleFallback, googleHovered && styles.googleShellHover, styles.disabledButton]}
         >
           <Text style={styles.googleBadge}>G</Text>
-          <Text style={styles.googleFallbackText}>
-            {googleConfigLoaded ? "Google sign-in unavailable" : "Loading Google sign-in..."}
-          </Text>
+          <Text style={styles.googleFallbackText}>{googleConfigLoaded ? "Sign in with Google unavailable" : "Loading Google sign-in..."}</Text>
         </Pressable>
       )}
 
@@ -523,11 +551,18 @@ export default function Login({
   );
 }
 
-function readRememberedCredentials() {
+function readRememberedEmail() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(REMEMBERED_CREDENTIALS_KEY) || "null");
-    if (parsed && typeof parsed.email === "string" && typeof parsed.password === "string") {
-      return parsed;
+    const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    if (rememberedEmail) {
+      return rememberedEmail;
+    }
+
+    const legacy = JSON.parse(localStorage.getItem("atlas_remembered_credentials") || "null");
+    if (legacy && typeof legacy.email === "string") {
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, legacy.email);
+      localStorage.removeItem("atlas_remembered_credentials");
+      return legacy.email;
     }
   } catch {
     return null;
@@ -535,18 +570,14 @@ function readRememberedCredentials() {
   return null;
 }
 
-function persistRememberedCredentials(remember: boolean, email: string, password: string) {
+function persistRememberedEmail(remember: boolean, email: string) {
   if (!remember) {
-    localStorage.removeItem(REMEMBERED_CREDENTIALS_KEY);
+    localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+    localStorage.removeItem("atlas_remembered_credentials");
     return;
   }
-  localStorage.setItem(
-    REMEMBERED_CREDENTIALS_KEY,
-    JSON.stringify({
-      email: email.trim(),
-      password,
-    }),
-  );
+  localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+  localStorage.removeItem("atlas_remembered_credentials");
 }
 
 function saveAuthenticatedUser(user: AuthUser | undefined, token: string, fallbackEmail = "") {
@@ -717,11 +748,35 @@ const styles = StyleSheet.create({
     borderColor: "#14564c",
     boxShadow: "0 0 0 4px rgba(20, 86, 76, 0.12), 0 13px 28px rgba(20, 64, 56, 0.12)",
   },
+  inputError: {
+    borderColor: "#b42318",
+    boxShadow: "0 0 0 3px rgba(180, 35, 24, 0.12)",
+  },
+  passwordInputWrap: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  passwordInput: {
+    paddingRight: 76,
+  },
+  passwordToggle: {
+    position: "absolute",
+    right: 8,
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  passwordToggleText: {
+    color: "#155753",
+    fontSize: 13,
+    fontWeight: "900",
+  },
   error: {
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "rgba(169, 71, 71, 0.22)",
+    borderColor: "rgba(180, 35, 24, 0.24)",
     borderRadius: 14,
     color: "#a94747",
     backgroundColor: "rgba(169, 71, 71, 0.09)",
@@ -732,7 +787,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "rgba(20, 86, 76, 0.2)",
+    borderColor: "rgba(0, 100, 80, 0.22)",
     borderRadius: 14,
     color: "#14564c",
     backgroundColor: "rgba(20, 86, 76, 0.08)",
@@ -754,21 +809,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkbox: {
-    width: 18,
-    height: 18,
+    width: 17,
+    height: 17,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(22, 72, 65, 0.28)",
-    borderRadius: 5,
-    backgroundColor: "rgba(255, 253, 247, 0.76)",
+    borderColor: "#9aa9bc",
+    borderRadius: 4,
+    backgroundColor: "#ffffff",
   },
   checkboxChecked: {
     borderColor: "#14564c",
     backgroundColor: "#14564c",
   },
   checkboxTick: {
-    color: "#fff8e6",
+    color: "#ffffff",
     fontSize: 12,
     fontWeight: "900",
     lineHeight: 15,
@@ -808,10 +863,9 @@ const styles = StyleSheet.create({
   },
   questionLabel: {
     color: "#52635b",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "900",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    letterSpacing: 0,
   },
   questionText: {
     color: "#123f38",
@@ -859,7 +913,7 @@ const styles = StyleSheet.create({
     height: 19,
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: "rgba(255, 248, 230, 0.45)",
+    borderColor: "rgba(255, 255, 255, 0.45)",
     borderTopColor: "#fff8e6",
     animationKeyframes: {
       "0%": { transform: "rotate(0deg)" },
@@ -870,7 +924,7 @@ const styles = StyleSheet.create({
     animationIterationCount: "infinite",
   } as never,
   successIcon: {
-    color: "#fff8e6",
+    color: "#ffffff",
     fontSize: 21,
     fontWeight: "900",
     lineHeight: 24,
@@ -882,21 +936,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "visible",
     borderRadius: 14,
-    transitionProperty: "transform",
-    transitionDuration: "180ms",
+    transitionProperty: "box-shadow, transform",
+    transitionDuration: "200ms",
+    transitionTimingFunction: "ease",
   },
   googleShellHover: {
+    boxShadow: "0 12px 24px rgba(15, 23, 42, 0.1)",
     transform: [{ translateY: -1 }],
   },
   googleMount: {
     width: "100%",
     minHeight: 54,
     justifyContent: "center",
+    overflow: "visible",
+    borderRadius: 14,
+    backgroundColor: "transparent",
     transform: [{ translateX: 0 }],
-    transitionProperty: "transform",
+    transitionProperty: "opacity, transform",
     transitionDuration: "180ms",
   },
   googleMountHover: {
+    opacity: 0.96,
     transform: [{ translateX: 2 }],
   },
   googleLoading: {
@@ -905,43 +965,47 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(22, 72, 65, 0.14)",
+    borderColor: "rgba(20, 86, 76, 0.18)",
     borderRadius: 14,
-    backgroundColor: "rgba(255, 253, 247, 0.9)",
+    backgroundColor: "rgba(255, 248, 230, 0.92)",
+    backdropFilter: "blur(8px)" as never,
   },
   googleLoadingText: {
-    color: "#17251f",
+    color: "#14564c",
     fontWeight: "900",
   },
   googleFallback: {
-    minHeight: 54,
+    minHeight: 58,
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     borderWidth: 1,
-    borderColor: "rgba(22, 72, 65, 0.16)",
+    borderColor: "rgba(20, 86, 76, 0.16)",
     borderRadius: 14,
-    backgroundColor: "rgba(255, 253, 247, 0.74)",
-    boxShadow: "0 8px 20px rgba(35, 30, 23, 0.05)",
+    backgroundColor: "rgba(255, 253, 247, 0.78)",
+    backgroundImage:
+      "linear-gradient(135deg, rgba(255, 248, 230, 0.92) 0%, rgba(232, 220, 194, 0.46) 52%, rgba(20, 86, 76, 0.08) 100%)",
+    boxShadow: "0 12px 26px rgba(35, 30, 23, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.82)",
   },
   disabledButton: {
-    opacity: 0.72,
-    backgroundColor: "rgba(240, 235, 220, 0.72)",
+    opacity: 0.78,
+    backgroundColor: "rgba(240, 235, 220, 0.78)",
   },
   googleBadge: {
     width: 24,
     height: 24,
     borderRadius: 999,
-    color: "#155753",
-    backgroundColor: "rgba(21, 87, 83, 0.08)",
+    color: "#fff8e6",
+    backgroundColor: "#14564c",
     fontWeight: "900",
     lineHeight: 24,
     textAlign: "center",
+    boxShadow: "none",
   },
   googleFallbackText: {
-    color: "#4f5f58",
+    color: "#385047",
     fontWeight: "900",
   },
   links: {

@@ -1,8 +1,9 @@
 import gsap from "gsap";
 import React, { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Login from "./Login";
 import Register from "./Register";
+import teamLogo from "../assets/brand/team_logo.jpg";
 
 const heroAccents = [
   { left: "18%", top: "58%", size: 13, tone: "#f26d44" },
@@ -132,8 +133,8 @@ export default function Auth() {
       <View style={[styles.shell, compact && styles.shellCompact]}>
         <View testID="auth-art-pane" style={[styles.artPane, compact && styles.artPaneCompact]}>
           <View style={styles.brandPlate}>
-            <Text style={styles.nusText}>NUS</Text>
-            <Text style={styles.brandMicro}>Atlas campus navigation</Text>
+            <Text style={styles.nusText}>NUS Atlas</Text>
+            <Text style={styles.brandMicro}>Campus wayfinding</Text>
           </View>
 
           <View style={styles.heroIllustration}>
@@ -151,7 +152,7 @@ export default function Auth() {
                   <stop offset="100%" stopColor="#83c7b3" stopOpacity="0.76" />
                 </linearGradient>
                 <filter id="atlasSoftShadow" x="-30%" y="-30%" width="160%" height="160%">
-                  <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#061b1e" floodOpacity="0.28" />
+                  <feDropShadow dx="0" dy="18" stdDeviation="18" floodColor="#031017" floodOpacity="0.26" />
                 </filter>
               </defs>
               <path
@@ -197,7 +198,7 @@ export default function Auth() {
                 <rect x="488" y="132" width="86" height="154" rx="8" fill="url(#atlasBuilding)" opacity="0.88" />
                 <rect x="586" y="188" width="44" height="98" rx="8" fill="url(#atlasBuilding)" opacity="0.7" />
               </g>
-              <g stroke="rgba(9, 38, 44, 0.22)" strokeWidth="2">
+              <g stroke="rgba(3, 16, 23, 0.22)" strokeWidth="2">
                 <path d="M190 188 H220 M190 218 H220 M190 248 H220" />
                 <path d="M258 154 H304 M258 184 H304 M258 214 H304 M258 244 H304" />
                 <path d="M504 160 H558 M504 190 H558 M504 220 H558 M504 250 H558" />
@@ -206,6 +207,11 @@ export default function Auth() {
                 <circle cx="96" cy="330" r="7" />
                 <circle cx="364" cy="250" r="7" />
                 <circle cx="676" cy="280" r="7" />
+              </g>
+              <g fill="rgba(255, 248, 226, 0.78)" fontFamily="Inter, sans-serif" fontSize="18" fontWeight="600">
+                <text x="72" y="368">UTown</text>
+                <text x="320" y="226">Library</text>
+                <text x="622" y="318">COM</text>
               </g>
             </svg>
 
@@ -228,7 +234,7 @@ export default function Auth() {
           </View>
 
           <View testID="hero-value" style={styles.valueClaim}>
-            <Text style={styles.valueClaimText}>Find your way across campus.</Text>
+            <Text style={styles.valueClaimText}>Know where to go next.</Text>
             <Text style={styles.valueClaimSubtext}>A calmer way to orient, move, and arrive at NUS.</Text>
           </View>
         </View>
@@ -237,7 +243,8 @@ export default function Auth() {
           <View style={styles.loginCard}>
             <View style={styles.markWrap}>
               <View style={styles.atlasMark}>
-                <View style={styles.markPath} />
+                <Image source={{ uri: teamLogo }} style={styles.teamLogoImage} resizeMode="cover" />
+                <View style={styles.teamLogoTone} />
               </View>
               <View style={styles.brandCopy}>
                 <Text style={styles.brandName}>Atlas</Text>
@@ -358,7 +365,7 @@ const styles = StyleSheet.create({
     perspective: 1200,
   },
   shellCompact: {
-    flexDirection: "column",
+    flexDirection: "column-reverse",
     minHeight: "calc(100vh - 32px)" as never,
   },
   artPane: {
@@ -435,6 +442,7 @@ const styles = StyleSheet.create({
   },
   heroAccent: {
     position: "absolute",
+    display: "flex",
     zIndex: 4,
     borderRadius: 999,
     borderWidth: 1,
@@ -488,6 +496,7 @@ const styles = StyleSheet.create({
   },
   loginPaneCompact: {
     padding: 20,
+    boxShadow: "none" as never,
   },
   loginCard: {
     width: "min(420px, 100%)" as never,
@@ -521,22 +530,30 @@ const styles = StyleSheet.create({
     height: 62,
     overflow: "hidden",
     borderRadius: 18,
-    backgroundImage: "linear-gradient(145deg, #155753 0%, #2f8171 38%, #f26d44 100%)",
+    borderWidth: 1,
+    borderColor: "rgba(21, 87, 83, 0.2)",
+    backgroundColor: "#fff8e9",
+    backgroundImage: "linear-gradient(145deg, rgba(21, 87, 83, 0.16) 0%, rgba(242, 109, 68, 0.14) 100%)",
     boxShadow: "0 16px 34px rgba(21, 87, 83, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28)",
   },
-  markPath: {
+  teamLogoImage: {
     position: "absolute",
-    left: 11,
-    right: 8,
-    bottom: 14,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: "#fff7db",
-    transform: [{ rotate: "-16deg" }],
-    boxShadow: "16px -13px 0 #fff7db, 26px 7px 0 #fff7db" as never,
+    inset: 5,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    filter: "sepia(0.18) saturate(1.24) hue-rotate(124deg) contrast(1.08)" as never,
+  },
+  teamLogoTone: {
+    ...StyleSheet.absoluteFillObject,
+    pointerEvents: "none",
+    backgroundImage:
+      "linear-gradient(145deg, rgba(20, 86, 76, 0.2) 0%, rgba(255, 248, 230, 0.02) 46%, rgba(242, 109, 68, 0.22) 100%)",
+    mixBlendMode: "color" as never,
   },
   brandCopy: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
   },
   brandName: {
@@ -553,10 +570,10 @@ const styles = StyleSheet.create({
   notice: {
     padding: 12,
     borderWidth: 1,
-    borderColor: "rgba(37, 120, 94, 0.18)",
+    borderColor: "rgba(0, 100, 80, 0.18)",
     borderRadius: 8,
-    color: "#25785e",
-    backgroundColor: "rgba(37, 120, 94, 0.1)",
+    color: "#005c49",
+    backgroundColor: "#eefbf6",
     fontWeight: "800",
   },
 });
