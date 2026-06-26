@@ -106,6 +106,7 @@ const defaultSectionOptions = navItems
   .map((item) => ({ value: item.key, label: item.label }));
 
 export default function Dashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState(() => readPersonalSettings().defaultSection || "dashboard");
   const [health, setHealth] = useState(null);
   const [buildings, setBuildings] = useState([]);
@@ -578,9 +579,17 @@ export default function Dashboard() {
         personalSettings.density === "compact" && styles.shellDensityCompact,
       ]}
     >
+      <View
+      style={[
+        styles.sidebarWrap,
+        !sidebarOpen && styles.sidebarWrapClosed,
+      ]}
+      >
       <Sidebar
         activeSection={activeSection}
         setActiveSection={setActiveSection}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
         health={health}
         loading={loading}
         schedule={schedule}
@@ -599,9 +608,23 @@ export default function Dashboard() {
         onChangePassword={changePassword}
         compact={compact}
       />
+      </View>
+      <Pressable
+        onPress={() => setSidebarOpen((current) => !current)}
+        style={[
+          styles.sidebarToggle,
+          sidebarOpen ? styles.sidebarToggleOpen : styles.sidebarToggleClosed,
+        ]}
+      >
+        <Text style={styles.sidebarToggleText}>
+          {sidebarOpen ? "‹" : "›"}
+        </Text>
+      </Pressable>
+
       <View
         style={[
           styles.main,
+          !sidebarOpen && styles.mainFull,
           personalSettings.theme === "sunrise" && styles.mainThemeSunrise,
           personalSettings.theme === "night" && styles.mainThemeNight,
         ]}
@@ -667,6 +690,8 @@ function DashboardSectionContent({ render }) {
 function Sidebar({
   activeSection,
   setActiveSection,
+  sidebarOpen,
+  setSidebarOpen,
   health,
   loading,
   schedule,
@@ -682,79 +707,82 @@ function Sidebar({
   const meta = profile.email || (profile.provider === "demo" ? "Demo mode" : "Signed in");
 
   return (
-    <View style={[styles.sidebar, compact && styles.sidebarCompact]}>
-      <View style={styles.brand}>
-        <View style={styles.logoMark}>
-          <Image source={{ uri: teamLogo }} style={styles.logoImage} resizeMode="cover" />
+    <View style={[styles.sidebar, compact && styles.sidebarCompact, !sidebarOpen && styles.sidebarClosed]}>
+      <View style={styles.sidebarContent}>
+        <View style={styles.brand}>
+          <View style={styles.logoMark}>
+            <Image source={{ uri: teamLogo }} style={styles.logoImage} resizeMode="cover" />
+          </View>
+          <View>
+            <Text style={styles.brandName}>Artemis</Text>
+            <Text style={styles.brandSub}>Campus navigation</Text>
+          </View>
         </View>
-        <View>
-          <Text style={styles.brandName}>Artemis</Text>
-          <Text style={styles.brandSub}>Campus navigation</Text>
-        </View>
-      </View>
+        
 
-      <View style={styles.navList}>
-        {navItems.map((item) => (
+        <View style={styles.navList}>
+          {navItems.map((item) => (
+            <Pressable
+              key={item.key}
+              onPress={() => setActiveSection(item.key)}
+              style={[styles.navItem, activeSection === item.key && styles.navItemActive]}
+            >
+              <View style={[styles.navIcon, activeSection === item.key && styles.navIconActive]}>
+                <SidebarIcon name={item.icon} active={activeSection === item.key} />
+              </View>
+              <Text style={[styles.navLabel, activeSection === item.key && styles.navLabelActive]}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.profileDock}>
+          {settingsOpen ? (
+            <ProfileSettingsPopover
+              profile={profile}
+              settings={personalSettings}
+              onSave={(nextSettings) => {
+                onSaveSettings(nextSettings);
+                setSettingsOpen(false);
+              }}
+              onClose={() => setSettingsOpen(false)}
+              onChangePassword={onChangePassword}
+              compact={compact}
+            />
+          ) : null}
           <Pressable
-            key={item.key}
-            onPress={() => setActiveSection(item.key)}
-            style={[styles.navItem, activeSection === item.key && styles.navItemActive]}
+            accessibilityRole="button"
+            onPress={() => setSettingsOpen((current) => !current)}
+            style={[styles.profileCard, settingsOpen && styles.profileCardActive]}
           >
-            <View style={[styles.navIcon, activeSection === item.key && styles.navIconActive]}>
-              <SidebarIcon name={item.icon} active={activeSection === item.key} />
+            <View style={styles.avatar}>
+              {profile.picture ? (
+                <Image source={{ uri: profile.picture }} style={styles.avatarImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
             </View>
-            <Text style={[styles.navLabel, activeSection === item.key && styles.navLabelActive]}>{item.label}</Text>
+            <View style={styles.profileCopy}>
+              <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
+              <Text style={styles.profileMeta} numberOfLines={1}>{meta}</Text>
+            </View>
+            <Text style={styles.profileChevron}>{settingsOpen ? "^" : "v"}</Text>
           </Pressable>
-        ))}
-      </View>
-
-      <View style={styles.profileDock}>
-        {settingsOpen ? (
-          <ProfileSettingsPopover
-            profile={profile}
-            settings={personalSettings}
-            onSave={(nextSettings) => {
-              onSaveSettings(nextSettings);
-              setSettingsOpen(false);
-            }}
-            onClose={() => setSettingsOpen(false)}
-            onChangePassword={onChangePassword}
-            compact={compact}
-          />
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setSettingsOpen((current) => !current)}
-          style={[styles.profileCard, settingsOpen && styles.profileCardActive]}
-        >
-          <View style={styles.avatar}>
-            {profile.picture ? (
-              <Image source={{ uri: profile.picture }} style={styles.avatarImage} resizeMode="cover" />
-            ) : (
-              <Text style={styles.avatarText}>{initials}</Text>
-            )}
-          </View>
-          <View style={styles.profileCopy}>
-            <Text style={styles.profileName} numberOfLines={1}>{profile.name}</Text>
-            <Text style={styles.profileMeta} numberOfLines={1}>{meta}</Text>
-          </View>
-          <Text style={styles.profileChevron}>{settingsOpen ? "^" : "v"}</Text>
-        </Pressable>
-        <Text style={styles.profileHint} numberOfLines={1}>{`${settingsLabel(themeOptions, personalSettings.theme)} theme · ${settingsLabel(densityOptions, personalSettings.density)}`}</Text>
-      </View>
-
-      <View style={styles.statusCard}>
-        <Text style={styles.statusTitle}>NUS Status</Text>
-        <View style={styles.statusLine}>
-          <View style={[styles.statusDot, health && styles.statusDotOnline]} />
-          <Text style={styles.statusText}>{health ? "All Systems Normal" : loading ? "Checking API" : "API Offline"}</Text>
+          <Text style={styles.profileHint} numberOfLines={1}>{`${settingsLabel(themeOptions, personalSettings.theme)} theme · ${settingsLabel(densityOptions, personalSettings.density)}`}</Text>
         </View>
-        <View style={styles.statusSketch}>
-          <View style={styles.sketchBuildingTall} />
-          <View style={styles.sketchBuilding} />
-          <View style={styles.sketchRoad} />
+
+        <View style={styles.statusCard}>
+          <Text style={styles.statusTitle}>NUS Status</Text>
+          <View style={styles.statusLine}>
+            <View style={[styles.statusDot, health && styles.statusDotOnline]} />
+            <Text style={styles.statusText}>{health ? "All Systems Normal" : loading ? "Checking API" : "API Offline"}</Text>
+          </View>
+          <View style={styles.statusSketch}>
+            <View style={styles.sketchBuildingTall} />
+            <View style={styles.sketchBuilding} />
+            <View style={styles.sketchRoad} />
+          </View>
+        <Text style={styles.statusSmall}>{`${schedule.length} plan items loaded`}</Text>
         </View>
-      <Text style={styles.statusSmall}>{`${schedule.length} plan items loaded`}</Text>
       </View>
     </View>
   );
@@ -2086,6 +2114,9 @@ const styles = StyleSheet.create({
     minHeight: 640,
   },
   sidebar: {
+    position: "relative",
+    left: 0,
+    top: 0,
     zIndex: 10,
     width: 248,
     flexShrink: 0,
@@ -2096,10 +2127,54 @@ const styles = StyleSheet.create({
     backgroundImage:
       "radial-gradient(circle at 24% 9%, rgba(217, 155, 104, 0.22), transparent 28%), radial-gradient(circle at 88% 34%, rgba(120, 208, 177, 0.14), transparent 30%), linear-gradient(155deg, #123b3d 0%, #1f4b43 54%, #423d33 100%)",
     boxShadow: "inset -1px 0 0 rgba(255, 243, 208, 0.1)",
+    overflow: "visible",
+  },
+  sidebarContent: {
+    flex: 1,
+  },
+  sidebarToggle: {
+    position: "absolute",
+    top: "50%",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "rgba(15, 23, 42, 0.14)",
+    boxShadow: "0 8px 20px rgba(0, 0, 0, 0.18)",
+    zIndex: 9999,
+    transform: [{ translateY: -18 }],
+  },
+  sidebarToggleOpen: {
+    left: 248 - 18,
+  },
+
+  sidebarToggleClosed: {
+    left: -18,
+  },
+  sidebarToggleText: {
+    color: "#123a3b",
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  sidebarClosed: {
+    transform: [{ translateX: -248 }],
   },
   sidebarCompact: {
     width: "100%",
     minHeight: "100vh",
+  },
+  sidebarWrap: {
+    width: 248,
+    flexShrink: 0,
+    overflow: "visible",
+  },
+
+  sidebarWrapClosed: {
+    width: 0,
   },
   brand: {
     flexDirection: "row",
@@ -2514,6 +2589,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 249, 236, 0.72)",
     backgroundImage:
       "repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(18, 78, 69, 0.08), transparent 28%), radial-gradient(circle at 20% 86%, rgba(217, 155, 104, 0.1), transparent 30%)",
+  },
+  mainFull: {
+    flex: 1,
+    width: "100%",
   },
   mainThemeSunrise: {
     backgroundColor: "rgba(255, 246, 236, 0.78)",
