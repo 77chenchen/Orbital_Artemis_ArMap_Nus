@@ -34,7 +34,7 @@ const SINGAPORE_PLACES = [
 
 const LOCAL_PLACES = [...CAMPUS_PLACES, ...SINGAPORE_PLACES];
 
-export function getRecommendedPlaces(limit = 6, context = {}) {
+export function getRecommendedPlaces(limit = 2, context = {}) {
   const history = getPlaceHistory();
   const scored = scoreRecommendedPlaces(LOCAL_PLACES, history, context);
   const recommended = mergeSuggestions(
@@ -44,13 +44,13 @@ export function getRecommendedPlaces(limit = 6, context = {}) {
   return diversifyRecommendations(recommended, limit);
 }
 
-export function getCampusPlaceMatches(inputString, limit = 5) {
+export function getCampusPlaceMatches(inputString, limit = 2) {
   return searchLocalPlaces(inputString, limit);
 }
 
 export default async function getSuggestions(inputString, options = {}) {
   const opts = typeof options === "number" ? options : options.opts || 5;
-  const localMatches = getCampusPlaceMatches(inputString, opts);
+  const localMatches = getCampusPlaceMatches(inputString, opts).slice(0, 2);
   if (!inputString?.trim()) {
     return getRecommendedPlaces(opts);
   }
