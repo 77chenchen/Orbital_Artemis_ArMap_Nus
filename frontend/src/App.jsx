@@ -6,14 +6,8 @@ import VirtualAgent from "./AgentAvatar/VirtualAgent";
 import Dashboard from "./Dashboard";
 import Protected from "./(auth)/Protected";
 import MapScreen from "./Map/map";
-import ARScene from "./Map/(ar)/ui";
-
-import { useEffect } from "react";
-
 
 export default function App() {
-  
-
   return (
     <View style={styles.app}>
       <BrowserRouter>
@@ -66,7 +60,7 @@ class RouteErrorBoundary extends React.Component {
 function AppRoutes() {
   const location = useLocation();
   const path = location.pathname.toLowerCase();
-  const showAgent = path !== "/" && path !== "/ar";
+  const showAgent = path !== "/";
 
   return (
     <>
@@ -94,14 +88,6 @@ function AppRoutes() {
             <ProtectedRouteBoundary resetKey={location.pathname} title="Map failed to render">
               <MapScreen />
             </ProtectedRouteBoundary>
-          }
-        />
-        <Route
-          path="/ar"
-          element={
-            
-              <ARScene />
-            
           }
         />
       </Routes>

@@ -22,9 +22,6 @@ export default function RoutingForm({
   travelModes = [],
   travelMode,
   setTravelMode,
-  routeDrawn,
-  onPressAR,
-  onUseCurrentLocation,
 }) {
   return (
     <View style={styles.routingContainer}>
@@ -68,7 +65,6 @@ export default function RoutingForm({
               }}
               style={styles.routeInput}
             />
-            
           </View>
 
           <Pressable
@@ -85,22 +81,6 @@ export default function RoutingForm({
             <Text style={styles.swapText}>A/B</Text>
           </Pressable>
         </View>
-        <View style={styles.currentLocationCard}>
-          <Pressable
-            onPress={onUseCurrentLocation}
-            style={({ pressed }) => [styles.currentLocationButton, pressed && styles.currentLocationButtonPressed]}
-          >
-            <Text style={styles.currentLocationButtonText}>Use current location</Text>
-          </Pressable>
-        </View>
-        {routeDrawn ? (
-          <Pressable
-            onPress={onPressAR}
-            style={({ pressed }) => [styles.arButton, pressed && styles.arButtonPressed]}
-          >
-            <Text style={styles.arButtonText}>AR</Text>
-          </Pressable>
-        ) : null}
 
         {travelModes.length > 0 ? (
           <View style={styles.modeSelector}>
@@ -126,8 +106,6 @@ export default function RoutingForm({
             })}
           </View>
         ) : null}
-
-        
 
         {showDropdown ? (
           <SelectList
@@ -279,44 +257,5 @@ const styles = StyleSheet.create({
   },
   modeButtonTextActive: {
     color: "#1d4ed8",
-  },
-  arButton: {
-    marginTop: 12,
-    marginHorizontal: 20,
-    height: 44,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#111827",
-  },
-  arButtonPressed: {
-    opacity: 0.8,
-  },
-  arButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  currentLocationCard: {
-    flex: 1,
-    marginTop: 8,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  currentLocationButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: "#eff6ff",
-  },
-  currentLocationButtonPressed: {
-    backgroundColor: "#dbeafe",
-  },
-  currentLocationButtonText: {
-    color: "#1d4ed8",
-    fontSize: 12,
-    fontWeight: "800",
   },
 });

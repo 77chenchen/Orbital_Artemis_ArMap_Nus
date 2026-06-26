@@ -17,7 +17,6 @@ import getSuggestions, { getCampusPlaceMatches, getRecommendedPlaces, recordPlac
 import RoutingForm from "./(ui)/routingForm";
 import { api } from "../api";
 import { installBusLayers, setActiveBuses, setBusRouteOverlayVisible, setRoutePickupPoints } from "./busLayer";
-import { useNavigate } from "react-router-dom";
 
 const TRAVEL_MODES = [
   { id: "WALK", label: "Walk", otpMode: "WALK" },
@@ -30,7 +29,6 @@ export default function MapScreen({ embedded = false }) {
   const [mapHostElement, setMapHostElement] = useState(null);
   const mapRef = useRef(null);
   const engineRef = useRef(null);
-  const navigate = useNavigate();
 
   const [queryText, setQueryText] = useState("");
   const [startText, setStartText] = useState("");
@@ -60,8 +58,6 @@ export default function MapScreen({ embedded = false }) {
   const [busError, setBusError] = useState("");
   const [showBusPanel, setShowBusPanel] = useState(false);
   const [showBusRouteOverlay, setShowBusRouteOverlay] = useState(false);
-  const [hasRoute, setHasRoute] = useState(false);
-  
 
   const captureMapContainer = useCallback((node) => {
     if (!node) {
@@ -142,8 +138,6 @@ export default function MapScreen({ embedded = false }) {
 
     map.on("load", loadBusLayer);
 
-    
-
     const resizeMap = () => {
       if (mapRef.current) {
         mapRef.current.resize();
@@ -186,48 +180,6 @@ export default function MapScreen({ embedded = false }) {
       }
     };
   }, [mapHostElement]);
-
-  function usingCurrentLocation() {
-    if (!navigator.geolocation) {
-      alert("GPS is not supported in this browser.");
-      return;
-    }
-
-    setSuggestionLoading(false);
-    setShowDropdown(false);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const coords = [
-          position.coords.longitude,
-          position.coords.latitude,
-        ];
-        if (activeField == "start") {
-          setStartText("Current location");
-          setStartPlace({
-            label: "Current location",
-            coords,
-          });
-        }
-
-        if (activeField == "query") {
-          setQueryText("Current location");
-          setQueryPlace({
-            label: "Current location",
-            coords,
-          });
-        }
-        setShowDropdown(false);
-        
-      },
-      (error) => alert(error.message),
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  }
 
   useEffect(() => {
     if (!busReady || !selectedRoute || !mapRef.current) {
@@ -327,7 +279,6 @@ export default function MapScreen({ embedded = false }) {
       setRouteLoading(true);
       setRouteError("");
       setRouteOptions([]);
-      setHasRoute(false);
       setSelectedRouteOptionIndex(0);
       try {
         const selectedMode = TRAVEL_MODES.find((item) => item.id === travelMode) || TRAVEL_MODES[1];
@@ -340,12 +291,10 @@ export default function MapScreen({ embedded = false }) {
 
         setRouteOptions(displayOptions);
         setRouteResult(firstOption.routeResult);
-        setHasRoute(true);
         drawDisplayRoute(firstOption, { fly: true });
       } catch (err) {
         setRouteResult(null);
         setRouteOptions([]);
-        setHasRoute(false);
         engine.clearRoute();
         setRouteError(err instanceof Error ? err.message : "OTP route failed.");
       } finally {
@@ -426,7 +375,6 @@ export default function MapScreen({ embedded = false }) {
     setSelectedRouteOptionIndex(0);
     setRouteError("");
     setRouteLoading(false);
-    setHasRoute(false);
     setActiveField(null);
     setSuggestions([]);
     setSuggestionLoading(false);
@@ -580,18 +528,7 @@ export default function MapScreen({ embedded = false }) {
             onPlaceSelected={(place, query) => recordPlaceSelection(place, query)}
             travelModes={TRAVEL_MODES}
             travelMode={travelMode}
-            routeDrawn={hasRoute}
             setTravelMode={setTravelMode}
-            onPressAR={() => {
-              navigate("/ar", {
-                state: {
-                  routeData: routeResult,
-                  startPlace,
-                  endPlace,
-                },
-              });
-            }}
-            onUseCurrentLocation={usingCurrentLocation}
           />
           <Pressable
             accessibilityRole="button"
