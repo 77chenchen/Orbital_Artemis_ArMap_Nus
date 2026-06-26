@@ -13,22 +13,13 @@ export default function initMap(container) {
     center: [103.7764, 1.2966],
     zoom: 16.5,
     minZoom: 6,
-    maxZoom: 24,
+    maxZoom: 20,
+    maxBounds: SG_MY_BOUNDS,
     attributionControl: true,
   });
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
   map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
-  map.addControl(
-  new maplibregl.GeolocateControl({
-    positionOptions: {
-      enableHighAccuracy: true,
-    },
-    trackUserLocation: true,
-    showUserHeading: true,
-  }),
-  "bottom-right"
-);
 
   return map;
 }
