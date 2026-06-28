@@ -23,31 +23,35 @@
 \contentsline {subsection}{MapLibre and OSM Tiles}{17}{section*.30}%
 \contentsline {subsection}{OpenTripPlanner Route Planning}{18}{section*.32}%
 \contentsline {section}{Experimental AR Route Guidance}{19}{section*.34}%
-\contentsline {subsection}{Route Mathematics and Progress Tracking}{19}{section*.35}%
-\contentsline {subsection}{Three.js Camera Overlay}{20}{section*.36}%
-\contentsline {section}{Daily Assistant, Facilities, and Schedule}{21}{section*.37}%
-\contentsline {subsection}{Facility Discovery}{21}{section*.39}%
-\contentsline {subsection}{Schedule Management}{22}{section*.40}%
-\contentsline {subsection}{Recommendation Cards}{22}{section*.41}%
-\contentsline {subsection}{LLM Daily Assistant}{22}{section*.42}%
-\contentsline {section}{External Data and Transit Context}{23}{section*.43}%
-\contentsline {subsection}{NUSMods Sync}{23}{section*.44}%
-\contentsline {subsection}{Bus and Transit Context}{23}{section*.45}%
-\contentsline {subsection}{Singapore Public Transport}{24}{section*.46}%
-\contentsline {section}{Mobile Frontend Experience}{25}{section*.47}%
-\contentsline {subsection}{Responsive Layout}{25}{section*.48}%
-\contentsline {subsection}{Personalisation Settings}{25}{section*.50}%
-\contentsline {section}{Standardised Software Diagrams}{27}{section*.52}%
-\contentsline {subsection}{ER Diagram}{27}{section*.53}%
-\contentsline {subsection}{Activity Diagram}{28}{section*.55}%
-\contentsline {section}{Automated Testing and QA}{29}{section*.57}%
-\contentsline {subsection}{Automated Checks}{29}{section*.58}%
-\contentsline {subsection}{Executed Unit Test Design}{29}{section*.59}%
-\contentsline {subsection}{Manual Test Matrix}{31}{section*.60}%
-\contentsline {section}{Build, Deployment, and CI Gap}{32}{section*.61}%
-\contentsline {subsection}{Required CI Gates}{32}{section*.62}%
-\contentsline {subsection}{Continuous Deployment Path}{32}{section*.63}%
-\contentsline {subsection}{Software Design Principles}{33}{section*.64}%
-\contentsline {section}{Milestone 02 Progress and Honest Limitations}{35}{section*.66}%
-\contentsline {section}{Planned Next Steps}{35}{section*.67}%
-\contentsline {section}{Evaluator Demo Route}{36}{section*.68}%
+\contentsline {subsection}{Design Objective and Route Hand-off}{19}{section*.35}%
+\contentsline {subsection}{Route Model and Geographic Computation}{20}{section*.36}%
+\contentsline {subsection}{GPS, Heading, and Progress Feedback}{20}{section*.37}%
+\contentsline {subsection}{Three.js Camera Overlay and Rendering Lifecycle}{21}{section*.38}%
+\contentsline {subsection}{User-visible State and Failure Behaviour}{22}{section*.39}%
+\contentsline {subsection}{Limitations and M3 Validation Plan}{22}{section*.40}%
+\contentsline {section}{Daily Assistant, Facilities, and Schedule}{23}{section*.41}%
+\contentsline {subsection}{Facility Discovery}{23}{section*.43}%
+\contentsline {subsection}{Schedule Management}{24}{section*.44}%
+\contentsline {subsection}{Recommendation Cards}{24}{section*.45}%
+\contentsline {subsection}{LLM Daily Assistant}{24}{section*.46}%
+\contentsline {section}{External Data and Transit Context}{25}{section*.47}%
+\contentsline {subsection}{NUSMods Sync}{25}{section*.48}%
+\contentsline {subsection}{Bus and Transit Context}{25}{section*.49}%
+\contentsline {subsection}{Singapore Public Transport}{26}{section*.50}%
+\contentsline {section}{Mobile Frontend Experience}{27}{section*.51}%
+\contentsline {subsection}{Responsive Layout}{27}{section*.52}%
+\contentsline {subsection}{Personalisation Settings}{27}{section*.54}%
+\contentsline {section}{Standardised Software Diagrams}{29}{section*.56}%
+\contentsline {subsection}{ER Diagram}{29}{section*.57}%
+\contentsline {subsection}{Activity Diagram}{30}{section*.59}%
+\contentsline {section}{Automated Testing and QA}{31}{section*.61}%
+\contentsline {subsection}{Automated Checks}{31}{section*.62}%
+\contentsline {subsection}{Executed Unit Test Design}{31}{section*.63}%
+\contentsline {subsection}{Manual Test Matrix}{33}{section*.64}%
+\contentsline {section}{Build, Deployment, and CI Gap}{34}{section*.65}%
+\contentsline {subsection}{Required CI Gates}{34}{section*.66}%
+\contentsline {subsection}{Continuous Deployment Path}{34}{section*.67}%
+\contentsline {subsection}{Software Design Principles}{35}{section*.68}%
+\contentsline {section}{Milestone 02 Progress and Honest Limitations}{37}{section*.70}%
+\contentsline {section}{Planned Next Steps}{37}{section*.71}%
+\contentsline {section}{Evaluator Demo Route}{38}{section*.72}%
