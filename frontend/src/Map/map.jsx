@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useNavigate } from "react-router-dom";
 import initMap from "./fetch";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -15,6 +16,7 @@ import { MapEngine } from "./mapEngine";
 import { route, watchLocation } from "./services";
 import getSuggestions, { getCampusPlaceMatches, getRecommendedPlaces, recordPlaceSelection } from "./geocoding";
 import RoutingForm from "./(ui)/routingForm";
+import { saveRouteData } from "./(ar)/routeStorage";
 import { api } from "../api";
 import { installBusLayers, setActiveBuses, setBusRouteOverlayVisible, setRoutePickupPoints } from "./busLayer";
 
@@ -26,6 +28,7 @@ const TRAVEL_MODES = [
 ];
 
 export default function MapScreen({ embedded = false }) {
+  const navigate = useNavigate();
   const [mapHostElement, setMapHostElement] = useState(null);
   const mapRef = useRef(null);
   const engineRef = useRef(null);
@@ -40,6 +43,7 @@ export default function MapScreen({ embedded = false }) {
   const [selectedRouteOptionIndex, setSelectedRouteOptionIndex] = useState(0);
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState("");
+  const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
   const [travelMode, setTravelMode] = useState(TRAVEL_MODES[1].id);
   const [followLocation, setFollowLocation] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -237,6 +241,20 @@ export default function MapScreen({ embedded = false }) {
   }, [showBusPanel, showBusRouteOverlay, busReady]);
 
   useEffect(() => {
+    if (!routeResult || !startPlace || !endPlace) return;
+    const payload = buildARRoutePayload({
+      routeResult,
+      displayOption: routeOptions[selectedRouteOptionIndex],
+      startPlace,
+      endPlace,
+      travelMode,
+    });
+    if (payload.points.length >= 2) {
+      saveRouteData(payload);
+    }
+  }, [routeResult, routeOptions, selectedRouteOptionIndex, startPlace, endPlace, travelMode]);
+
+  useEffect(() => {
     if (!activeField) return undefined;
 
     const value = activeField === "start" ? startText : queryText;
@@ -320,6 +338,58 @@ export default function MapScreen({ embedded = false }) {
     setSelectedRouteOptionIndex(index);
     setRouteResult(option.routeResult);
     drawDisplayRoute(option, { fly: false });
+  }
+
+  function openARGuidance() {
+    const payload = buildARRoutePayload({
+      routeResult,
+      displayOption: routeOptions[selectedRouteOptionIndex],
+      startPlace,
+      endPlace,
+      travelMode,
+    });
+
+    if (payload.points.length < 2) {
+      setRouteError("Draw a route before opening AR guidance.");
+      return;
+    }
+
+    saveRouteData(payload);
+    navigate("/ar", { state: { routeData: payload } });
+  }
+
+  function useCurrentLocationAsStart() {
+    if (!navigator.geolocation) {
+      setRouteError("Geolocation is not supported in this browser.");
+      return;
+    }
+
+    setCurrentLocationLoading(true);
+    setRouteError("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = [position.coords.longitude, position.coords.latitude];
+        const label = position.coords.accuracy
+          ? `Current location (${Math.round(position.coords.accuracy)} m)`
+          : "Current location";
+        setStartText(label);
+        setStartPlace({ label, coords });
+        setActiveField(null);
+        setShowDropdown(false);
+        setSuggestions([]);
+        setCurrentLocationLoading(false);
+        engineRef.current?.track(coords, { fly: true });
+      },
+      (error) => {
+        setRouteError(error.message || "Unable to get current location.");
+        setCurrentLocationLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 12000,
+      },
+    );
   }
 
   useEffect(() => {
@@ -529,6 +599,10 @@ export default function MapScreen({ embedded = false }) {
             travelModes={TRAVEL_MODES}
             travelMode={travelMode}
             setTravelMode={setTravelMode}
+            routeReady={Boolean(routeResult && routeCoordinatesFromDisplayOption(routeOptions[selectedRouteOptionIndex], routeResult).length >= 2)}
+            onOpenAR={openARGuidance}
+            onUseCurrentLocation={useCurrentLocationAsStart}
+            currentLocationLoading={currentLocationLoading}
           />
           <Pressable
             accessibilityRole="button"
@@ -998,6 +1072,76 @@ async function routeOptionsForDisplay(routeResult, selectedMode, start, end) {
   );
 
   return displayOptions.filter(Boolean);
+}
+
+function buildARRoutePayload({ routeResult, displayOption, startPlace, endPlace, travelMode }) {
+  const segments = routeSegmentsForAR(displayOption, routeResult);
+  const points = routeCoordinatesFromSegments(segments);
+  return {
+    id: routeResult?.id || `route-${Date.now()}`,
+    label: routeResult?.label || "Route",
+    source: routeResult?.source || "route",
+    mode: travelMode,
+    distance: routeResult?.distance || 0,
+    duration: routeResult?.time || routeResult?.duration || 0,
+    start: startPlace ? { label: startPlace.label, coords: startPlace.coords } : null,
+    end: endPlace ? { label: endPlace.label, coords: endPlace.coords } : null,
+    points,
+    segments,
+  };
+}
+
+function routeCoordinatesFromDisplayOption(displayOption, fallbackRouteResult) {
+  return routeCoordinatesFromSegments(routeSegmentsForAR(displayOption, fallbackRouteResult));
+}
+
+function routeSegmentsForAR(displayOption, fallbackRouteResult) {
+  const drawableRoute = displayOption?.drawableRoute;
+  if (Array.isArray(drawableRoute) && drawableRoute.length > 0) {
+    const looksLikeCoordinates = Array.isArray(drawableRoute[0]) && typeof drawableRoute[0]?.[0] === "number";
+    if (looksLikeCoordinates) {
+      return [{ mode: fallbackRouteResult?.mode || "WALK", coordinates: sanitizeRouteCoordinates(drawableRoute) }];
+    }
+
+    return drawableRoute
+      .map((segment) => ({
+        mode: segment.mode || fallbackRouteResult?.mode || "WALK",
+        distance: segment.distance || 0,
+        duration: segment.duration || 0,
+        from: segment.from,
+        to: segment.to,
+        routeCode: segment.routeCode,
+        coordinates: sanitizeRouteCoordinates(segment.coordinates || segment.points || segment.geometry?.coordinates),
+      }))
+      .filter((segment) => segment.coordinates.length >= 2);
+  }
+
+  const routeSegments = fallbackRouteResult?.segments || [];
+  if (routeSegments.length > 0) {
+    return routeSegments
+      .map((segment) => ({
+        ...segment,
+        coordinates: sanitizeRouteCoordinates(segment.coordinates),
+      }))
+      .filter((segment) => segment.coordinates.length >= 2);
+  }
+
+  const points = sanitizeRouteCoordinates(fallbackRouteResult?.points);
+  return points.length >= 2 ? [{ mode: fallbackRouteResult?.mode || "WALK", coordinates: points }] : [];
+}
+
+function routeCoordinatesFromSegments(segments = []) {
+  const points = [];
+  for (const segment of segments) {
+    for (const coordinate of segment.coordinates || []) {
+      const previous = points[points.length - 1];
+      if (previous && Math.abs(previous[0] - coordinate[0]) < 0.000001 && Math.abs(previous[1] - coordinate[1]) < 0.000001) {
+        continue;
+      }
+      points.push(coordinate);
+    }
+  }
+  return points;
 }
 
 async function routeForDisplay(routeResult, selectedMode, start, end) {

@@ -463,7 +463,7 @@ export default function Dashboard() {
     }
 
     return (
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.sectionBody}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.sectionBody, phone && styles.sectionBodyPhone]}>
         <SectionHeader
           title={sectionTitle(activeSection)}
           subtitle={sectionSubtitle(activeSection)}
@@ -491,6 +491,8 @@ export default function Dashboard() {
             recommendations={recommendations}
             schedule={sortedSchedule}
             buildingByCode={buildingByCode}
+            compact={compact}
+            phone={phone}
           />
         )}
 
@@ -1541,24 +1543,294 @@ function FocusTimer({ style }) {
 }
 
 function AssistantFull(props) {
+  const [expanded, setExpanded] = useState(false);
+  const today = new Intl.DateTimeFormat("en-SG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
+  const upcoming = props.schedule.slice(0, 4);
+  const recommendations = (props.recommendations.length ? props.recommendations : sampleRecommendations()).slice(0, 3);
+  const quickPrompts = [
+    "Plan my day around my classes",
+    "Where can I study nearby?",
+    "Summarise my priority tasks",
+  ];
+
   return (
-    <View style={styles.twoColumnPanel}>
-      <AssistantCard {...props} />
-      <View style={styles.card}>
-        <Text style={styles.sectionCardTitle}>Priority Queue</Text>
-        {(props.recommendations.length ? props.recommendations : sampleRecommendations()).map((rec, index) => (
-          <View key={`${rec.kind}-${rec.title}`} style={styles.queueItem}>
-            <Text style={styles.queueRank}>{index + 1}</Text>
-            <View style={styles.eventCopy}>
-              <Text style={styles.eventTitle}>{rec.title}</Text>
-              <Text style={styles.smallMeta}>{rec.description}</Text>
-            </View>
-            <Text style={styles.distanceText}>{`${Math.round(rec.distanceM || 180)}m`}</Text>
+    <View style={styles.assistantWorkspace}>
+      <View style={[styles.assistantOverview, props.phone && styles.assistantOverviewPhone]}>
+        <View style={styles.assistantOverviewGlow} />
+        <View style={styles.assistantOverviewTop}>
+          <View style={styles.assistantOrb}>
+            <AssistantGlyph name="spark" color="#123f38" size={25} />
           </View>
-        ))}
+          <View style={styles.assistantOverviewCopy}>
+            <Text style={styles.assistantOverviewEyebrow}>{today.toUpperCase()}</Text>
+            <Text style={styles.assistantOverviewTitle}>Let’s make today feel manageable.</Text>
+            <Text style={styles.assistantOverviewText}>
+              I can organise your classes, surface the next useful task, and help you move around campus without the usual tab-juggling.
+            </Text>
+          </View>
+          <View style={styles.assistantLivePill}>
+            <View style={styles.assistantLiveDot} />
+            <Text style={styles.assistantLiveText}>Ready</Text>
+          </View>
+        </View>
+        <View style={styles.assistantOverviewStats}>
+          <AssistantStat icon="calendar" value={props.schedule.length || 3} label="Plans today" />
+          <AssistantStat icon="check" value={Math.max(1, recommendations.length)} label="Priorities" />
+          <AssistantStat icon="pin" value={upcoming[0]?.location || "COM1"} label="Next stop" />
+        </View>
+      </View>
+
+      <View style={[styles.assistantModeBar, props.phone && styles.assistantModeBarPhone]}>
+        <View>
+          <Text style={styles.assistantModeLabel}>WHAT DO YOU NEED?</Text>
+          <Text style={styles.assistantModeHint}>Choose a focus, then talk naturally.</Text>
+        </View>
+        <View style={[styles.assistantModeChoices, props.phone && styles.assistantModeChoicesPhone]}>
+          {assistantModes.map((mode) => (
+            <Pressable
+              key={mode.value}
+              onPress={() => props.setAssistantMode(mode.value)}
+              style={[styles.assistantModeChoice, props.assistantMode === mode.value && styles.assistantModeChoiceActive]}
+            >
+              <AssistantGlyph
+                name={mode.value === "daily_plan" ? "calendar" : mode.value === "task_summary" ? "check" : "compass"}
+                color={props.assistantMode === mode.value ? "#fff8e2" : "#49645e"}
+                size={16}
+              />
+              <Text style={[styles.assistantModeChoiceText, props.assistantMode === mode.value && styles.assistantModeChoiceTextActive]}>
+                {mode.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={[styles.assistantMainGrid, props.compact && styles.assistantMainGridCompact, expanded && styles.assistantMainGridExpanded]}>
+        <View
+          style={[
+            styles.assistantConversation,
+            props.phone && styles.assistantConversationPhone,
+            expanded && styles.assistantConversationExpanded,
+          ]}
+        >
+          <View style={styles.assistantConversationHeader}>
+            <View style={styles.assistantConversationIdentity}>
+              <View style={styles.assistantMiniOrb}>
+                <AssistantGlyph name="spark" color="#fff8e2" size={15} />
+              </View>
+              <View>
+                <Text style={styles.assistantConversationTitle}>Artemis</Text>
+                <Text style={styles.assistantConversationMeta}>Campus copilot · online now</Text>
+              </View>
+            </View>
+            <View style={styles.assistantConversationActions}>
+              <Text style={styles.assistantContextBadge}>{assistantModes.find((mode) => mode.value === props.assistantMode)?.label}</Text>
+              <Pressable
+                accessibilityLabel={expanded ? "Collapse assistant" : "Expand assistant"}
+                accessibilityRole="button"
+                onPress={() => setExpanded((current) => !current)}
+                style={[styles.assistantExpandButton, expanded && styles.assistantExpandButtonActive]}
+              >
+                <AssistantGlyph name={expanded ? "collapse" : "expand"} color={expanded ? "#fff8e2" : "#49645e"} size={17} />
+                <Text style={[styles.assistantExpandText, expanded && styles.assistantExpandTextActive]}>
+                  {expanded ? "Collapse" : "Expand"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <ScrollView
+            testID="assistant-message-scroll"
+            style={[styles.assistantMessageScroll, expanded && styles.assistantMessageScrollExpanded]}
+            contentContainerStyle={styles.assistantMessageArea}
+            showsVerticalScrollIndicator
+          >
+            <View style={styles.assistantBotRow}>
+              <View style={styles.assistantBotAvatar}>
+                <AssistantGlyph name="spark" color="#c97654" size={15} />
+              </View>
+              <View style={styles.assistantBotBubble}>
+                <Text style={styles.assistantBotGreeting}>Good morning! I’ve looked over your day.</Text>
+                <Text style={styles.assistantBotText}>
+                  {upcoming.length
+                    ? `You have ${upcoming.length} upcoming ${upcoming.length === 1 ? "item" : "items"}. We can build a realistic plan around ${upcoming[0].title || "your next class"}.`
+                    : "Your calendar is open. Tell me what you want to accomplish and I’ll turn it into a practical campus plan."}
+                </Text>
+              </View>
+            </View>
+
+            {props.assistantResponse ? (
+              <View style={styles.assistantResponseCard}>
+                <View style={styles.assistantResponseHeader}>
+                  <AssistantGlyph name="spark" color="#2e7058" size={16} />
+                  <Text style={styles.assistantResponseLabel}>YOUR PERSONALISED PLAN</Text>
+                </View>
+                <Text style={styles.assistantResponseCopy}>{props.assistantResponse.reply}</Text>
+                {(props.assistantResponse.scheduleItems || []).map((item, index) => {
+                  const key = `${item.title}-${item.startAt}-${index}`;
+                  return (
+                    <View key={key} style={styles.assistantPlanItem}>
+                      <View style={styles.assistantPlanTime}>
+                        <Text style={styles.assistantPlanTimeText}>{formatAssistantTime(item.startAt)}</Text>
+                      </View>
+                      <View style={styles.assistantPlanCopy}>
+                        <Text style={styles.assistantPlanTitle}>{item.title}</Text>
+                        <Text style={styles.assistantPlanMeta}>{item.location || "Campus"}</Text>
+                      </View>
+                      <Pressable
+                        disabled={Boolean(props.assistantAddingKey)}
+                        onPress={() => props.onAddSchedule(item, index)}
+                        style={styles.assistantAddButton}
+                      >
+                        <Text style={styles.assistantAddButtonText}>{props.assistantAddingKey === key ? "Adding…" : "+ Add"}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            {props.assistantLoading ? (
+              <View style={styles.assistantThinkingRow}>
+                <View style={styles.assistantThinkingDot} />
+                <View style={styles.assistantThinkingDot} />
+                <View style={styles.assistantThinkingDot} />
+                <Text style={styles.assistantThinkingText}>Artemis is putting the pieces together…</Text>
+              </View>
+            ) : null}
+            {props.assistantError ? <Text style={styles.errorText}>{props.assistantError}</Text> : null}
+          </ScrollView>
+
+          <View style={styles.assistantComposerWrap}>
+            <Text style={styles.assistantPromptLabel}>TRY ASKING</Text>
+            <View style={styles.assistantQuickRow}>
+              {quickPrompts.map((prompt) => (
+                <Pressable key={prompt} onPress={() => props.setAssistantMessage(prompt)} style={styles.assistantQuickPrompt}>
+                  <Text style={styles.assistantQuickPromptText}>{prompt}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.assistantComposer}>
+              <View style={styles.assistantComposerIcon}>
+                <AssistantGlyph name="message" color="#c97654" size={18} />
+              </View>
+              <TextInput
+                value={props.assistantMessage}
+                onChangeText={props.setAssistantMessage}
+                onSubmitEditing={props.onSubmit}
+                placeholder="Ask Artemis to plan, prioritise, or find something…"
+                placeholderTextColor="#8d948f"
+                style={styles.assistantComposerInput}
+              />
+              <Pressable
+                disabled={props.assistantLoading || !props.assistantMessage.trim()}
+                onPress={props.onSubmit}
+                style={[
+                  styles.assistantComposerSend,
+                  (props.assistantLoading || !props.assistantMessage.trim()) && styles.assistantComposerSendDisabled,
+                ]}
+              >
+                <AssistantGlyph name="arrow" color="#fff8e2" size={19} />
+              </Pressable>
+            </View>
+            <Text style={styles.assistantComposerNote}>Artemis uses your Atlas schedule and campus data to shape each answer.</Text>
+          </View>
+        </View>
+
+        <View style={[styles.assistantSideRail, props.phone && styles.assistantSideRailPhone, expanded && styles.assistantSideRailHidden]}>
+          <View style={styles.assistantRailCard}>
+            <View style={styles.assistantRailHeader}>
+              <View>
+                <Text style={styles.assistantRailEyebrow}>YOUR DAY</Text>
+                <Text style={styles.assistantRailTitle}>Coming up</Text>
+              </View>
+              <View style={styles.assistantRailCount}>
+                <Text style={styles.assistantRailCountText}>{upcoming.length || 3}</Text>
+              </View>
+            </View>
+            {(upcoming.length ? upcoming : buildDashboardTasks([])).slice(0, 4).map((item, index) => (
+              <View key={item.id || `${item.title}-${index}`} style={styles.assistantTimelineItem}>
+                <View style={styles.assistantTimelineTrack}>
+                  <View style={[styles.assistantTimelineDot, index === 0 && styles.assistantTimelineDotActive]} />
+                  {index < Math.min((upcoming.length || 3), 4) - 1 ? <View style={styles.assistantTimelineLine} /> : null}
+                </View>
+                <View style={styles.assistantTimelineCopy}>
+                  <Text style={styles.assistantTimelineTime}>{item.startAt ? formatAssistantTime(item.startAt) : index === 0 ? "1:00 PM" : "Later"}</Text>
+                  <Text numberOfLines={2} style={styles.assistantTimelineTitle}>{item.title}</Text>
+                  <Text style={styles.assistantTimelineMeta}>{item.location || item.moduleCode || "NUS Campus"}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.assistantRailCard}>
+            <View style={styles.assistantRailHeader}>
+              <View>
+                <Text style={styles.assistantRailEyebrow}>SMART PICKS</Text>
+                <Text style={styles.assistantRailTitle}>For you</Text>
+              </View>
+              <AssistantGlyph name="compass" color="#c97654" size={20} />
+            </View>
+            {recommendations.map((rec, index) => (
+              <View key={`${rec.kind}-${rec.title}`} style={styles.assistantInsightItem}>
+                <View style={[styles.assistantInsightIcon, index === 1 && styles.assistantInsightIconGreen]}>
+                  <AssistantGlyph name={rec.kind === "route" ? "pin" : rec.kind === "task" ? "check" : "book"} color={index === 1 ? "#2e7058" : "#c97654"} size={16} />
+                </View>
+                <View style={styles.assistantInsightCopy}>
+                  <Text style={styles.assistantInsightTitle}>{rec.title}</Text>
+                  <Text numberOfLines={2} style={styles.assistantInsightText}>{rec.description}</Text>
+                </View>
+                {rec.distanceM ? <Text style={styles.assistantInsightDistance}>{Math.round(rec.distanceM)}m</Text> : null}
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
     </View>
   );
+}
+
+function AssistantStat({ icon, value, label }) {
+  return (
+    <View style={styles.assistantStat}>
+      <View style={styles.assistantStatIcon}>
+        <AssistantGlyph name={icon} color="#f0c986" size={17} />
+      </View>
+      <View>
+        <Text style={styles.assistantStatValue}>{value}</Text>
+        <Text style={styles.assistantStatLabel}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function AssistantGlyph({ name, color = "currentColor", size = 18 }) {
+  const common = { fill: "none", stroke: color, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24">
+      {name === "spark" ? <path {...common} d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z" /> : null}
+      {name === "calendar" ? <><rect {...common} x="4.5" y="6" width="15" height="14" rx="2.5" /><path {...common} d="M8 4v4m8-4v4M5 10h14" /></> : null}
+      {name === "check" ? <><circle {...common} cx="12" cy="12" r="8.5" /><path {...common} d="m8.2 12.1 2.4 2.5 5.3-5.3" /></> : null}
+      {name === "pin" ? <><path {...common} d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z" /><circle {...common} cx="12" cy="10" r="2.2" /></> : null}
+      {name === "compass" ? <><circle {...common} cx="12" cy="12" r="8.5" /><path {...common} d="m15.7 8.3-2.1 5.3-5.3 2.1 2.1-5.3 5.3-2.1Z" /></> : null}
+      {name === "message" ? <><path {...common} d="M5 18.5 6.2 15A7.5 7.5 0 1 1 9 18l-4 1.5Z" /><path {...common} d="M9 11h6m-6 3h3.5" /></> : null}
+      {name === "arrow" ? <><path {...common} d="M5 12h13m-5-5 5 5-5 5" /></> : null}
+      {name === "book" ? <><path {...common} d="M5 5.5h6a3 3 0 0 1 3 3v10H8a3 3 0 0 0-3 3v-16Z" /><path {...common} d="M14 8.5a3 3 0 0 1 3-3h2v13h-2a3 3 0 0 0-3 3" /></> : null}
+      {name === "expand" ? <><path {...common} d="M8.5 4.5h-4v4m11-4h4v4m-15 7v4h4m11-4v4h-4" /><path {...common} d="m4.8 8.2 4-4m6.4 0 4 4m-14.4 7.6 4 4m6.4 0 4-4" /></> : null}
+      {name === "collapse" ? <><path {...common} d="M8.5 8.5h-4m0 0v-4m11 4h4m0 0v-4m-11 11h-4m0 0v4m11-4h4m0 0v4" /><path {...common} d="m4.8 8.2 4-4m6.4 0 4 4m-14.4 7.6 4 4m6.4 0 4-4" /></> : null}
+    </svg>
+  );
+}
+
+function formatAssistantTime(value) {
+  if (!value) return "Flexible";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Flexible";
+  return new Intl.DateTimeFormat("en-SG", { hour: "numeric", minute: "2-digit" }).format(date);
 }
 
 function ScheduleEditor({ form, setForm, buildings, schedule, buildingByCode, onSubmit, onDelete }) {
@@ -3569,6 +3841,9 @@ const styles = StyleSheet.create({
     gap: 20,
     padding: 34,
   },
+  sectionBodyPhone: {
+    padding: 18,
+  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -3600,6 +3875,665 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: "#fff8e2",
+    fontWeight: "900",
+  },
+  assistantWorkspace: {
+    gap: 18,
+  },
+  assistantOverview: {
+    position: "relative",
+    overflow: "hidden",
+    gap: 24,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: "rgba(240, 201, 134, 0.2)",
+    borderRadius: 24,
+    backgroundColor: "#123f38",
+    backgroundImage:
+      "radial-gradient(circle at 84% 14%, rgba(240, 201, 134, 0.22), transparent 28%), radial-gradient(circle at 14% 88%, rgba(120, 208, 177, 0.16), transparent 34%), linear-gradient(135deg, #123b3d 0%, #1c4a42 58%, #3c3b32 100%)",
+    boxShadow: "0 22px 52px rgba(18, 58, 59, 0.18)",
+  },
+  assistantOverviewPhone: {
+    padding: 20,
+  },
+  assistantOverviewGlow: {
+    position: "absolute",
+    right: -52,
+    top: -64,
+    width: 220,
+    height: 220,
+    borderWidth: 1,
+    borderColor: "rgba(240, 201, 134, 0.14)",
+    borderRadius: 110,
+    boxShadow: "0 0 0 38px rgba(240, 201, 134, 0.035), 0 0 0 78px rgba(240, 201, 134, 0.025)",
+  },
+  assistantOverviewTop: {
+    zIndex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: 18,
+  },
+  assistantOrb: {
+    width: 54,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 19,
+    backgroundColor: "#f0c986",
+    boxShadow: "0 12px 28px rgba(5, 18, 18, 0.22)",
+  },
+  assistantOverviewCopy: {
+    flex: 1,
+    minWidth: 260,
+    gap: 7,
+  },
+  assistantOverviewEyebrow: {
+    color: "#f0c986",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1.1,
+  },
+  assistantOverviewTitle: {
+    color: "#fff8e2",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 28,
+    lineHeight: 35,
+    fontWeight: "800",
+  },
+  assistantOverviewText: {
+    maxWidth: 700,
+    color: "rgba(255, 248, 226, 0.7)",
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  assistantLivePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "rgba(255, 248, 226, 0.16)",
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 248, 226, 0.08)",
+  },
+  assistantLiveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#7bd69e",
+    boxShadow: "0 0 0 4px rgba(123, 214, 158, 0.11)",
+  },
+  assistantLiveText: {
+    color: "#fff8e2",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  assistantOverviewStats: {
+    zIndex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  assistantStat: {
+    minWidth: 150,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: "rgba(255, 248, 226, 0.11)",
+    borderRadius: 15,
+    backgroundColor: "rgba(255, 248, 226, 0.07)",
+  },
+  assistantStatIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: "rgba(240, 201, 134, 0.12)",
+  },
+  assistantStatValue: {
+    color: "#fff8e2",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  assistantStatLabel: {
+    marginTop: 2,
+    color: "rgba(255, 248, 226, 0.56)",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  assistantModeBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 16,
+    padding: 16,
+    paddingLeft: 20,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.09)",
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 252, 243, 0.72)",
+    boxShadow: "0 10px 28px rgba(35, 30, 23, 0.05)",
+  },
+  assistantModeBarPhone: {
+    alignItems: "flex-start",
+    padding: 14,
+  },
+  assistantModeLabel: {
+    color: "#c97654",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  assistantModeHint: {
+    marginTop: 4,
+    color: "#777f7a",
+    fontSize: 12,
+  },
+  assistantModeChoices: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  assistantModeChoicesPhone: {
+    width: "100%",
+  },
+  assistantModeChoice: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.48)",
+  },
+  assistantModeChoiceActive: {
+    borderColor: "#123f38",
+    backgroundColor: "#123f38",
+    boxShadow: "0 8px 18px rgba(18, 63, 56, 0.18)",
+  },
+  assistantModeChoiceText: {
+    color: "#49645e",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  assistantModeChoiceTextActive: {
+    color: "#fff8e2",
+  },
+  assistantMainGrid: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: 18,
+  },
+  assistantMainGridCompact: {
+    flexDirection: "column",
+  },
+  assistantMainGridExpanded: {
+    flexDirection: "column",
+  },
+  assistantConversation: {
+    flex: 1.85,
+    minWidth: 420,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 22,
+    backgroundColor: "rgba(255, 252, 243, 0.9)",
+    boxShadow: "0 18px 48px rgba(35, 30, 23, 0.08)",
+  },
+  assistantConversationPhone: {
+    width: "100%",
+    minWidth: 0,
+  },
+  assistantConversationExpanded: {
+    width: "100%",
+    minWidth: 0,
+    flex: 1,
+  },
+  assistantConversationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(18, 63, 56, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.38)",
+  },
+  assistantConversationIdentity: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 11,
+  },
+  assistantMiniOrb: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: "#123f38",
+  },
+  assistantConversationTitle: {
+    color: "#123f38",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  assistantConversationMeta: {
+    marginTop: 2,
+    color: "#818780",
+    fontSize: 11,
+  },
+  assistantConversationActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  assistantContextBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    overflow: "hidden",
+    borderRadius: 999,
+    color: "#2e7058",
+    backgroundColor: "rgba(46, 112, 88, 0.09)",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  assistantExpandButton: {
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.58)",
+  },
+  assistantExpandButtonActive: {
+    borderColor: "#123f38",
+    backgroundColor: "#123f38",
+  },
+  assistantExpandText: {
+    color: "#49645e",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  assistantExpandTextActive: {
+    color: "#fff8e2",
+  },
+  assistantMessageScroll: {
+    height: "46vh",
+    minHeight: 380,
+    maxHeight: 560,
+    backgroundImage:
+      "radial-gradient(circle at 96% 0%, rgba(217, 155, 104, 0.08), transparent 26%), repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.015) 0 1px, transparent 1px 5px)",
+  },
+  assistantMessageScrollExpanded: {
+    height: "62vh",
+    minHeight: 500,
+    maxHeight: 760,
+  },
+  assistantMessageArea: {
+    flexGrow: 1,
+    minHeight: "100%",
+    gap: 14,
+    padding: 20,
+  },
+  assistantBotRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 11,
+  },
+  assistantBotAvatar: {
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: "rgba(217, 155, 104, 0.13)",
+  },
+  assistantBotBubble: {
+    maxWidth: "84%",
+    gap: 6,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.07)",
+    borderRadius: 4,
+    borderTopRightRadius: 16,
+    borderBottomRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.64)",
+  },
+  assistantBotGreeting: {
+    color: "#123f38",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  assistantBotText: {
+    color: "#65716c",
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  assistantResponseCard: {
+    alignSelf: "stretch",
+    gap: 11,
+    marginLeft: 43,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "rgba(46, 112, 88, 0.16)",
+    borderRadius: 16,
+    backgroundColor: "rgba(232, 243, 236, 0.72)",
+  },
+  assistantResponseHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  assistantResponseLabel: {
+    color: "#2e7058",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.9,
+  },
+  assistantResponseCopy: {
+    color: "#294b43",
+    fontSize: 13,
+    lineHeight: 20,
+    whiteSpace: "pre-wrap",
+  },
+  assistantPlanItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(46, 112, 88, 0.12)",
+  },
+  assistantPlanTime: {
+    minWidth: 58,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: "rgba(46, 112, 88, 0.1)",
+  },
+  assistantPlanTimeText: {
+    color: "#2e7058",
+    textAlign: "center",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  assistantPlanCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  assistantPlanTitle: {
+    color: "#294b43",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  assistantPlanMeta: {
+    marginTop: 2,
+    color: "#77817d",
+    fontSize: 10,
+  },
+  assistantAddButton: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 9,
+    backgroundColor: "#123f38",
+  },
+  assistantAddButtonText: {
+    color: "#fff8e2",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  assistantThinkingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginLeft: 43,
+  },
+  assistantThinkingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#d99b68",
+  },
+  assistantThinkingText: {
+    marginLeft: 5,
+    color: "#7a817d",
+    fontSize: 11,
+  },
+  assistantComposerWrap: {
+    gap: 10,
+    padding: 18,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(18, 63, 56, 0.08)",
+  },
+  assistantPromptLabel: {
+    color: "#90958f",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.9,
+  },
+  assistantQuickRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+  },
+  assistantQuickPrompt: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 999,
+    backgroundColor: "rgba(255, 255, 255, 0.55)",
+  },
+  assistantQuickPromptText: {
+    color: "#58706a",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  assistantComposer: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 8,
+    paddingLeft: 13,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.14)",
+    borderRadius: 16,
+    backgroundColor: "#fffdf8",
+    boxShadow: "0 10px 24px rgba(35, 30, 23, 0.06)",
+  },
+  assistantComposerIcon: {
+    width: 24,
+    alignItems: "center",
+  },
+  assistantComposerInput: {
+    flex: 1,
+    minWidth: 0,
+    color: "#123f38",
+    fontSize: 13,
+    outlineStyle: "none",
+  },
+  assistantComposerSend: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 13,
+    backgroundColor: "#123f38",
+    boxShadow: "0 8px 18px rgba(18, 63, 56, 0.2)",
+  },
+  assistantComposerSendDisabled: {
+    opacity: 0.38,
+  },
+  assistantComposerNote: {
+    color: "#969a94",
+    fontSize: 9,
+    textAlign: "center",
+  },
+  assistantSideRail: {
+    flex: 0.9,
+    minWidth: 280,
+    gap: 18,
+  },
+  assistantSideRailPhone: {
+    width: "100%",
+    minWidth: 0,
+  },
+  assistantSideRailHidden: {
+    display: "none",
+  },
+  assistantRailCard: {
+    gap: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.09)",
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 252, 243, 0.86)",
+    boxShadow: "0 14px 38px rgba(35, 30, 23, 0.065)",
+  },
+  assistantRailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  assistantRailEyebrow: {
+    color: "#c97654",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.9,
+  },
+  assistantRailTitle: {
+    marginTop: 4,
+    color: "#123f38",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  assistantRailCount: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "rgba(217, 155, 104, 0.13)",
+  },
+  assistantRailCountText: {
+    color: "#c97654",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  assistantTimelineItem: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 11,
+    minHeight: 65,
+  },
+  assistantTimelineTrack: {
+    width: 16,
+    alignItems: "center",
+  },
+  assistantTimelineDot: {
+    width: 8,
+    height: 8,
+    marginTop: 4,
+    borderWidth: 2,
+    borderColor: "#b9c4bf",
+    borderRadius: 4,
+    backgroundColor: "#fffaf0",
+  },
+  assistantTimelineDotActive: {
+    width: 10,
+    height: 10,
+    borderColor: "#c97654",
+    borderRadius: 5,
+    backgroundColor: "#d99b68",
+    boxShadow: "0 0 0 4px rgba(217, 155, 104, 0.12)",
+  },
+  assistantTimelineLine: {
+    flex: 1,
+    width: 1,
+    marginTop: 4,
+    backgroundColor: "rgba(18, 63, 56, 0.12)",
+  },
+  assistantTimelineCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingBottom: 11,
+  },
+  assistantTimelineTime: {
+    color: "#c97654",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.3,
+  },
+  assistantTimelineTitle: {
+    marginTop: 3,
+    color: "#294b43",
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "900",
+  },
+  assistantTimelineMeta: {
+    marginTop: 3,
+    color: "#888e89",
+    fontSize: 10,
+  },
+  assistantInsightItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(18, 63, 56, 0.075)",
+  },
+  assistantInsightIcon: {
+    width: 34,
+    height: 34,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 11,
+    backgroundColor: "rgba(217, 155, 104, 0.12)",
+  },
+  assistantInsightIconGreen: {
+    backgroundColor: "rgba(46, 112, 88, 0.1)",
+  },
+  assistantInsightCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  assistantInsightTitle: {
+    color: "#294b43",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  assistantInsightText: {
+    marginTop: 3,
+    color: "#888e89",
+    fontSize: 10,
+    lineHeight: 14,
+  },
+  assistantInsightDistance: {
+    color: "#c97654",
+    fontSize: 9,
     fontWeight: "900",
   },
   twoColumnPanel: {

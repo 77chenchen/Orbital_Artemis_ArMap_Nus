@@ -7,6 +7,8 @@ import Dashboard from "./Dashboard";
 import Protected from "./(auth)/Protected";
 import MapScreen from "./Map/map";
 
+const ARScene = React.lazy(() => import("./Map/(ar)/ui"));
+
 export default function App() {
   return (
     <View style={styles.app}>
@@ -60,7 +62,7 @@ class RouteErrorBoundary extends React.Component {
 function AppRoutes() {
   const location = useLocation();
   const path = location.pathname.toLowerCase();
-  const showAgent = path !== "/";
+  const showAgent = path !== "/" && path !== "/ar";
 
   return (
     <>
@@ -90,6 +92,16 @@ function AppRoutes() {
             </ProtectedRouteBoundary>
           }
         />
+        <Route
+          path="/ar"
+          element={
+            <ProtectedRouteBoundary resetKey={location.pathname} title="AR guidance failed to render">
+              <React.Suspense fallback={<RouteLoading title="Loading AR guidance" />}>
+                <ARScene />
+              </React.Suspense>
+            </ProtectedRouteBoundary>
+          }
+        />
       </Routes>
       {showAgent ? <VirtualAgent /> : null}
     </>
@@ -101,6 +113,14 @@ function ProtectedRouteBoundary({ children, resetKey, title }) {
     <RouteErrorBoundary resetKey={resetKey} title={title}>
       <Protected>{children}</Protected>
     </RouteErrorBoundary>
+  );
+}
+
+function RouteLoading({ title }) {
+  return (
+    <View style={styles.loadingView}>
+      <Text style={styles.loadingText}>{title}</Text>
+    </View>
   );
 }
 
@@ -140,6 +160,17 @@ const styles = StyleSheet.create({
   errorActionText: {
     color: "#ffffff",
     fontSize: 14,
+    fontWeight: "800",
+  },
+  loadingView: {
+    minHeight: "100vh",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#091513",
+  },
+  loadingText: {
+    color: "#ffffff",
+    fontSize: 16,
     fontWeight: "800",
   },
 });
