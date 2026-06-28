@@ -75,9 +75,9 @@
     \vspace{0.8cm}
 
     {\Large
-    \underline{\href{https://drive.google.com/file/d/1B5UcRCGAcAKyVRbcdidahgzijwi5iCXE/view?usp=share_link}{M1 Poster Archive}}
+    \underline{\href{https://drive.google.com/file/d/1B5UcRCGAcAKyVRbcdidahgzijwi5iCXE/view?usp=share_link}{M2 Poster Archive}}
     \hspace{0.2cm}
-    \underline{\href{https://drive.google.com/file/d/1aUfzc596i2nhHfXi-s5pa_5XlELzf0YZ/view?usp=share_link}{M1 Video Archive}}
+    \underline{\href{https://drive.google.com/file/d/1aUfzc596i2nhHfXi-s5pa_5XlELzf0YZ/view?usp=share_link}{M2 Video Archive}}
     \hspace{0.2cm}
     \underline{\href{https://orbital-artemis-armap-nus.onrender.com}{App}}
     \hspace{0.2cm}
@@ -156,19 +156,26 @@ M2 submission set & This README complements the separately submitted Project Log
 The M2 stories below are limited to workflows supported by the current prototype. Indoor turn-by-turn routing, verified accessibility paths, emergency data, and community map editing remain future scope and are therefore not presented as completed user stories.
 
 \begin{enumerate}[leftmargin=*]
-    \item As an NUS student, I can register, sign in with email or Google, recover my password, and access protected features so that my campus data is not exposed through an anonymous session.
-    \item As a student opening Atlas before class, I can see my next event, time, location, map preview, and suggested actions on one dashboard so that I can decide what to do without visiting several pages.
+    \item As an NUS student, I can register and sign in with email/password or Google so that I can access protected campus-assistant features through a recognised identity.
+    \item As a registered user, I can recover a forgotten password through my security question or change it after authentication so that I can regain and maintain access to my account.
+    \item As a student opening Atlas before class, I can see my next event, time, location, map preview, recommendations, and shortcuts on one dashboard so that I can decide what to do without visiting several pages.
+    \item As a student looking for campus amenities, I can filter facilities by building and type so that I can quickly find study spaces, lifts, restrooms, or printing services in the seeded campus data.
+    \item As a student organising my day, I can view, create, and delete schedule items so that upcoming classes, meetings, and destinations remain connected to my navigation workflow.
+    \item As a user relying on academic data, I can inspect the latest NUSMods sync status and trigger a manual sync so that I know whether external timetable information is fresh or unavailable.
     \item As a freshman or exchange student, I can search common NUS abbreviations and wider Singapore destinations so that unfamiliar place names do not block navigation.
     \item As a returning user, I can receive destination suggestions based on recent selections, visit frequency, time, and place tags so that repeated searches require fewer steps.
-    \item As a student planning a journey, I can choose walking, transit, driving, or cycling and compare route distance, duration, source, and alternatives so that I can select an appropriate travel mode.
-    \item As a student following a route, I can view origin and destination markers, mode-coloured route segments, live GPS position, and route summaries on the 2D map so that the journey remains understandable at a glance.
-    \item As a mobile user, I can open the selected route in an experimental AR view with heading, progress, next manoeuvre, remaining distance, and off-route feedback so that guidance can remain visible while I move.
-    \item As a student using NUS shuttle buses, I can view shuttle stops, routes, pickup points, estimated arrivals, active vehicles, alerts, and map overlays so that I can decide whether to walk or wait.
-    \item As a student travelling beyond campus, I can inspect nearby Singapore bus stops, bus arrivals, and rail service alerts so that the same application supports the wider journey.
-    \item As a student organising my day, I can create and delete schedule items, filter facilities by building and type, and inspect data-sync status so that navigation is connected to my immediate campus context.
-    \item As a student needing planning help, I can ask the Daily Assistant for a plan, task summary, or reflection and still receive a deterministic fallback if the configured LLM is unavailable.
+    \item As a student starting a journey, I can use my current GPS position as the origin and optionally follow location updates so that I do not need to enter my starting point manually.
+    \item As a student planning a journey, I can choose walking, transit, driving, or cycling so that the route request reflects how I intend to travel.
+    \item As a student comparing journeys, I can inspect route alternatives, provider source, distance, duration, and segment modes so that I can select an appropriate option and understand fallback results.
+    \item As a student following a route, I can view start/end markers, mode-coloured route segments, campus markers, GPS position, and route summaries on the 2D map so that the journey remains understandable at a glance.
+    \item As a mobile user, I can open the selected route in an experimental AR view with heading, progress, next manoeuvre, and remaining distance so that directional guidance stays visible while I move.
+    \item As an AR user, I can see camera/GPS status, manually calibrate heading, and receive measured off-route feedback so that sensor uncertainty is visible instead of being presented as exact positioning.
+    \item As a student using NUS shuttle buses, I can view shuttle stops, routes, pickup points, and route overlays so that I can understand where to board and how a shuttle moves through campus.
+    \item As a student deciding whether to wait for a shuttle, I can view estimated arrivals, active vehicles, service alerts, and the displayed live/demo source so that I can judge the reliability of the transit context.
+    \item As a student travelling beyond campus, I can inspect nearby Singapore bus stops, bus arrivals, and rail service alerts so that the same application supports the wider journey while clearly reporting missing credentials or provider failures.
+    \item As a student needing planning help, I can ask the Daily Assistant for a daily plan, task summary, or reflection and still receive a deterministic fallback if the configured LLM is unavailable.
     \item As a student with different working habits, I can choose an avatar, theme, dashboard density, default page, study style, and route preference so that Atlas opens in a form suited to my routine.
-    \item As an evaluator or user in a restricted environment, I can see whether transit or assistant data is live, configured, fallback, or unavailable so that the prototype does not misrepresent generated or demo information.
+    \item As a student using Atlas while moving, I can access the responsive interface through a mobile browser or Capacitor iOS shell so that authentication, dashboard, map, and assistant workflows remain usable on a phone-sized screen.
 \end{enumerate}
 
 \newpage
@@ -584,22 +591,82 @@ External road refinement fails & The normalised OTP geometry remains the fallbac
 \section*{Experimental AR Route Guidance}
 \addcontentsline{toc}{section}{Experimental AR Route Guidance}
 
-The AR view is an M2 prototype, not a claim of production-grade spatial navigation. When a drawable route is selected, the map creates an AR payload containing route label, travel mode, start/end places, distance, duration, segment modes, and coordinates. The payload is passed through router state and copied to session storage so a browser refresh does not immediately discard it.
+The AR view is an M2 experiment that tests one product hypothesis: whether the route already selected on the 2D map can be presented as glanceable directional guidance over a live camera preview. It is not described as production-grade spatial navigation. The implementation does not yet perform visual localisation, SLAM, world anchoring, depth occlusion, or indoor positioning; route placement is derived from GPS progress and device heading.
 
-\subsection*{Route Mathematics and Progress Tracking}
-\addcontentsline{toc}{subsection}{Route Mathematics and Progress Tracking}
+\subsection*{Design Objective and Route Hand-off}
+\addcontentsline{toc}{subsection}{Design Objective and Route Hand-off}
 
-\texttt{routeMath.js} normalises route points, computes haversine distance and cumulative progress, detects significant turns, converts geographic coordinates into a local metre frame, and finds the nearest point on every route segment. The nearest-segment result provides snapped progress, off-route distance, segment index, and snapped coordinate. The UI treats a distance greater than 35 metres as off-route and derives the next manoeuvre from cumulative progress.
+AR is deliberately the final presentation stage of the existing navigation pipeline rather than a second routing system. After the user selects a drawable route alternative, the AR payload builder packages the route label, selected travel mode, start and destination labels/coordinates, distance, duration, segment metadata, and sanitised geometry. The map refuses to open AR when fewer than two drawable coordinates are available.
 
-This computation is kept independent of Three.js and React state. The separation makes the geometric rules testable without a camera or WebGL renderer and prevents visual code from becoming the source of navigation truth.
+The payload is passed through React Router state for immediate navigation and also written to \texttt{sessionStorage}. \texttt{readRouteData()} prefers fresh router state, then falls back to the stored payload after a refresh or direct revisit. Session storage is used instead of permanent local storage because route geometry is temporary journey state and should disappear when the browsing session ends. The AR module therefore reuses the exact route the user inspected on the map and avoids discrepancies caused by requesting a second route from another provider.
 
-\subsection*{Three.js Camera Overlay}
-\addcontentsline{toc}{subsection}{Three.js Camera Overlay}
+\subsection*{Route Model and Geographic Computation}
+\addcontentsline{toc}{subsection}{Route Model and Geographic Computation}
 
-The AR screen layers a DOM video element behind a transparent Three.js canvas. It renders only a window around the user's progress rather than the complete route, then rotates the route group according to device heading. GPS updates come from \texttt{watchPosition}; compass input comes from device-orientation events; a calibration control aligns heading to the next route segment when sensor readings drift.
+The pure functions in \texttt{routeMath.js} convert provider geometry into a model suitable for progress tracking and rendering:
 
-Permissions and sensor quality are the main constraints. Camera access requires a secure context, GPS accuracy can exceed the width of a campus footpath, and compass drift can rotate the overlay. The prototype therefore exposes camera/GPS status, heading, remaining distance, progress, and off-route distance instead of hiding uncertainty. M3 testing must be performed on real devices and must not rely only on desktop simulation.
+\begin{enumerate}[leftmargin=*]
+    \item Segment coordinates are flattened into one ordered route. Non-numeric coordinates, values outside valid longitude/latitude ranges, and consecutive points closer than approximately 1.5 metres are removed.
+    \item Haversine distance is accumulated between valid points to create a cumulative-distance array and total route length.
+    \item Bearings between segments are compared to detect meaningful turns. A direction change of roughly 28 degrees or more can create a manoeuvre when it is sufficiently separated from the previous instruction; an arrival instruction is appended at the destination.
+    \item Each GPS update is projected onto every route segment in a local metre coordinate frame. The closest projection yields snapped progress, distance from the route, the active segment index, and a snapped coordinate.
+    \item The renderer receives only a moving route window around the current progress---approximately 22 metres behind and 210 metres ahead---instead of drawing the complete route into the AR scene.
+\end{enumerate}
 
+Keeping these calculations independent from React and Three.js has two advantages. First, the same progress result drives the visible route, remaining-distance display, next manoeuvre, and off-route warning. Second, geometric edge cases can be unit-tested without requiring a camera, GPS device, browser permission, or WebGL context.
+
+\subsection*{GPS, Heading, and Progress Feedback}
+\addcontentsline{toc}{subsection}{GPS, Heading, and Progress Feedback}
+
+The browser Geolocation API runs \texttt{watchPosition()} with high-accuracy mode, a one-second maximum cached age, and a 12-second timeout. Every accepted reading updates the raw user coordinate and nearest-route projection. The interface exposes reported GPS accuracy instead of hiding sensor uncertainty. Remaining distance is calculated from total route length minus snapped progress; the next manoeuvre is the first instruction sufficiently ahead of the current position.
+
+Heading is read from the browser's device-orientation events, preferring the absolute-orientation variant when available. Safari's compass heading value is used when present; otherwise the alpha angle is converted into a compass-style heading. A shortest-angle smoothing step applies 18 percent of each new heading delta, reducing abrupt rotation around the 0/360-degree boundary. The calibration control can realign the displayed heading to the bearing of the active route segment when the device compass drifts.
+
+The prototype treats a nearest-route distance above 35 metres as off-route. This threshold is intentionally larger than a typical footpath width because consumer GPS error near buildings can be significant. At M2, the response is a visible warning and distance metric; automatic re-routing has not yet been implemented.
+
+\subsection*{Three.js Camera Overlay and Rendering Lifecycle}
+\addcontentsline{toc}{subsection}{Three.js Camera Overlay and Rendering Lifecycle}
+
+The AR screen combines two browser layers. A DOM \texttt{video} element displays the environment-facing camera stream requested through \texttt{getUserMedia()}, while a transparent, antialiased Three.js WebGL canvas renders navigation graphics above it. If camera access is unavailable or denied, the status changes but the route interface remains usable as a sensor/graphics preview.
+
+The Three.js scene uses a perspective camera, hemisphere and directional lighting, distance fog, and a translucent wireframe ground plane to provide visual depth. Geographic points are converted into local east/north metre offsets relative to the latest user coordinate, scaled for the scene, and rotated by the smoothed heading. The visible route is rendered as a bright green line with white directional arrows; a white ground ring marks the user's local origin. Pixel ratio is capped at two to limit rendering cost on high-density mobile screens.
+
+Route graphics are rebuilt as progress or heading changes. Before replacement, geometries and materials are explicitly disposed. When the component unmounts, the animation frame and resize listener are cancelled, the GPS watcher is cleared, all camera tracks are stopped, the video source is detached, and WebGL resources are disposed. This lifecycle cleanup prevents repeated visits to the AR screen from leaving camera access, listeners, or GPU objects active.
+
+\subsection*{User-visible State and Failure Behaviour}
+\addcontentsline{toc}{subsection}{User-visible State and Failure Behaviour}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{|L{0.28\textwidth}|X|}
+\hline
+\textbf{Condition} & \textbf{Current Prototype Behaviour} \\
+\hline
+No route or fewer than two valid points & Show a ``No route loaded'' state and provide a direct action back to the map. \\
+\hline
+Invalid or duplicate coordinates & Ignore invalid values and collapse near-duplicate consecutive points before distance calculation and rendering. \\
+\hline
+GPS unsupported, denied, or timed out & Keep the screen active, report that GPS is unavailable or permission is needed, and avoid presenting false progress. \\
+\hline
+Camera unsupported or denied & Retain the Three.js guidance interface, expose camera status, and do not treat the failure as a successful live-camera session. \\
+\hline
+Compass unavailable or unstable & Start from the first route bearing and allow manual calibration to the current route segment. \\
+\hline
+More than 35 metres from the route & Display an off-route warning and measured distance; M2 does not silently snap a distant user onto the path. \\
+\hline
+Route refreshed or AR page revisited & Restore the current session's saved route payload when router state is unavailable. \\
+\hline
+AR component closed & Stop camera and GPS activity, cancel animation, remove listeners, and dispose Three.js resources. \\
+\hline
+\end{tabularx}
+\end{center}
+
+\subsection*{Limitations and M3 Validation Plan}
+\addcontentsline{toc}{subsection}{Limitations and M3 Validation Plan}
+
+The visual route is heading-relative rather than anchored to recognised physical landmarks. GPS multipath around buildings, compass interference, device-orientation differences, and camera permission rules can therefore make the overlay drift or rotate incorrectly. The prototype also lacks obstacle awareness, accessible-path constraints, automatic off-route re-planning, indoor floor transitions, and a verified safety model. Users must continue to observe their surroundings and the 2D map remains the authoritative fallback.
+
+M3 validation should use real phones on several NUS outdoor routes rather than desktop-only simulation. Useful measurements include GPS accuracy, heading error after calibration, time until the next instruction is understood, number of wrong turns, frequency of false off-route warnings, battery/rendering impact, and task completion compared with the 2D map. Pure unit tests should cover coordinate normalisation, distance accumulation, turn thresholds, projection onto first/middle/final segments, route-window boundaries, heading wrap-around, and the 35-metre off-route boundary.
 \newpage
 
 \section*{Daily Assistant, Facilities, and Schedule}

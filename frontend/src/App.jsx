@@ -63,6 +63,12 @@ function AppRoutes() {
   const location = useLocation();
   const path = location.pathname.toLowerCase();
   const showAgent = path !== "/" && path !== "/ar";
+  const arScene = (
+    <React.Suspense fallback={<RouteLoading title="Loading AR guidance" />}>
+      <ARScene />
+    </React.Suspense>
+  );
+  const demoAR = path === "/ar" && new URLSearchParams(location.search).get("demo") === "1";
 
   return (
     <>
@@ -95,11 +101,9 @@ function AppRoutes() {
         <Route
           path="/ar"
           element={
-            <ProtectedRouteBoundary resetKey={location.pathname} title="AR guidance failed to render">
-              <React.Suspense fallback={<RouteLoading title="Loading AR guidance" />}>
-                <ARScene />
-              </React.Suspense>
-            </ProtectedRouteBoundary>
+            demoAR
+              ? <RouteErrorBoundary resetKey={location.pathname} title="AR guidance failed to render">{arScene}</RouteErrorBoundary>
+              : <ProtectedRouteBoundary resetKey={location.pathname} title="AR guidance failed to render">{arScene}</ProtectedRouteBoundary>
           }
         />
       </Routes>

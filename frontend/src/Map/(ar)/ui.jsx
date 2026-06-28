@@ -14,11 +14,31 @@ import {
 import { readRouteData, saveRouteData } from "./routeStorage";
 const SCENE_SCALE = 0.72;
 const GROUND_Y = 0;
+const DEMO_ROUTE_DATA = {
+  start: { label: "COM 2", coords: [103.77388, 1.29486] },
+  end: { label: "Central Library", coords: [103.77234, 1.29661] },
+  mode: "WALK",
+  points: [
+    [103.77388, 1.29486],
+    [103.77374, 1.29502],
+    [103.77355, 1.29522],
+    [103.77331, 1.29547],
+    [103.77302, 1.29573],
+    [103.77272, 1.29602],
+    [103.77249, 1.29633],
+    [103.77234, 1.29661],
+  ],
+};
+const DEMO_CAMERA_BACKGROUND = "/output/ar_demo/nus-virtual-camera-background.png";
 
 export default function ARScene() {
   const location = useLocation();
   const navigate = useNavigate();
-  const routeData = useMemo(() => readRouteData(location.state?.routeData), [location.state]);
+  const demoMode = useMemo(() => new URLSearchParams(location.search).get("demo") === "1", [location.search]);
+  const routeData = useMemo(
+    () => (demoMode ? DEMO_ROUTE_DATA : readRouteData(location.state?.routeData)),
+    [demoMode, location.state],
+  );
   const routeModel = useMemo(() => buildRouteModel(routeData), [routeData]);
 
   const canvasRef = useRef(null);
@@ -30,8 +50,8 @@ export default function ARScene() {
   const watchIdRef = useRef(null);
   const streamRef = useRef(null);
 
-  const [cameraStatus, setCameraStatus] = useState("preview");
-  const [trackingStatus, setTrackingStatus] = useState("Waiting for GPS");
+  const [cameraStatus, setCameraStatus] = useState(demoMode ? "virtual camera" : "preview");
+  const [trackingStatus, setTrackingStatus] = useState(demoMode ? "Virtual GPS · Singapore" : "Waiting for GPS");
   const [userCoordinate, setUserCoordinate] = useState(routeData.start?.coords || routeModel.points[0] || null);
   const [routeState, setRouteState] = useState(() => ({
     progress: 0,
@@ -82,6 +102,13 @@ export default function ARScene() {
   }, [routeModel, routeState.progress, userCoordinate, heading]);
 
   useEffect(() => {
+    if (demoMode) {
+      const coordinate = DEMO_ROUTE_DATA.points[1];
+      setUserCoordinate(coordinate);
+      setRouteState(nearestProgressOnRoute(routeModel, coordinate));
+      return undefined;
+    }
+
     if (!navigator.geolocation || routeModel.points.length < 2) {
       setTrackingStatus("GPS unavailable");
       return undefined;
@@ -115,7 +142,7 @@ export default function ARScene() {
         watchIdRef.current = null;
       }
     };
-  }, [routeModel]);
+  }, [demoMode, routeModel]);
 
   useEffect(() => {
     const onOrientation = (event) => {
@@ -185,12 +212,21 @@ export default function ARScene() {
 
   return (
     <View style={styles.screen}>
-      {createElement("video", {
-        ref: videoRef,
-        muted: true,
-        playsInline: true,
-        style: domStyles.video,
-      })}
+      {demoMode
+        ? createElement("img", {
+            src: DEMO_CAMERA_BACKGROUND,
+            alt: "Synthetic NUS campus camera preview",
+            style: domStyles.demoBackground,
+          })
+        : null}
+      {!demoMode
+        ? createElement("video", {
+            ref: videoRef,
+            muted: true,
+            playsInline: true,
+            style: domStyles.video,
+          })
+        : null}
       {createElement("canvas", {
         ref: canvasRef,
         style: domStyles.canvas,
@@ -356,11 +392,16 @@ function updateRouteGroup({ model, routeGroup, userMarker, userCoordinate, progr
   routeGroup.clear();
 
   if (localPoints.length >= 2) {
+    const routeCurve = new THREE.CatmullRomCurve3(localPoints, false, "centripetal");
+    const routeRibbon = new THREE.Mesh(
+      new THREE.TubeGeometry(routeCurve, Math.max(24, localPoints.length * 5), 0.085, 8, false),
+      new THREE.MeshBasicMaterial({ color: 0x35f6bd, transparent: true, opacity: 0.92 }),
+    );
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints(localPoints),
       new THREE.LineBasicMaterial({ color: 0x35f6bd, linewidth: 4, transparent: true, opacity: 0.98 }),
     );
-    routeGroup.add(line);
+    routeGroup.add(routeRibbon, line);
 
     for (let index = 1; index < localPoints.length; index += Math.max(2, Math.floor(localPoints.length / 8))) {
       const current = localPoints[index];
@@ -612,6 +653,13 @@ const styles = StyleSheet.create({
 });
 
 const domStyles = {
+  demoBackground: {
+    position: "fixed",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
   video: {
     position: "fixed",
     inset: 0,

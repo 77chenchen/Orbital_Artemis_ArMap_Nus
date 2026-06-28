@@ -14,6 +14,7 @@ import MapScreen from "./Map/map";
 import teamLogo from "./assets/brand/team_logo.jpg";
 
 const PENDING_DASHBOARD_SECTION_KEY = "atlas.pendingDashboardSection";
+const SIDEBAR_COLLAPSED_KEY = "atlas.sidebarCollapsed";
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: "home" },
@@ -128,6 +129,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(() => readStoredProfile());
   const [personalSettings, setPersonalSettings] = useState(() => readPersonalSettings());
   const [profileSettingsOpen, setProfileSettingsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readSidebarCollapsed());
   const { width } = useWindowDimensions();
 
   const compact = width < 980;
@@ -192,6 +194,19 @@ export default function Dashboard() {
     setProfile(readStoredProfile());
     setPersonalSettings(readPersonalSettings());
   }, []);
+
+  useEffect(() => {
+    if (compact) setSidebarCollapsed(true);
+  }, [compact]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "true" : "false");
+    } catch {
+      // The in-memory preference still works when storage is unavailable.
+    }
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -600,6 +615,11 @@ export default function Dashboard() {
         }}
         onChangePassword={changePassword}
         compact={compact}
+        collapsed={sidebarCollapsed}
+        onCollapse={() => {
+          setProfileSettingsOpen(false);
+          setSidebarCollapsed(true);
+        }}
       />
       <View
         style={[
@@ -608,6 +628,17 @@ export default function Dashboard() {
           personalSettings.theme === "night" && styles.mainThemeNight,
         ]}
       >
+        {sidebarCollapsed ? (
+          <Pressable
+            accessibilityLabel="Show navigation sidebar"
+            accessibilityRole="button"
+            dataSet={{ testid: "sidebar-expand" }}
+            onPress={() => setSidebarCollapsed(false)}
+            style={styles.sidebarReveal}
+          >
+            <SidebarToggleIcon collapsed />
+          </Pressable>
+        ) : null}
         <DashboardSectionBoundary section={activeSection} onOpenSection={setActiveSection}>
           <DashboardSectionContent render={renderMain} />
         </DashboardSectionBoundary>
@@ -679,20 +710,36 @@ function Sidebar({
   onSaveSettings,
   onChangePassword,
   compact,
+  collapsed,
+  onCollapse,
 }) {
   const initials = initialsFromProfile(profile);
   const meta = profile.email || (profile.provider === "demo" ? "Demo mode" : "Signed in");
 
   return (
-    <View style={[styles.sidebar, compact && styles.sidebarCompact]}>
+    <View
+      accessibilityElementsHidden={collapsed}
+      dataSet={{ testid: "dashboard-sidebar", collapsed: collapsed ? "true" : "false" }}
+      pointerEvents={collapsed ? "none" : "auto"}
+      style={[styles.sidebar, compact && styles.sidebarCompact, collapsed && styles.sidebarCollapsed]}
+    >
       <View style={styles.brand}>
         <View style={styles.logoMark}>
           <Image source={{ uri: teamLogo }} style={styles.logoImage} resizeMode="cover" />
         </View>
-        <View>
+        <View style={styles.brandCopy}>
           <Text style={styles.brandName}>Artemis</Text>
           <Text style={styles.brandSub}>Campus navigation</Text>
         </View>
+        <Pressable
+          accessibilityLabel="Hide navigation sidebar"
+          accessibilityRole="button"
+          dataSet={{ testid: "sidebar-collapse" }}
+          onPress={onCollapse}
+          style={styles.sidebarCollapseButton}
+        >
+          <SidebarToggleIcon />
+        </Pressable>
       </View>
 
       <View style={styles.navList}>
@@ -1081,6 +1128,23 @@ function SidebarIcon({ name, active }) {
   );
 }
 
+function SidebarToggleIcon({ collapsed = false }) {
+  return (
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24">
+      <rect x="3.5" y="4" width="17" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 4v16" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d={collapsed ? "m13 9 3 3-3 3" : "m16 9-3 3 3 3"}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function TopBar({ compact, searchQuery, setSearchQuery, onOpenSection, profile, personalSettings }) {
   const displayName = personalSettings.preferredName || profile.name;
   const firstName = displayName.split(" ")[0] || "there";
@@ -1135,6 +1199,15 @@ function readStoredProfile() {
 
   const tokenProfile = readJwtPayload(token);
   return normalizeProfile(tokenProfile || fallbackProfile);
+}
+
+function readSidebarCollapsed() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
 }
 
 function readPersonalSettings() {
@@ -2368,16 +2441,44 @@ const styles = StyleSheet.create({
     backgroundImage:
       "radial-gradient(circle at 24% 9%, rgba(217, 155, 104, 0.22), transparent 28%), radial-gradient(circle at 88% 34%, rgba(120, 208, 177, 0.14), transparent 30%), linear-gradient(155deg, #123b3d 0%, #1f4b43 54%, #423d33 100%)",
     boxShadow: "inset -1px 0 0 rgba(255, 243, 208, 0.1)",
+    transitionProperty: "width, min-height, padding, opacity",
+    transitionDuration: "220ms",
   },
   sidebarCompact: {
     width: "100%",
     minHeight: "100vh",
+  },
+  sidebarCollapsed: {
+    width: 0,
+    height: 0,
+    minHeight: 0,
+    gap: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    overflow: "hidden",
+    opacity: 0,
   },
   brand: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
     marginBottom: 18,
+  },
+  brandCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sidebarCollapseButton: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: "rgba(255, 243, 208, 0.2)",
+    borderRadius: 12,
+    color: "#fff3d0",
+    backgroundColor: "rgba(255, 248, 226, 0.08)",
   },
   logoMark: {
     width: 54,
@@ -2786,6 +2887,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 249, 236, 0.72)",
     backgroundImage:
       "repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(18, 78, 69, 0.08), transparent 28%), radial-gradient(circle at 20% 86%, rgba(217, 155, 104, 0.1), transparent 30%)",
+  },
+  sidebarReveal: {
+    position: "absolute",
+    zIndex: 30,
+    top: 18,
+    left: 18,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.18)",
+    borderRadius: 14,
+    color: "#123f38",
+    backgroundColor: "rgba(255, 248, 232, 0.94)",
+    boxShadow: "0 12px 30px rgba(18, 50, 46, 0.18)",
   },
   mainThemeSunrise: {
     backgroundColor: "rgba(255, 246, 236, 0.78)",
