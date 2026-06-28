@@ -22,6 +22,10 @@ export default function RoutingForm({
   travelModes = [],
   travelMode,
   setTravelMode,
+  routeReady = false,
+  onOpenAR,
+  onUseCurrentLocation,
+  currentLocationLoading = false,
 }) {
   return (
     <View style={styles.routingContainer}>
@@ -107,6 +111,36 @@ export default function RoutingForm({
           </View>
         ) : null}
 
+        <View style={styles.routeActions}>
+          <button
+            type="button"
+            aria-label="Use current location as starting point"
+            disabled={currentLocationLoading}
+            onClick={onUseCurrentLocation}
+            style={webStyle(styles.secondaryAction, currentLocationLoading && styles.actionDisabled)}
+          >
+            <span style={webStyle(styles.secondaryActionText, currentLocationLoading && styles.actionDisabledText)}>
+              {currentLocationLoading ? "Locating..." : "Use location"}
+            </span>
+          </button>
+
+          <a
+            href={routeReady ? "/ar" : "#"}
+            aria-label="Open AR route guidance"
+            aria-disabled={!routeReady}
+            onClick={(event) => {
+              if (!routeReady) {
+                event.preventDefault();
+                return;
+              }
+              onOpenAR?.(event);
+            }}
+            style={webStyle(styles.arAction, !routeReady && styles.actionDisabled)}
+          >
+            <span style={webStyle(styles.arActionText, !routeReady && styles.actionDisabledText)}>AR</span>
+          </a>
+        </View>
+
         {showDropdown ? (
           <SelectList
             items={suggestions}
@@ -137,6 +171,10 @@ export default function RoutingForm({
       </View>
     </View>
   );
+}
+
+function webStyle(...styles) {
+  return Object.assign({}, ...styles.filter(Boolean).map((style) => StyleSheet.flatten(style)));
 }
 
 const styles = StyleSheet.create({
@@ -257,5 +295,50 @@ const styles = StyleSheet.create({
   },
   modeButtonTextActive: {
     color: "#1d4ed8",
+  },
+  routeActions: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    backgroundColor: "#ffffff",
+  },
+  secondaryAction: {
+    flex: 1,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#cdd8d3",
+    backgroundColor: "#f8fbfa",
+  },
+  secondaryActionText: {
+    color: "#143431",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  arAction: {
+    width: 78,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    display: "flex",
+    borderRadius: 8,
+    backgroundColor: "#143431",
+    textDecorationLine: "none",
+  },
+  arActionText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  actionDisabled: {
+    opacity: 0.48,
+  },
+  actionDisabledText: {
+    color: "#70827c",
   },
 });
