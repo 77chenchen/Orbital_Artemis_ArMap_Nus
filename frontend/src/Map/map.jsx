@@ -1370,8 +1370,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   routeSummary: {
-    position: "absolute",
-    top: 244,
+    position: "relative",
+    top: 320,
     left: 20,
     zIndex: 40,
     width: 360,
