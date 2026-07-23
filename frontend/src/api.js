@@ -98,7 +98,7 @@ const demoRecommendations = [
 const demoAssistantReply = {
   success: false,
   reply:
-    'Assistant fallback:\n1. Review your next scheduled item.\n2. Pick one priority that fits the available time.\n3. Leave a travel buffer before moving across campus.\n4. Add the suggested focus block if it fits.',
+    'Atlas Day Hub fallback:\n1. Review your next scheduled item.\n2. Pick one priority that fits the available time.\n3. Leave a travel buffer before moving across campus.\n4. Add the suggested focus block if it fits.',
   scheduleItems: [
     {
       title: 'Focus block',
@@ -186,7 +186,7 @@ let demoSyncStatus = {
 
 async function request(path, options = {}) {
   const token = localStorage.getItem("token");
-  if (token === "demo-mode" && !path.startsWith('/bus/') && !path.startsWith('/sg/') && !path.startsWith('/otp/') && path !== '/agent/daily-assistant') {
+  if (token === "demo-mode" && !path.startsWith('/bus/') && !path.startsWith('/sg/') && !path.startsWith('/otp/')) {
     return demoRequest(path, options);
   }
 
@@ -204,6 +204,9 @@ async function request(path, options = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Your login session has expired. Please sign in again.');
+    }
     throw new Error(data.error || `Request failed with ${response.status}`);
   }
 
@@ -295,7 +298,11 @@ function demoRequest(path, options = {}) {
     return Promise.resolve(demoSyncStatus);
   }
   if (path === '/agent/daily-assistant' && options.method === 'POST') {
-    return Promise.resolve(demoAssistantReply);
+    const body = JSON.parse(options.body || '{}');
+    return Promise.resolve({
+      ...demoAssistantReply,
+      actions: demoActionsFromMessage(body.message || ''),
+    });
   }
   if (path === '/password/change' && options.method === 'POST') {
     return Promise.resolve({ message: 'demo password change skipped' });
@@ -339,6 +346,108 @@ export const api = {
   runSync: () => request('/sync/run', { method: 'POST' }),
   changePassword: (payload) =>
     request('/password/change', { method: 'POST', body: JSON.stringify(payload) }),
-  dailyAssistant: (payload) =>
-    request('/agent/daily-assistant', { method: 'POST', body: JSON.stringify(payload) }),
+  dailyAssistant: async (payload) => {
+    try {
+      return await request('/agent/daily-assistant', { method: 'POST', body: JSON.stringify(payload) });
+    } catch (error) {
+      if (/401|invalid token|missing token|session has expired/i.test(error?.message || '')) {
+        return {
+          ...demoAssistantReply,
+          success: true,
+          reply: `${demoAssistantReply.reply}\n\nYour login session has expired. Sign in again to restore personalised answers.`,
+          error: '',
+          provider: 'session-fallback',
+        };
+      }
+      throw error;
+    }
+  },
 };
+
+function demoActionsFromMessage(message) {
+  const text = String(message || '').toLowerCase();
+  const actions = [];
+  if (text.includes('sync') || text.includes('同步')) {
+    actions.push({ type: 'run_sync', label: 'Run sync', payload: {} });
+  }
+  if (text.includes('map') || text.includes('route') || text.includes('导航') || text.includes('地图')) {
+    actions.push({ type: 'open_map', label: 'Open map', payload: {} });
+  }
+  if ((text.includes('open') || text.includes('打开')) && (text.includes('calendar') || text.includes('日历'))) {
+    actions.push({ type: 'ios_open_app', label: 'Open Calendar', payload: { app: 'Calendar', intent: 'open_app', url: 'calshow://' } });
+  }
+  if ((text.includes('open') || text.includes('打开')) && (text.includes('note') || text.includes('notes') || text.includes('备忘录'))) {
+    actions.push({ type: 'ios_open_app', label: 'Open Notes', payload: { app: 'Notes', intent: 'open_app', url: 'mobilenotes://' } });
+  }
+  if (text.includes('project') || text.includes('项目')) {
+    actions.push({
+      type: 'create_project',
+      label: 'Create project',
+      payload: {
+        title: message.replace(/^(new|create|add|新建|创建|添加)\s*/i, '').trim() || 'New project',
+        location: 'COM1',
+        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        notes: 'Created from demo Atlas Day Hub command',
+      },
+    });
+  }
+  if (text.includes('schedule') || text.includes('calendar') || text.includes('日历') || text.includes('任务')) {
+    actions.push({
+      type: 'create_schedule',
+      label: 'Create schedule item',
+      payload: {
+        title: message.replace(/^(new|create|add|新建|创建|添加)\s*/i, '').trim() || 'Assistant task',
+        moduleCode: 'TASK',
+        location: 'COM1',
+        startAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        endAt: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(),
+        notes: 'Created from demo Atlas Day Hub command',
+      },
+    });
+    if (text.includes('ios') || text.includes('iphone') || text.includes('calendar') || text.includes('日历')) {
+      const payload = actions[actions.length - 1].payload;
+      actions.push(demoIOSAction('ios_calendar', 'Calendar', 'Atlas Add Calendar Event', [
+        'Create Calendar event',
+        `title: ${payload.title}`,
+        `start: ${payload.startAt}`,
+        `end: ${payload.endAt}`,
+        `location: ${payload.location}`,
+        `notes: ${payload.notes}`,
+      ].join('\n')));
+    }
+  }
+  if (text.includes('reminder') || text.includes('reminders') || text.includes('提醒')) {
+    const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    actions.push(demoIOSAction('ios_reminder', 'Reminders', 'Atlas Add Reminder', [
+      'Create Reminder',
+      `title: ${message.replace(/^(new|create|add|新建|创建|添加)\s*/i, '').trim() || 'Atlas reminder'}`,
+      `due: ${dueAt}`,
+    ].join('\n'), { dueAt }));
+  }
+  if (text.includes('note') || text.includes('notes') || text.includes('备忘录') || text.includes('笔记')) {
+    actions.push(demoIOSAction('ios_note', 'Notes', 'Atlas Add Note', [
+      'Create Note',
+      `title: ${message.replace(/^(new|create|add|新建|创建|添加)\s*/i, '').trim() || 'Atlas note'}`,
+      `body: ${message}`,
+    ].join('\n')));
+  }
+  return actions.slice(0, 4);
+}
+
+function demoIOSAction(type, app, shortcutName, command, extraPayload = {}) {
+  const url = `shortcuts://run-shortcut?name=${encodeURIComponent(shortcutName)}&input=text&text=${encodeURIComponent(command)}`;
+  return {
+    type,
+    label: `Prepare iOS ${app}`,
+    payload: {
+      app,
+      intent: type.replace('ios_', ''),
+      command,
+      clipboardText: command,
+      shortcutName,
+      url,
+      requiresShortcut: true,
+      ...extraPayload,
+    },
+  };
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -15,11 +15,13 @@ import teamLogo from "./assets/brand/team_logo.jpg";
 
 const PENDING_DASHBOARD_SECTION_KEY = "atlas.pendingDashboardSection";
 const SIDEBAR_COLLAPSED_KEY = "atlas.sidebarCollapsed";
+const ASSISTANT_HISTORY_KEY = "atlas.chatHistory";
+const LEGACY_ASSISTANT_HISTORY_KEY = "artemis.chatHistory";
 
 const navItems = [
   { key: "dashboard", label: "Dashboard", icon: "home" },
   { key: "map", label: "AR Map", icon: "route" },
-  { key: "recommendations", label: "Daily Assistant", icon: "spark" },
+  { key: "recommendations", label: "Atlas Day Hub", icon: "spark" },
   { key: "schedule", label: "Schedule", icon: "calendar" },
   { key: "facilities", label: "Facilities", icon: "building" },
   { key: "inbox", label: "Inbox", icon: "inbox" },
@@ -122,6 +124,7 @@ export default function Dashboard() {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantError, setAssistantError] = useState("");
   const [assistantAddingKey, setAssistantAddingKey] = useState("");
+  const [assistantFullscreen, setAssistantFullscreen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -339,6 +342,18 @@ export default function Dashboard() {
           })),
           recommendations: recommendations.slice(0, 5),
           syncStatus: syncStatus?.status || "never_run",
+          allowedActions: [
+            "navigate_section",
+            "open_map",
+            "create_schedule",
+            "create_project",
+            "run_sync",
+            "ios_calendar",
+            "ios_reminder",
+            "ios_note",
+            "ios_open_app",
+          ],
+          defaultLocation: buildings[0]?.code || "COM1",
           personalSettings,
           campusSignal: {
             buildings: buildings.length,
@@ -347,8 +362,12 @@ export default function Dashboard() {
           },
         },
       });
-      setAssistantResponse(response);
+      const actionResults = await executeAssistantActions(response.actions || []);
+      setAssistantResponse({ ...response, actionResults });
       if (!response.success) setAssistantError(response.error || "Assistant returned a fallback response.");
+      if (actionResults.length > 0) {
+        setNotice(actionResults.map((result) => result.message).join(" "));
+      }
     } catch (err) {
       setAssistantError(err.message);
       setAssistantResponse({
@@ -359,6 +378,19 @@ export default function Dashboard() {
     } finally {
       setAssistantLoading(false);
     }
+  }
+
+  function startNewAssistantChat() {
+    setAssistantMessage("");
+    setAssistantResponse(null);
+    setAssistantError("");
+    setAssistantAddingKey("");
+  }
+
+  function openAssistantChat(chat) {
+    setAssistantMessage(chat.prompt || "");
+    setAssistantResponse(chat.response || null);
+    setAssistantError("");
   }
 
   async function addAssistantScheduleItem(item, index) {
@@ -373,7 +405,7 @@ export default function Dashboard() {
         location: item.location || buildings[0]?.code || "COM1",
         startAt: new Date(item.startAt).toISOString(),
         endAt: new Date(item.endAt).toISOString(),
-        notes: item.notes || "Added from Daily Assistant",
+        notes: item.notes || "Added from Atlas Day Hub",
       });
       const [scheduleData, recData] = await Promise.all([api.schedule(), api.recommendations()]);
       setSchedule(scheduleData);
@@ -392,6 +424,62 @@ export default function Dashboard() {
     } finally {
       setAssistantAddingKey("");
     }
+  }
+
+  async function executeAssistantActions(actions = []) {
+    if (!Array.isArray(actions) || actions.length === 0) return [];
+
+    const results = [];
+    let shouldRefreshSchedule = false;
+
+    for (const action of actions.slice(0, 5)) {
+      const type = String(action?.type || "").toLowerCase();
+      const payload = action?.payload || {};
+      try {
+        if (type === "navigate_section") {
+          const section = normalizeDashboardSection(payload.section);
+          if (!section) continue;
+          setActiveSection(section);
+          results.push({ type, message: `Opened ${section}.` });
+        } else if (type === "open_map") {
+          setActiveSection("map");
+          results.push({ type, message: payload.destination ? `Opened map for ${payload.destination}.` : "Opened map." });
+        } else if (type === "create_schedule") {
+          await api.createSchedule(schedulePayloadFromAgent(payload, buildings[0]?.code || "COM1"));
+          shouldRefreshSchedule = true;
+          results.push({ type, message: `Added ${payload.title || "schedule item"}.` });
+        } else if (type === "create_project") {
+          await api.createSchedule(projectPayloadFromAgent(payload, buildings[0]?.code || "COM1"));
+          shouldRefreshSchedule = true;
+          setActiveSection("tasks");
+          results.push({ type, message: `Created project ${payload.title || "New project"}.` });
+        } else if (type === "run_sync") {
+          const status = await api.runSync();
+          setSyncStatus(status);
+          results.push({ type, message: `Sync ${status.status}; ${status.recordsSeen ?? 0} records seen.` });
+        } else if (isIOSSystemAction(type)) {
+          const command = buildIOSCommand(action);
+          results.push({
+            type,
+            message: `${command.app} command prepared.`,
+            command,
+          });
+        }
+      } catch (err) {
+        results.push({
+          type,
+          message: `${action?.label || type || "Action"} failed: ${err instanceof Error ? err.message : "unknown error"}.`,
+        });
+      }
+    }
+
+    if (shouldRefreshSchedule) {
+      const [scheduleData, recData] = await Promise.all([api.schedule(), api.recommendations()]);
+      setSchedule(scheduleData);
+      setRecommendations(recData);
+    }
+
+    return results;
   }
 
   function renderMain() {
@@ -478,13 +566,21 @@ export default function Dashboard() {
     }
 
     return (
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.sectionBody, phone && styles.sectionBodyPhone]}>
-        <SectionHeader
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.sectionBody,
+          activeSection === "recommendations" && styles.assistantSectionBody,
+          activeSection === "recommendations" && assistantFullscreen && styles.assistantSectionBodyFullscreen,
+          phone && styles.sectionBodyPhone,
+        ]}
+      >
+        {activeSection !== "recommendations" ? <SectionHeader
           title={sectionTitle(activeSection)}
           subtitle={sectionSubtitle(activeSection)}
-          action={activeSection === "sync" ? "Run sync" : activeSection === "recommendations" ? "Refresh" : ""}
+          action={activeSection === "sync" ? "Run sync" : ""}
           onAction={activeSection === "sync" ? runSync : loadAll}
-        />
+        /> : null}
         {(notice || error) && (
           <View style={[styles.notice, error && styles.noticeError]}>
             <Text style={[styles.noticeText, error && styles.noticeErrorText]}>{error || notice}</Text>
@@ -503,11 +599,15 @@ export default function Dashboard() {
             assistantAddingKey={assistantAddingKey}
             onSubmit={submitDailyAssistant}
             onAddSchedule={addAssistantScheduleItem}
+            onNewChat={startNewAssistantChat}
+            onSelectChat={openAssistantChat}
             recommendations={recommendations}
             schedule={sortedSchedule}
             buildingByCode={buildingByCode}
             compact={compact}
             phone={phone}
+            fullscreen={assistantFullscreen}
+            setFullscreen={setAssistantFullscreen}
           />
         )}
 
@@ -624,6 +724,7 @@ export default function Dashboard() {
       <View
         style={[
           styles.main,
+          activeSection === "recommendations" && styles.assistantMain,
           personalSettings.theme === "sunrise" && styles.mainThemeSunrise,
           personalSettings.theme === "night" && styles.mainThemeNight,
         ]}
@@ -682,7 +783,7 @@ class DashboardSectionBoundary extends React.Component {
             <Text style={styles.primaryButtonText}>Try again</Text>
           </Pressable>
           <Pressable onPress={() => this.props.onOpenSection?.("recommendations")} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Open Daily Assistant</Text>
+            <Text style={styles.secondaryButtonText}>Open Atlas Day Hub</Text>
           </Pressable>
           <Pressable onPress={() => this.props.onOpenSection?.("dashboard")} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
@@ -728,7 +829,7 @@ function Sidebar({
           <Image source={{ uri: teamLogo }} style={styles.logoImage} resizeMode="cover" />
         </View>
         <View style={styles.brandCopy}>
-          <Text style={styles.brandName}>Artemis</Text>
+          <Text style={styles.brandName}>Atlas</Text>
           <Text style={styles.brandSub}>Campus navigation</Text>
         </View>
         <Pressable
@@ -851,7 +952,7 @@ function ProfileSettingsPopover({ profile, settings, onSave, onClose, onChangePa
       <View style={styles.popoverHeader}>
         <View>
           <Text style={styles.popoverKicker}>Personalization</Text>
-          <Text style={styles.popoverTitle}>Your Artemis setup</Text>
+          <Text style={styles.popoverTitle}>Your Atlas setup</Text>
         </View>
         <Pressable accessibilityRole="button" onClick={onClose} onPress={onClose} style={styles.iconTextButton}>
           <Text style={styles.iconTextButtonText}>x</Text>
@@ -1378,8 +1479,8 @@ function AssistantCard(props) {
           <Text style={styles.assistantSparkText}>*</Text>
         </View>
         <View>
-          <Text style={styles.assistantTitle}>Daily Assistant</Text>
-          <Text style={styles.assistantSubtitle}>Your AI companion for campus life</Text>
+          <Text style={styles.assistantTitle}>Atlas Day Hub</Text>
+          <Text style={styles.assistantSubtitle}>Plans, routes, and system handoffs</Text>
         </View>
       </View>
       <View style={styles.chipRow}>
@@ -1395,7 +1496,7 @@ function AssistantCard(props) {
       <View style={styles.assistantContent}>
         <View style={styles.assistantChat}>
           <View style={styles.assistantBubble}>
-            <Text style={styles.assistantBubbleText}>Hi Qichen! Here's your plan for today.</Text>
+            <Text style={styles.assistantBubbleText}>Command-ready context for today</Text>
             {(previewTasks.length ? previewTasks : sampleTasks()).map((task, index) => (
               <View key={`${task.title}-${index}`} style={styles.checkItem}>
                 <View style={styles.checkBox} />
@@ -1407,7 +1508,7 @@ function AssistantCard(props) {
             <TextInput
               value={props.assistantMessage}
               onChangeText={props.setAssistantMessage}
-              placeholder="Ask me anything..."
+              placeholder="Tell Atlas what to handle..."
               placeholderTextColor="#9a958e"
               style={styles.askInput}
             />
@@ -1422,6 +1523,10 @@ function AssistantCard(props) {
           {props.assistantResponse && (
             <View style={styles.responseBox}>
               <Text style={styles.responseText}>{props.assistantResponse.reply}</Text>
+              <AssistantSystemCommandList actions={props.assistantResponse.actions || []} compact />
+              {(props.assistantResponse.actionResults || []).map((result, index) => (
+                <Text key={`${result.type}-${index}`} style={styles.assistantHint}>{result.message}</Text>
+              ))}
               {(props.assistantResponse.scheduleItems || []).map((item, index) => {
                 const key = `${item.title}-${item.startAt}-${index}`;
                 return (
@@ -1616,7 +1721,18 @@ function FocusTimer({ style }) {
 }
 
 function AssistantFull(props) {
-  const [expanded, setExpanded] = useState(false);
+  const expanded = Boolean(props.fullscreen);
+  const [activeChatId, setActiveChatId] = useState("");
+  const suppressHistorySaveRef = useRef(false);
+  const [chatHistory, setChatHistory] = useState(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = window.localStorage.getItem(ASSISTANT_HISTORY_KEY) || window.localStorage.getItem(LEGACY_ASSISTANT_HISTORY_KEY) || "[]";
+      return JSON.parse(stored);
+    } catch {
+      return [];
+    }
+  });
   const today = new Intl.DateTimeFormat("en-SG", {
     weekday: "long",
     day: "numeric",
@@ -1625,13 +1741,68 @@ function AssistantFull(props) {
   const upcoming = props.schedule.slice(0, 4);
   const recommendations = (props.recommendations.length ? props.recommendations : sampleRecommendations()).slice(0, 3);
   const quickPrompts = [
-    "Plan my day around my classes",
-    "Where can I study nearby?",
-    "Summarise my priority tasks",
+    "Create an iOS Calendar block for project work tomorrow",
+    "Add a reminder to review Orbital notes tonight",
+    "Open the map and route me to my next stop",
   ];
 
+  useEffect(() => {
+    if (!props.assistantResponse || !props.assistantMessage.trim()) return;
+    if (suppressHistorySaveRef.current) {
+      suppressHistorySaveRef.current = false;
+      return;
+    }
+    const entry = {
+      id: `${Date.now()}`,
+      title: props.assistantMessage.trim().slice(0, 42),
+      prompt: props.assistantMessage.trim(),
+      response: props.assistantResponse,
+      createdAt: new Date().toISOString(),
+    };
+    setChatHistory((current) => {
+      if (current[0]?.prompt === entry.prompt && current[0]?.response?.reply === entry.response?.reply) return current;
+      const next = [entry, ...current].slice(0, 30);
+      try { window.localStorage.setItem(ASSISTANT_HISTORY_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setActiveChatId(entry.id);
+  }, [props.assistantResponse]);
+
+  function handleNewChat() {
+    setActiveChatId("");
+    props.onNewChat();
+  }
+
+  function handleSelectChat(chat) {
+    suppressHistorySaveRef.current = true;
+    setActiveChatId(chat.id);
+    props.onSelectChat(chat);
+  }
+
   return (
-    <View style={styles.assistantWorkspace}>
+    <View style={[styles.assistantWorkspace, props.fullscreen && styles.assistantWorkspaceFullscreen, props.phone && styles.assistantWorkspacePhone]}>
+      <View style={[styles.assistantHistory, props.phone && styles.assistantHistoryPhone]}>
+        <Pressable onPress={handleNewChat} style={styles.assistantNewChat}>
+          <Text style={styles.assistantNewChatPlus}>＋</Text>
+          <Text style={styles.assistantNewChatText}>New command</Text>
+        </Pressable>
+        <Text style={styles.assistantHistoryLabel}>RUNS</Text>
+        <ScrollView style={styles.assistantHistoryScroll} showsVerticalScrollIndicator>
+          {chatHistory.length ? chatHistory.map((chat) => (
+            <Pressable
+              key={chat.id}
+              onPress={() => handleSelectChat(chat)}
+              style={[styles.assistantHistoryItem, activeChatId === chat.id && styles.assistantHistoryItemActive]}
+            >
+              <AssistantGlyph name="message" color="#6b6c70" size={15} />
+              <View style={styles.assistantHistoryCopy}>
+                <Text numberOfLines={1} style={styles.assistantHistoryTitle}>{chat.title}</Text>
+                <Text style={styles.assistantHistoryDate}>{new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(chat.createdAt))}</Text>
+              </View>
+            </Pressable>
+          )) : <Text style={styles.assistantHistoryEmpty}>Executed command runs will appear here.</Text>}
+        </ScrollView>
+      </View>
       <View style={[styles.assistantOverview, props.phone && styles.assistantOverviewPhone]}>
         <View style={styles.assistantOverviewGlow} />
         <View style={styles.assistantOverviewTop}>
@@ -1640,9 +1811,9 @@ function AssistantFull(props) {
           </View>
           <View style={styles.assistantOverviewCopy}>
             <Text style={styles.assistantOverviewEyebrow}>{today.toUpperCase()}</Text>
-            <Text style={styles.assistantOverviewTitle}>Let’s make today feel manageable.</Text>
+            <Text style={styles.assistantOverviewTitle}>Atlas Day Hub</Text>
             <Text style={styles.assistantOverviewText}>
-              I can organise your classes, surface the next useful task, and help you move around campus without the usual tab-juggling.
+              Turn one sentence into app navigation, schedule changes, project blocks, and iOS handoff commands.
             </Text>
           </View>
           <View style={styles.assistantLivePill}>
@@ -1659,8 +1830,8 @@ function AssistantFull(props) {
 
       <View style={[styles.assistantModeBar, props.phone && styles.assistantModeBarPhone]}>
         <View>
-          <Text style={styles.assistantModeLabel}>WHAT DO YOU NEED?</Text>
-          <Text style={styles.assistantModeHint}>Choose a focus, then talk naturally.</Text>
+          <Text style={styles.assistantModeLabel}>ATLAS DAY HUB</Text>
+          <Text style={styles.assistantModeHint}>Command surface for campus and iOS workflows</Text>
         </View>
         <View style={[styles.assistantModeChoices, props.phone && styles.assistantModeChoicesPhone]}>
           {assistantModes.map((mode) => (
@@ -1682,12 +1853,34 @@ function AssistantFull(props) {
         </View>
       </View>
 
+      {!props.assistantResponse && !props.assistantLoading ? (
+        <View style={styles.assistantWelcome}>
+          <View style={styles.assistantWelcomeMark}>
+            <AssistantGlyph name="spark" color="#ffffff" size={24} />
+          </View>
+          <Text style={styles.assistantWelcomeTitle}>What should Atlas handle next?</Text>
+          <Text style={styles.assistantWelcomeSubtitle}>Use one sentence. Atlas will return app actions, system handoffs, and the shortest useful plan.</Text>
+          <View style={[styles.assistantWelcomeGrid, props.phone && styles.assistantWelcomeGridPhone]}>
+            {quickPrompts.map((prompt, index) => (
+              <Pressable key={prompt} onPress={() => props.setAssistantMessage(prompt)} style={styles.assistantWelcomeCard}>
+                <View style={styles.assistantWelcomeIcon}>
+                  <AssistantGlyph name={index === 0 ? "calendar" : index === 1 ? "pin" : "check"} color="#c97654" size={18} />
+                </View>
+                <Text style={styles.assistantWelcomeCardText}>{prompt}</Text>
+                <Text style={styles.assistantWelcomeArrow}>↗</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       <View style={[styles.assistantMainGrid, props.compact && styles.assistantMainGridCompact, expanded && styles.assistantMainGridExpanded]}>
         <View
           style={[
             styles.assistantConversation,
             props.phone && styles.assistantConversationPhone,
             expanded && styles.assistantConversationExpanded,
+            props.fullscreen && styles.assistantConversationFullscreen,
           ]}
         >
           <View style={styles.assistantConversationHeader}>
@@ -1696,8 +1889,8 @@ function AssistantFull(props) {
                 <AssistantGlyph name="spark" color="#fff8e2" size={15} />
               </View>
               <View>
-                <Text style={styles.assistantConversationTitle}>Artemis</Text>
-                <Text style={styles.assistantConversationMeta}>Campus copilot · online now</Text>
+                <Text style={styles.assistantConversationTitle}>Atlas command layer</Text>
+                <Text style={styles.assistantConversationMeta}>App actions + iOS handoff</Text>
               </View>
             </View>
             <View style={styles.assistantConversationActions}>
@@ -1705,7 +1898,7 @@ function AssistantFull(props) {
               <Pressable
                 accessibilityLabel={expanded ? "Collapse assistant" : "Expand assistant"}
                 accessibilityRole="button"
-                onPress={() => setExpanded((current) => !current)}
+                onPress={() => props.setFullscreen?.(!props.fullscreen)}
                 style={[styles.assistantExpandButton, expanded && styles.assistantExpandButtonActive]}
               >
                 <AssistantGlyph name={expanded ? "collapse" : "expand"} color={expanded ? "#fff8e2" : "#49645e"} size={17} />
@@ -1718,20 +1911,25 @@ function AssistantFull(props) {
 
           <ScrollView
             testID="assistant-message-scroll"
-            style={[styles.assistantMessageScroll, expanded && styles.assistantMessageScrollExpanded]}
+            style={[
+              styles.assistantMessageScroll,
+              !props.assistantResponse && !props.assistantLoading && styles.assistantMessageScrollEmpty,
+              expanded && styles.assistantMessageScrollExpanded,
+              props.fullscreen && styles.assistantMessageScrollFullscreen,
+            ]}
             contentContainerStyle={styles.assistantMessageArea}
             showsVerticalScrollIndicator
           >
-            <View style={styles.assistantBotRow}>
+            <View style={[styles.assistantBotRow, !props.assistantResponse && !props.assistantLoading && styles.assistantBotRowIntro]}>
               <View style={styles.assistantBotAvatar}>
                 <AssistantGlyph name="spark" color="#c97654" size={15} />
               </View>
               <View style={styles.assistantBotBubble}>
-                <Text style={styles.assistantBotGreeting}>Good morning! I’ve looked over your day.</Text>
+                <Text style={styles.assistantBotGreeting}>Atlas has your current day context.</Text>
                 <Text style={styles.assistantBotText}>
                   {upcoming.length
-                    ? `You have ${upcoming.length} upcoming ${upcoming.length === 1 ? "item" : "items"}. We can build a realistic plan around ${upcoming[0].title || "your next class"}.`
-                    : "Your calendar is open. Tell me what you want to accomplish and I’ll turn it into a practical campus plan."}
+                    ? `There are ${upcoming.length} upcoming ${upcoming.length === 1 ? "item" : "items"}. I can route, reschedule, create project blocks, or prepare iOS Calendar/Notes/Reminders commands.`
+                    : "Your Atlas schedule is open. Tell me the outcome and I will turn it into actions."}
                 </Text>
               </View>
             </View>
@@ -1740,9 +1938,22 @@ function AssistantFull(props) {
               <View style={styles.assistantResponseCard}>
                 <View style={styles.assistantResponseHeader}>
                   <AssistantGlyph name="spark" color="#2e7058" size={16} />
-                  <Text style={styles.assistantResponseLabel}>YOUR PERSONALISED PLAN</Text>
+                  <Text style={styles.assistantResponseLabel}>ACTION BRIEF</Text>
                 </View>
                 <Text style={styles.assistantResponseCopy}>{props.assistantResponse.reply}</Text>
+                <AssistantSystemCommandList actions={props.assistantResponse.actions || []} />
+                {(props.assistantResponse.actionResults || []).map((result, index) => (
+                  isIOSSystemAction(result.type) ? null :
+                  <View key={`${result.type}-${index}`} style={styles.assistantPlanItem}>
+                    <View style={styles.assistantPlanTime}>
+                      <Text style={styles.assistantPlanTimeText}>Done</Text>
+                    </View>
+                    <View style={styles.assistantPlanCopy}>
+                      <Text style={styles.assistantPlanTitle}>{result.message}</Text>
+                      <Text style={styles.assistantPlanMeta}>{result.type || "agent action"}</Text>
+                    </View>
+                  </View>
+                ))}
                 {(props.assistantResponse.scheduleItems || []).map((item, index) => {
                   const key = `${item.title}-${item.startAt}-${index}`;
                   return (
@@ -1772,7 +1983,7 @@ function AssistantFull(props) {
                 <View style={styles.assistantThinkingDot} />
                 <View style={styles.assistantThinkingDot} />
                 <View style={styles.assistantThinkingDot} />
-                <Text style={styles.assistantThinkingText}>Artemis is putting the pieces together…</Text>
+                <Text style={styles.assistantThinkingText}>Atlas is preparing commands...</Text>
               </View>
             ) : null}
             {props.assistantError ? <Text style={styles.errorText}>{props.assistantError}</Text> : null}
@@ -1795,7 +2006,7 @@ function AssistantFull(props) {
                 value={props.assistantMessage}
                 onChangeText={props.setAssistantMessage}
                 onSubmitEditing={props.onSubmit}
-                placeholder="Ask Artemis to plan, prioritise, or find something…"
+                placeholder="Tell Atlas the outcome, for example: add this to iOS Calendar..."
                 placeholderTextColor="#8d948f"
                 style={styles.assistantComposerInput}
               />
@@ -1810,7 +2021,7 @@ function AssistantFull(props) {
                 <AssistantGlyph name="arrow" color="#fff8e2" size={19} />
               </Pressable>
             </View>
-            <Text style={styles.assistantComposerNote}>Artemis uses your Atlas schedule and campus data to shape each answer.</Text>
+            <Text style={styles.assistantComposerNote}>iOS app changes are prepared as Shortcuts handoff commands unless a native bridge is connected.</Text>
           </View>
         </View>
 
@@ -1881,6 +2092,52 @@ function AssistantStat({ icon, value, label }) {
   );
 }
 
+function AssistantSystemCommandList({ actions = [], compact = false }) {
+  const commands = actions.filter((action) => isIOSSystemAction(action?.type)).map(buildIOSCommand);
+  if (!commands.length) return null;
+
+  return (
+    <View style={[styles.assistantCommandList, compact && styles.assistantCommandListCompact]}>
+      <View style={styles.assistantCommandListHeader}>
+        <AssistantGlyph name="phone" color="#c97654" size={16} />
+        <Text style={styles.assistantCommandListTitle}>iOS handoff queue</Text>
+      </View>
+      {commands.map((command, index) => (
+        <View key={`${command.type}-${command.app}-${index}`} style={styles.assistantCommandCard}>
+          <View style={styles.assistantCommandTop}>
+            <View style={styles.assistantCommandIcon}>
+              <AssistantGlyph name={command.app === "Calendar" ? "calendar" : command.app === "Notes" ? "note" : command.app === "Reminders" ? "bell" : "phone"} color="#123f38" size={17} />
+            </View>
+            <View style={styles.assistantCommandCopy}>
+              <Text style={styles.assistantCommandTitle}>{command.label}</Text>
+              <Text style={styles.assistantCommandMeta}>
+                {command.requiresShortcut && command.shortcutName
+                  ? `Runs through Shortcuts: ${command.shortcutName}`
+                  : `Opens iOS ${command.app}`}
+              </Text>
+            </View>
+          </View>
+          {command.command ? <Text selectable style={styles.assistantCommandText}>{command.command}</Text> : null}
+          <View style={styles.assistantCommandActions}>
+            {command.command ? (
+              <Pressable onPress={() => copyIOSCommand(command.command)} style={styles.assistantCommandButton}>
+                <Text style={styles.assistantCommandButtonText}>Copy command</Text>
+              </Pressable>
+            ) : null}
+            {command.url ? (
+              <Pressable onPress={() => openIOSHandoff(command.url)} style={[styles.assistantCommandButton, styles.assistantCommandButtonDark]}>
+                <Text style={[styles.assistantCommandButtonText, styles.assistantCommandButtonTextDark]}>
+                  {command.requiresShortcut ? "Open Shortcuts" : `Open ${command.app}`}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function AssistantGlyph({ name, color = "currentColor", size = 18 }) {
   const common = { fill: "none", stroke: color, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
   return (
@@ -1893,6 +2150,9 @@ function AssistantGlyph({ name, color = "currentColor", size = 18 }) {
       {name === "message" ? <><path {...common} d="M5 18.5 6.2 15A7.5 7.5 0 1 1 9 18l-4 1.5Z" /><path {...common} d="M9 11h6m-6 3h3.5" /></> : null}
       {name === "arrow" ? <><path {...common} d="M5 12h13m-5-5 5 5-5 5" /></> : null}
       {name === "book" ? <><path {...common} d="M5 5.5h6a3 3 0 0 1 3 3v10H8a3 3 0 0 0-3 3v-16Z" /><path {...common} d="M14 8.5a3 3 0 0 1 3-3h2v13h-2a3 3 0 0 0-3 3" /></> : null}
+      {name === "phone" ? <><rect {...common} x="8" y="3.5" width="8" height="17" rx="2" /><path {...common} d="M11 17.5h2" /></> : null}
+      {name === "bell" ? <><path {...common} d="M18 16H6l1.2-1.7V10a4.8 4.8 0 0 1 9.6 0v4.3L18 16Z" /><path {...common} d="M10 18.2a2.2 2.2 0 0 0 4 0" /></> : null}
+      {name === "note" ? <><path {...common} d="M7 4.5h7l3 3v12H7v-15Z" /><path {...common} d="M14 4.5v3h3M9.5 11h5M9.5 14h5M9.5 17h3" /></> : null}
       {name === "expand" ? <><path {...common} d="M8.5 4.5h-4v4m11-4h4v4m-15 7v4h4m11-4v4h-4" /><path {...common} d="m4.8 8.2 4-4m6.4 0 4 4m-14.4 7.6 4 4m6.4 0 4-4" /></> : null}
       {name === "collapse" ? <><path {...common} d="M8.5 8.5h-4m0 0v-4m11 4h4m0 0v-4m-11 11h-4m0 0v4m11-4h4m0 0v4" /><path {...common} d="m4.8 8.2 4-4m6.4 0 4 4m-14.4 7.6 4 4m6.4 0 4-4" /></> : null}
     </svg>
@@ -2109,7 +2369,7 @@ function InboxPanel({ health, syncStatus, schedule, recommendations, onOpenAssis
     },
     {
       title: `${recommendations.length} assistant suggestions`,
-      detail: recommendations[0]?.title || "Ask Daily Assistant for a fresh plan.",
+      detail: recommendations[0]?.title || "Ask Atlas Day Hub for a fresh plan.",
     },
   ];
 
@@ -2126,7 +2386,7 @@ function InboxPanel({ health, syncStatus, schedule, recommendations, onOpenAssis
         </View>
       ))}
       <Pressable onPress={onOpenAssistant} style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>Ask Daily Assistant</Text>
+        <Text style={styles.primaryButtonText}>Ask Atlas Day Hub</Text>
       </Pressable>
     </View>
   );
@@ -2182,7 +2442,7 @@ function ClubsPanel({ schedule, onOpenSchedule }) {
       </View>
       <View style={styles.card}>
         <Text style={styles.sectionCardTitle}>Schedule context</Text>
-        <Text style={styles.bodyText}>{`You currently have ${schedule.length} plan items. Add event plans in Schedule so Artemis can include them in recommendations.`}</Text>
+        <Text style={styles.bodyText}>{`You currently have ${schedule.length} plan items. Add event plans in Schedule so Atlas can include them in recommendations.`}</Text>
         <Pressable onPress={onOpenSchedule} style={styles.primaryButton}>
           <Text style={styles.primaryButtonText}>Plan an event</Text>
         </Pressable>
@@ -2195,7 +2455,7 @@ function SectionHeader({ title, subtitle, action, onAction }) {
   return (
     <View style={styles.sectionHeader}>
       <View>
-        <Text style={styles.pageKicker}>Artemis</Text>
+        <Text style={styles.pageKicker}>Atlas</Text>
         <Text style={styles.pageTitle}>{title}</Text>
         <Text style={styles.pageSubtitle}>{subtitle}</Text>
       </View>
@@ -2249,6 +2509,144 @@ function FilterChip({ label, selected, onPress }) {
 
 function FormInput({ style, ...props }) {
   return <TextInput placeholderTextColor="#8a8580" style={[styles.formInput, style]} {...props} />;
+}
+
+function normalizeDashboardSection(section) {
+  const value = String(section || "").toLowerCase().trim();
+  const aliases = {
+    home: "dashboard",
+    dashboard: "dashboard",
+    map: "map",
+    ar: "map",
+    route: "map",
+    navigation: "map",
+    assistant: "recommendations",
+    recommendations: "recommendations",
+    daily_assistant: "recommendations",
+    calendar: "schedule",
+    schedule: "schedule",
+    facilities: "facilities",
+    facility: "facilities",
+    task: "tasks",
+    tasks: "tasks",
+    resources: "resources",
+    clubs: "clubs",
+    events: "clubs",
+    settings: "sync",
+    sync: "sync",
+  };
+  return aliases[value] || "";
+}
+
+function schedulePayloadFromAgent(payload = {}, defaultLocation = "COM1") {
+  const startAt = parseAgentDate(payload.startAt, 24);
+  const endAt = parseAgentDate(payload.endAt, 25);
+  const safeEndAt = endAt.getTime() > startAt.getTime() ? endAt : new Date(startAt.getTime() + 60 * 60 * 1000);
+  return {
+    title: String(payload.title || "Assistant task").trim(),
+    moduleCode: String(payload.moduleCode || "TASK").trim().toUpperCase(),
+    location: String(payload.location || defaultLocation || "COM1").trim().toUpperCase(),
+    startAt: startAt.toISOString(),
+    endAt: safeEndAt.toISOString(),
+    notes: String(payload.notes || "Added by Atlas Day Hub").trim(),
+  };
+}
+
+function projectPayloadFromAgent(payload = {}, defaultLocation = "COM1") {
+  const dueAt = parseAgentDate(payload.dueAt || payload.startAt, 24);
+  const startAt = new Date(dueAt.getTime() - 60 * 60 * 1000);
+  return {
+    title: `Project: ${String(payload.title || "New project").trim()}`,
+    moduleCode: "PROJECT",
+    location: String(payload.location || defaultLocation || "COM1").trim().toUpperCase(),
+    startAt: startAt.toISOString(),
+    endAt: dueAt.toISOString(),
+    notes: String(payload.notes || "Created by Atlas Day Hub").trim(),
+  };
+}
+
+function parseAgentDate(value, fallbackHours) {
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  return new Date(Date.now() + fallbackHours * 60 * 60 * 1000);
+}
+
+function isIOSSystemAction(type) {
+  return ["ios_calendar", "ios_reminder", "ios_note", "ios_open_app"].includes(String(type || "").toLowerCase());
+}
+
+function buildIOSCommand(action = {}) {
+  const payload = action.payload || {};
+  const type = String(action.type || "").toLowerCase();
+  const app = String(payload.app || iosAppFromAction(type) || "Shortcuts").trim();
+  const command = String(payload.command || payload.clipboardText || iosCommandText(type, payload)).trim();
+  return {
+    type,
+    app,
+    label: action.label || `${app} command`,
+    intent: payload.intent || type.replace("ios_", ""),
+    url: payload.url || iosAppLaunchUrl(app),
+    shortcutName: payload.shortcutName || "",
+    requiresShortcut: Boolean(payload.requiresShortcut),
+    command,
+  };
+}
+
+function iosAppFromAction(type) {
+  if (type === "ios_calendar") return "Calendar";
+  if (type === "ios_reminder") return "Reminders";
+  if (type === "ios_note") return "Notes";
+  return "";
+}
+
+function iosAppLaunchUrl(app) {
+  const key = String(app || "").toLowerCase();
+  if (key === "calendar") return "calshow://";
+  if (key === "reminders") return "x-apple-reminderkit://";
+  if (key === "notes") return "mobilenotes://";
+  if (key === "maps") return "maps://";
+  if (key === "mail") return "message://";
+  return "shortcuts://";
+}
+
+function iosCommandText(type, payload = {}) {
+  if (type === "ios_calendar") {
+    return [
+      "Create Calendar event",
+      `title: ${payload.title || "Atlas event"}`,
+      `start: ${payload.startAt || ""}`,
+      `end: ${payload.endAt || ""}`,
+      `location: ${payload.location || ""}`,
+      payload.notes ? `notes: ${payload.notes}` : "",
+    ].filter(Boolean).join("\n");
+  }
+  if (type === "ios_reminder") {
+    return [
+      "Create Reminder",
+      `title: ${payload.title || "Atlas reminder"}`,
+      `due: ${payload.dueAt || ""}`,
+      payload.notes ? `notes: ${payload.notes}` : "",
+    ].filter(Boolean).join("\n");
+  }
+  if (type === "ios_note") {
+    return [
+      "Create Note",
+      `title: ${payload.title || "Atlas note"}`,
+      payload.body ? `body: ${payload.body}` : "",
+    ].filter(Boolean).join("\n");
+  }
+  return `Open ${payload.app || "iOS app"}`;
+}
+
+function openIOSHandoff(url) {
+  if (!url || typeof window === "undefined") return;
+  window.location.href = url;
+}
+
+async function copyIOSCommand(command) {
+  if (!command || typeof navigator === "undefined" || !navigator.clipboard?.writeText) return false;
+  await navigator.clipboard.writeText(command);
+  return true;
 }
 
 function formatClock(value) {
@@ -2887,6 +3285,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 249, 236, 0.72)",
     backgroundImage:
       "repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.035) 0 1px, transparent 1px 4px), radial-gradient(circle at 86% 14%, rgba(18, 78, 69, 0.08), transparent 28%), radial-gradient(circle at 20% 86%, rgba(217, 155, 104, 0.1), transparent 30%)",
+  },
+  assistantMain: {
+    backgroundColor: "#f7f7f8",
+    backgroundImage: "none",
   },
   sidebarReveal: {
     position: "absolute",
@@ -3958,6 +4360,18 @@ const styles = StyleSheet.create({
     gap: 20,
     padding: 34,
   },
+  assistantSectionBody: {
+    minHeight: "100vh",
+    paddingTop: 18,
+    paddingBottom: 24,
+    backgroundColor: "#f6f0e4",
+    backgroundImage: "linear-gradient(180deg, rgba(255, 252, 243, 0.86), rgba(232, 226, 214, 0.72))",
+  },
+  assistantSectionBodyFullscreen: {
+    maxWidth: "none",
+    alignSelf: "stretch",
+    padding: 16,
+  },
   sectionBodyPhone: {
     padding: 18,
   },
@@ -3995,9 +4409,94 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   assistantWorkspace: {
-    gap: 18,
+    position: "relative",
+    gap: 12,
+    maxWidth: 1180,
+    width: "100%",
+    alignSelf: "center",
+    paddingLeft: 238,
+  },
+  assistantWorkspaceFullscreen: {
+    maxWidth: "none",
+    minHeight: "calc(100vh - 32px)",
+    paddingLeft: 252,
+  },
+  assistantWorkspacePhone: {
+    paddingLeft: 0,
+  },
+  assistantHistory: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 220,
+    minHeight: 690,
+    gap: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 14,
+    backgroundColor: "rgba(255, 252, 243, 0.72)",
+  },
+  assistantHistoryPhone: {
+    position: "relative",
+    width: "100%",
+    minHeight: 0,
+    maxHeight: 220,
+  },
+  assistantNewChat: {
+    minHeight: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    borderRadius: 12,
+    backgroundColor: "#123f38",
+  },
+  assistantNewChatPlus: {
+    color: "#f0c986",
+    fontSize: 20,
+  },
+  assistantNewChatText: {
+    color: "#fff8e2",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  assistantHistoryLabel: {
+    paddingHorizontal: 7,
+    color: "#8a6a4e",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  assistantHistoryScroll: {
+    maxHeight: 590,
+  },
+  assistantHistoryItem: {
+    minHeight: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    marginBottom: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "transparent",
+  },
+  assistantHistoryItemActive: {
+    backgroundColor: "rgba(217, 155, 104, 0.12)",
+    boxShadow: "none",
+  },
+  assistantHistoryCopy: { flex: 1, minWidth: 0 },
+  assistantHistoryTitle: { color: "#123f38", fontSize: 12, fontWeight: "700" },
+  assistantHistoryDate: { marginTop: 3, color: "#7a817d", fontSize: 9 },
+  assistantHistoryEmpty: { padding: 9, color: "#6d7280", fontSize: 11, lineHeight: 17 },
+  assistantHistoryPhoneSpacer: {
+    paddingLeft: 0,
   },
   assistantOverview: {
+    display: "none",
     position: "relative",
     overflow: "hidden",
     gap: 24,
@@ -4134,9 +4633,9 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     borderWidth: 1,
     borderColor: "rgba(18, 63, 56, 0.09)",
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 252, 243, 0.72)",
-    boxShadow: "0 10px 28px rgba(35, 30, 23, 0.05)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 252, 243, 0.86)",
+    boxShadow: "none",
   },
   assistantModeBarPhone: {
     alignItems: "flex-start",
@@ -4170,12 +4669,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(18, 63, 56, 0.1)",
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.48)",
+    backgroundColor: "rgba(255, 248, 232, 0.62)",
   },
   assistantModeChoiceActive: {
     borderColor: "#123f38",
     backgroundColor: "#123f38",
-    boxShadow: "0 8px 18px rgba(18, 63, 56, 0.18)",
+    boxShadow: "none",
   },
   assistantModeChoiceText: {
     color: "#49645e",
@@ -4185,11 +4684,87 @@ const styles = StyleSheet.create({
   assistantModeChoiceTextActive: {
     color: "#fff8e2",
   },
+  assistantWelcome: {
+    width: "100%",
+    maxWidth: 820,
+    alignSelf: "center",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 20,
+  },
+  assistantWelcomeMark: {
+    width: 54,
+    height: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 5,
+    borderRadius: 18,
+    backgroundColor: "#123f38",
+    boxShadow: "0 12px 30px rgba(18, 63, 56, 0.18)",
+  },
+  assistantWelcomeTitle: {
+    color: "#123f38",
+    fontSize: 28,
+    lineHeight: 36,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  assistantWelcomeSubtitle: {
+    maxWidth: 560,
+    color: "#5e665f",
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+  },
+  assistantWelcomeGrid: {
+    width: "100%",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  assistantWelcomeGridPhone: {
+    flexDirection: "column",
+  },
+  assistantWelcomeCard: {
+    flex: 1,
+    minHeight: 104,
+    justifyContent: "space-between",
+    gap: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.1)",
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 252, 243, 0.9)",
+    boxShadow: "0 10px 26px rgba(35, 30, 23, 0.05)",
+  },
+  assistantWelcomeIcon: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "rgba(217, 155, 104, 0.12)",
+  },
+  assistantWelcomeCardText: {
+    color: "#123f38",
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+  },
+  assistantWelcomeArrow: {
+    position: "absolute",
+    right: 14,
+    top: 14,
+    color: "#c97654",
+    fontSize: 14,
+  },
   assistantMainGrid: {
     flexDirection: "row",
     alignItems: "flex-start",
     flexWrap: "wrap",
-    gap: 18,
+    gap: 0,
   },
   assistantMainGridCompact: {
     flexDirection: "column",
@@ -4198,14 +4773,14 @@ const styles = StyleSheet.create({
     flexDirection: "column",
   },
   assistantConversation: {
-    flex: 1.85,
+    flex: 1,
     minWidth: 420,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(18, 63, 56, 0.1)",
-    borderRadius: 22,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    borderRadius: 14,
     backgroundColor: "rgba(255, 252, 243, 0.9)",
-    boxShadow: "0 18px 48px rgba(35, 30, 23, 0.08)",
+    boxShadow: "0 16px 42px rgba(35, 30, 23, 0.07)",
   },
   assistantConversationPhone: {
     width: "100%",
@@ -4216,6 +4791,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flex: 1,
   },
+  assistantConversationFullscreen: {
+    minHeight: "calc(100vh - 150px)",
+  },
   assistantConversationHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -4224,7 +4802,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(18, 63, 56, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.38)",
+    backgroundColor: "rgba(18, 63, 56, 0.035)",
   },
   assistantConversationIdentity: {
     flexDirection: "row",
@@ -4290,16 +4868,25 @@ const styles = StyleSheet.create({
     color: "#fff8e2",
   },
   assistantMessageScroll: {
-    height: "46vh",
+    height: "50vh",
     minHeight: 380,
     maxHeight: 560,
-    backgroundImage:
-      "radial-gradient(circle at 96% 0%, rgba(217, 155, 104, 0.08), transparent 26%), repeating-linear-gradient(0deg, rgba(32, 25, 18, 0.015) 0 1px, transparent 1px 5px)",
+    backgroundColor: "rgba(255, 252, 243, 0.58)",
   },
   assistantMessageScrollExpanded: {
     height: "62vh",
     minHeight: 500,
     maxHeight: 760,
+  },
+  assistantMessageScrollFullscreen: {
+    height: "calc(100vh - 318px)",
+    minHeight: 460,
+    maxHeight: "none",
+  },
+  assistantMessageScrollEmpty: {
+    height: 20,
+    minHeight: 20,
+    maxHeight: 20,
   },
   assistantMessageArea: {
     flexGrow: 1,
@@ -4311,6 +4898,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 11,
+  },
+  assistantBotRowIntro: {
+    display: "none",
   },
   assistantBotAvatar: {
     width: 32,
@@ -4331,7 +4921,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     borderBottomRightRadius: 16,
     borderBottomLeftRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.64)",
+    backgroundColor: "rgba(255, 248, 232, 0.74)",
   },
   assistantBotGreeting: {
     color: "#123f38",
@@ -4346,12 +4936,12 @@ const styles = StyleSheet.create({
   assistantResponseCard: {
     alignSelf: "stretch",
     gap: 11,
-    marginLeft: 43,
+    marginLeft: 0,
     padding: 15,
     borderWidth: 1,
-    borderColor: "rgba(46, 112, 88, 0.16)",
-    borderRadius: 16,
-    backgroundColor: "rgba(232, 243, 236, 0.72)",
+    borderColor: "rgba(18, 63, 56, 0.14)",
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 248, 232, 0.82)",
   },
   assistantResponseHeader: {
     flexDirection: "row",
@@ -4369,6 +4959,98 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     whiteSpace: "pre-wrap",
+  },
+  assistantCommandList: {
+    gap: 10,
+    paddingTop: 4,
+  },
+  assistantCommandListCompact: {
+    paddingTop: 0,
+  },
+  assistantCommandListHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  assistantCommandListTitle: {
+    color: "#c97654",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  assistantCommandCard: {
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "rgba(201, 118, 84, 0.2)",
+    borderRadius: 10,
+    backgroundColor: "rgba(255, 252, 243, 0.9)",
+  },
+  assistantCommandTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  assistantCommandIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    backgroundColor: "rgba(217, 155, 104, 0.13)",
+  },
+  assistantCommandCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  assistantCommandTitle: {
+    color: "#123f38",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  assistantCommandMeta: {
+    marginTop: 3,
+    color: "#6d7280",
+    fontSize: 10,
+  },
+  assistantCommandText: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.08)",
+    borderRadius: 8,
+    color: "#294b43",
+    backgroundColor: "rgba(18, 63, 56, 0.035)",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+    fontSize: 11,
+    lineHeight: 17,
+    whiteSpace: "pre-wrap",
+  },
+  assistantCommandActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  assistantCommandButton: {
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: "rgba(18, 63, 56, 0.12)",
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 248, 232, 0.82)",
+  },
+  assistantCommandButtonDark: {
+    borderColor: "#123f38",
+    backgroundColor: "#123f38",
+  },
+  assistantCommandButtonText: {
+    color: "#123f38",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  assistantCommandButtonTextDark: {
+    color: "#fff8e2",
   },
   assistantPlanItem: {
     flexDirection: "row",
@@ -4441,12 +5123,14 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(18, 63, 56, 0.08)",
   },
   assistantPromptLabel: {
+    display: "none",
     color: "#90958f",
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 0.9,
   },
   assistantQuickRow: {
+    display: "none",
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 7,
@@ -4465,7 +5149,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   assistantComposer: {
-    minHeight: 54,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -4473,9 +5157,9 @@ const styles = StyleSheet.create({
     paddingLeft: 13,
     borderWidth: 1,
     borderColor: "rgba(18, 63, 56, 0.14)",
-    borderRadius: 16,
-    backgroundColor: "#fffdf8",
-    boxShadow: "0 10px 24px rgba(35, 30, 23, 0.06)",
+    borderRadius: 18,
+    backgroundColor: "#fffaf0",
+    boxShadow: "0 8px 24px rgba(35, 30, 23, 0.08)",
   },
   assistantComposerIcon: {
     width: 24,
@@ -4493,9 +5177,9 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 13,
+    borderRadius: 20,
     backgroundColor: "#123f38",
-    boxShadow: "0 8px 18px rgba(18, 63, 56, 0.2)",
+    boxShadow: "none",
   },
   assistantComposerSendDisabled: {
     opacity: 0.38,
@@ -4506,6 +5190,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   assistantSideRail: {
+    display: "none",
     flex: 0.9,
     minWidth: 280,
     gap: 18,

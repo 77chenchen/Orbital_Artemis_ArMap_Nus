@@ -1,5 +1,7 @@
 const ROUTE_SESSION_KEY = "atlas.arRouteData";
 
+// Save the latest route so /ar can recover if React Router state disappears,
+// for example after a browser refresh.
 export function saveRouteData(routeData) {
   try {
     window.sessionStorage.setItem(ROUTE_SESSION_KEY, JSON.stringify(routeData));
@@ -8,6 +10,8 @@ export function saveRouteData(routeData) {
   }
 }
 
+// Prefer fresh route data passed from the map page. If none exists, read the
+// last route from sessionStorage.
 export function readRouteData(routeData) {
   if (routeData?.points?.length || routeData?.segments?.length) {
     saveRouteData(routeData);

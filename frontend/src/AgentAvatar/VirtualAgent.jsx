@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import agentModelUrl from "../assets/agent/atlas_agent_model.svg";
@@ -50,9 +50,70 @@ function llmMeta(response) {
   ].filter(Boolean);
 }
 
+function normalizeDashboardSection(section) {
+  const value = String(section || "").toLowerCase().trim();
+  const aliases = {
+    home: "dashboard",
+    dashboard: "dashboard",
+    map: "map",
+    ar: "map",
+    route: "map",
+    navigation: "map",
+    assistant: "recommendations",
+    recommendations: "recommendations",
+    daily_assistant: "recommendations",
+    calendar: "schedule",
+    schedule: "schedule",
+    facilities: "facilities",
+    task: "tasks",
+    tasks: "tasks",
+    resources: "resources",
+    clubs: "clubs",
+    events: "clubs",
+    settings: "sync",
+    sync: "sync",
+  };
+  return aliases[value] || "";
+}
+
+function schedulePayloadFromAgent(payload = {}, defaultLocation = "COM1") {
+  const startAt = parseAgentDate(payload.startAt, 24);
+  const endAt = parseAgentDate(payload.endAt, 25);
+  const safeEndAt = endAt.getTime() > startAt.getTime() ? endAt : new Date(startAt.getTime() + 60 * 60 * 1000);
+  return {
+    title: String(payload.title || "Assistant task").trim(),
+    moduleCode: String(payload.moduleCode || "TASK").trim().toUpperCase(),
+    location: String(payload.location || defaultLocation || "COM1").trim().toUpperCase(),
+    startAt: startAt.toISOString(),
+    endAt: safeEndAt.toISOString(),
+    notes: String(payload.notes || "Added by Atlas").trim(),
+  };
+}
+
+function projectPayloadFromAgent(payload = {}, defaultLocation = "COM1") {
+  const dueAt = parseAgentDate(payload.dueAt || payload.startAt, 24);
+  const startAt = new Date(dueAt.getTime() - 60 * 60 * 1000);
+  return {
+    title: `Project: ${String(payload.title || "New project").trim()}`,
+    moduleCode: "PROJECT",
+    location: String(payload.location || defaultLocation || "COM1").trim().toUpperCase(),
+    startAt: startAt.toISOString(),
+    endAt: dueAt.toISOString(),
+    notes: String(payload.notes || "Created by Atlas").trim(),
+  };
+}
+
+function parseAgentDate(value, fallbackHours) {
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  return new Date(Date.now() + fallbackHours * 60 * 60 * 1000);
+}
+
 function buildAssistantContext(data) {
   return {
     currentTime: new Date().toISOString(),
+    allowedActions: ["navigate_section", "open_map", "create_schedule", "create_project", "run_sync"],
+    defaultLocation: data.buildings[0]?.code || "COM1",
     schedule: data.schedule.map((item) => ({
       title: item.title,
       moduleCode: item.moduleCode,
@@ -76,6 +137,7 @@ export default function VirtualAgent() {
   const [message, setMessage] = useState("Standing by in the corner.");
   const [result, setResult] = useState(null);
   const [isWorking, setIsWorking] = useState(false);
+  const [command, setCommand] = useState("");
   const actionTimerRef = useRef(null);
   const navigate = useNavigate();
   const { width } = useWindowDimensions();
@@ -231,6 +293,87 @@ export default function VirtualAgent() {
     });
   }
 
+  async function runCommand() {
+    const text = command.trim();
+    if (!text || isWorking) return;
+
+    if (actionTimerRef.current) window.clearTimeout(actionTimerRef.current);
+
+    setIsAwake(true);
+    setActiveAction("think");
+    setIsWorking(true);
+    setMessage("Working on that command.");
+    setResult(null);
+
+    try {
+      const data = await loadAgentContext();
+      const response = await api.dailyAssistant({
+        mode: "general",
+        message: text,
+        context: buildAssistantContext(data),
+      });
+      const actionResults = await executeAgentActions(response.actions || []);
+      const body = [
+        compactReply(response.reply),
+        actionResults.length ? actionResults.map((item) => item.message).join("\n") : "",
+      ].filter(Boolean).join("\n\n");
+      setCommand("");
+      setMessage(actionResults.length ? "Command completed." : "I answered without needing an app action.");
+      setResult({
+        title: actionResults.length ? "Command result" : "Assistant reply",
+        body,
+        meta: [...llmMeta(response), ...actionResults.map((item) => item.type)].filter(Boolean).slice(0, 6),
+        actionLabel: actionResults.find((item) => item.section)?.label || "Open Daily Assistant",
+        actionSection: actionResults.find((item) => item.section)?.section || "recommendations",
+      });
+    } catch (err) {
+      setMessage("I could not complete that command.");
+      setResult({
+        title: "Command failed",
+        body: err instanceof Error ? err.message : "Unexpected agent command error.",
+        meta: ["Check backend/API configuration"],
+      });
+    } finally {
+      setIsWorking(false);
+      actionTimerRef.current = window.setTimeout(() => setActiveAction("idle"), 1800);
+    }
+  }
+
+  async function executeAgentActions(actions = []) {
+    const results = [];
+    for (const action of actions.slice(0, 5)) {
+      const type = String(action?.type || "").toLowerCase();
+      const payload = action?.payload || {};
+      try {
+        if (type === "navigate_section") {
+          const section = normalizeDashboardSection(payload.section);
+          if (!section) continue;
+          openDashboardSection(section);
+          results.push({ type, section, label: `Stay on ${section}`, message: `Opened ${section}.` });
+        } else if (type === "open_map") {
+          openDashboardSection("map");
+          results.push({ type, section: "map", label: "Stay on map", message: payload.destination ? `Opened map for ${payload.destination}.` : "Opened map." });
+        } else if (type === "create_schedule") {
+          await api.createSchedule(schedulePayloadFromAgent(payload));
+          results.push({ type, section: "schedule", label: "Open Schedule", message: `Added ${payload.title || "schedule item"}.` });
+        } else if (type === "create_project") {
+          await api.createSchedule(projectPayloadFromAgent(payload));
+          openDashboardSection("tasks");
+          results.push({ type, section: "tasks", label: "Open Tasks", message: `Created project ${payload.title || "New project"}.` });
+        } else if (type === "run_sync") {
+          const status = await api.runSync();
+          results.push({ type, section: "sync", label: "Open Settings", message: `Sync ${status.status}; ${status.recordsSeen ?? 0} records seen.` });
+        }
+      } catch (err) {
+        results.push({
+          type,
+          message: `${action?.label || type || "Action"} failed: ${err instanceof Error ? err.message : "unknown error"}.`,
+        });
+      }
+    }
+    return results;
+  }
+
   async function playAction(actionId) {
     const action = actionById[actionId] || actionById.wake;
     if (!action || isWorking) return;
@@ -305,6 +448,29 @@ export default function VirtualAgent() {
 
           <Text style={styles.message}>{message}</Text>
 
+          <View style={styles.commandBox}>
+            <TextInput
+              value={command}
+              onChangeText={setCommand}
+              onSubmitEditing={runCommand}
+              editable={!isWorking}
+              placeholder="Tell Atlas what to do..."
+              placeholderTextColor="#7e918c"
+              style={styles.commandInput}
+            />
+            <Pressable
+              disabled={isWorking || !command.trim()}
+              onPress={runCommand}
+              style={({ pressed }) => [
+                styles.commandSend,
+                (isWorking || !command.trim()) && styles.commandSendDisabled,
+                pressed && !isWorking && styles.pressed,
+              ]}
+            >
+              <Text style={styles.commandSendText}>Go</Text>
+            </Pressable>
+          </View>
+
           {result ? (
             <View style={styles.resultCard}>
               <Text style={styles.resultTitle}>{result.title}</Text>
@@ -358,7 +524,7 @@ export default function VirtualAgent() {
         dataSet={{ action: activeAction, awake: isAwake ? "true" : "false", working: isWorking ? "true" : "false" }}
         accessibilityRole="button"
         onPress={wakeAgent}
-        accessibilityLabel={isAwake ? "Artemis is awake" : "Wake Artemis"}
+        accessibilityLabel={isAwake ? "Atlas is awake" : "Wake Atlas"}
         accessibilityState={{ expanded: isAwake }}
         style={({ pressed }) => [
           styles.bodyButton,
@@ -485,6 +651,46 @@ const styles = StyleSheet.create({
     color: "#143431",
     fontSize: 15,
     lineHeight: 22,
+  },
+  commandBox: {
+    minHeight: 42,
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: "rgba(20, 52, 49, 0.14)",
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+  },
+  commandInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 34,
+    paddingHorizontal: 8,
+    borderWidth: 0,
+    outlineStyle: "none",
+    color: "#143431",
+    fontSize: 13,
+    fontWeight: "700",
+    backgroundColor: "transparent",
+  },
+  commandSend: {
+    minWidth: 44,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 7,
+    backgroundColor: "#143431",
+  },
+  commandSendDisabled: {
+    opacity: 0.42,
+  },
+  commandSendText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "900",
   },
   resultCard: {
     gap: 9,

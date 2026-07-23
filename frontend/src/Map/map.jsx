@@ -620,6 +620,7 @@ export default function MapScreen({ embedded = false }) {
             loading={routeLoading}
             error={routeError}
             travelMode={travelMode}
+            onOpenAR={openARGuidance}
           />
         </View>
       ) : null}
@@ -839,6 +840,7 @@ function RouteSummary({
   loading,
   error,
   travelMode,
+  onOpenAR,
 }) {
   if (loading) {
     return (
@@ -896,7 +898,17 @@ function RouteSummary({
           <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
           <Text style={styles.routeSummaryTitle}>{formatDistance(routeResult.distance)} · {formatDuration(routeResult.time)}</Text>
         </View>
-        <Text style={styles.routeSourceBadge}>{routeResult.source || "route"}</Text>
+        <View style={styles.routeSummaryActions}>
+          <Text style={styles.routeSourceBadge}>{routeResult.source || "route"}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open selected route in AR guidance"
+            onPress={onOpenAR}
+            style={({ pressed }) => [styles.routeARButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.routeARButtonText}>AR Guide</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.routeSegmentList}>
@@ -1393,6 +1405,23 @@ const styles = StyleSheet.create({
   routeSummaryTitleBlock: {
     flex: 1,
     minWidth: 0,
+  },
+  routeSummaryActions: {
+    flexShrink: 0,
+    alignItems: "flex-end",
+    gap: 8,
+  },
+  routeARButton: {
+    minHeight: 36,
+    justifyContent: "center",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#143431",
+  },
+  routeARButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "900",
   },
   routeSummaryKicker: {
     color: "#0f766e",
