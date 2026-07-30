@@ -13,7 +13,7 @@ export default async function getShortestRoutes(start, end, mode = "foot") {
     profile,
     points_encoded: "false",
     locale: "en",
-    instructions: "false",
+    instructions: "true",
     key: apiKey,
   });
   params.append("point", `${end[1]},${end[0]}`);
@@ -27,6 +27,7 @@ export default async function getShortestRoutes(start, end, mode = "foot") {
 
   const route = data?.paths?.[0];
   const coordinates = normalizeCoordinates(route?.points?.coordinates);
+  const instructions = normalizeInstructions(route?.instructions, coordinates);
   if (!route || coordinates.length < 2) {
     throw new Error("GraphHopper did not return a drawable route.");
   }
@@ -36,6 +37,7 @@ export default async function getShortestRoutes(start, end, mode = "foot") {
     distance: Number(route.distance) || 0,
     duration: Number(route.time) ? Number(route.time) / 1000 : 0,
     coordinates,
+    instructions,
   };
 
   const routeResult = {
@@ -47,6 +49,7 @@ export default async function getShortestRoutes(start, end, mode = "foot") {
     time: segment.duration,
     duration: segment.duration,
     points: coordinates,
+    instructions,
     segments: [segment],
     raw: route,
   };
@@ -85,4 +88,36 @@ function normalizeCoordinates(value) {
       return [lng, lat];
     })
     .filter(Boolean);
+}
+
+function normalizeInstructions(value, coordinates) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((instruction, index) => {
+      const interval = Array.isArray(instruction.interval) ? instruction.interval.map((item) => Number(item)) : [];
+      const from = Number.isFinite(interval[0]) ? interval[0] : 0;
+      const to = Number.isFinite(interval[1]) ? interval[1] : from;
+      const coordinate = coordinates[Math.min(Math.max(from, 0), Math.max(0, coordinates.length - 1))] || null;
+      return {
+        id: `graphhopper-step-${index}`,
+        text: String(instruction.text || "").trim() || instructionTextForSign(instruction.sign),
+        sign: Number(instruction.sign) || 0,
+        interval: [from, to],
+        distance: Number(instruction.distance) || 0,
+        duration: Number(instruction.time) ? Number(instruction.time) / 1000 : 0,
+        streetName: instruction.street_name || "",
+        coordinate,
+      };
+    })
+    .filter((instruction) => instruction.text);
+}
+
+function instructionTextForSign(sign) {
+  const value = Number(sign);
+  if (value === 4) return "Arrive";
+  if (value === 2) return "Turn right";
+  if (value === -2) return "Turn left";
+  if (value === 1) return "Keep right";
+  if (value === -1) return "Keep left";
+  return "Continue";
 }

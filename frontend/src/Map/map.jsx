@@ -6,6 +6,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useNavigate } from "react-router-dom";
 import initMap from "./fetch";
@@ -29,6 +30,8 @@ const TRAVEL_MODES = [
 
 export default function MapScreen({ embedded = false }) {
   const navigate = useNavigate();
+  const { width } = useWindowDimensions();
+  const compactMap = width < 640;
   const [mapHostElement, setMapHostElement] = useState(null);
   const mapRef = useRef(null);
   const engineRef = useRef(null);
@@ -522,7 +525,7 @@ export default function MapScreen({ embedded = false }) {
       </View>
 
       {!routing ? (
-        <View style={styles.searchBox}>
+        <View style={[styles.searchBox, compactMap && styles.searchBoxCompact]}>
           <View style={styles.searchIconWrap}>
             <Text style={styles.searchIcon}>⌕</Text>
           </View>
@@ -578,7 +581,7 @@ export default function MapScreen({ embedded = false }) {
       ) : null}
 
       {routing ? (
-        <View style={styles.routingPanel}>
+        <View style={[styles.routingPanel, compactMap && styles.routingPanelCompact]}>
           <RoutingForm
             start={startText}
             end={queryText}
@@ -608,7 +611,11 @@ export default function MapScreen({ embedded = false }) {
             accessibilityRole="button"
             accessibilityLabel="Close route search"
             onPress={closeRouting}
-            style={({ pressed }) => [styles.routeCloseButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.routeCloseButton,
+              compactMap && styles.routeCloseButtonCompact,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.routeCloseText}>×</Text>
           </Pressable>
@@ -621,6 +628,7 @@ export default function MapScreen({ embedded = false }) {
             error={routeError}
             travelMode={travelMode}
             onOpenAR={openARGuidance}
+            compact={compactMap}
           />
         </View>
       ) : null}
@@ -630,7 +638,12 @@ export default function MapScreen({ embedded = false }) {
           accessibilityRole="button"
           accessibilityLabel="Open NUS bus dashboard"
           onPress={() => setShowBusPanel(true)}
-          style={({ pressed }) => [styles.busLayerButton, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.busLayerButton,
+            compactMap && styles.busLayerButtonCompact,
+            compactMap && routing && styles.busLayerButtonCompactRouting,
+            pressed && styles.pressed,
+          ]}
         >
           <Text style={styles.busLayerButtonIcon}>Bus</Text>
           <View style={styles.busLayerButtonTextBlock}>
@@ -639,7 +652,10 @@ export default function MapScreen({ embedded = false }) {
           </View>
         </Pressable>
       ) : (
-        <ScrollView style={styles.busPanel} contentContainerStyle={styles.busPanelContent}>
+        <ScrollView
+          style={[styles.busPanel, compactMap && styles.busPanelCompact]}
+          contentContainerStyle={styles.busPanelContent}
+        >
           <View style={styles.busPanelHeader}>
             <View style={styles.busTitleBlock}>
               <Text style={styles.busKicker}>NUS Shuttle</Text>
@@ -805,7 +821,7 @@ export default function MapScreen({ embedded = false }) {
         </ScrollView>
       )}
 
-      <View style={styles.functionalButtons}>
+      <View style={[styles.functionalButtons, compactMap && styles.functionalButtonsCompact]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={followLocation ? "Stop GPS tracking" : "Start GPS tracking"}
@@ -841,10 +857,11 @@ function RouteSummary({
   error,
   travelMode,
   onOpenAR,
+  compact = false,
 }) {
   if (loading) {
     return (
-      <View style={styles.routeSummary}>
+      <View style={[styles.routeSummary, compact && styles.routeSummaryCompact]}>
         <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
         <Text style={styles.routeSummaryMuted}>Calculating with OpenTripPlanner...</Text>
       </View>
@@ -853,7 +870,7 @@ function RouteSummary({
 
   if (error) {
     return (
-      <View style={[styles.routeSummary, styles.routeSummaryError]}>
+      <View style={[styles.routeSummary, compact && styles.routeSummaryCompact, styles.routeSummaryError]}>
         <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
         <Text style={styles.routeSummaryErrorText}>{error}</Text>
       </View>
@@ -864,7 +881,7 @@ function RouteSummary({
 
   const segments = routeResult.segments || [];
   return (
-    <View style={styles.routeSummary}>
+    <View style={[styles.routeSummary, compact && styles.routeSummaryCompact]}>
       {routeOptions.length > 1 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.routeOptionScroll}>
           {routeOptions.map((option, index) => {
@@ -893,12 +910,12 @@ function RouteSummary({
         </ScrollView>
       ) : null}
 
-      <View style={styles.routeSummaryHeader}>
+      <View style={[styles.routeSummaryHeader, compact && styles.routeSummaryHeaderCompact]}>
         <View style={styles.routeSummaryTitleBlock}>
           <Text style={styles.routeSummaryKicker}>OTP {travelModeLabel(travelMode)}</Text>
           <Text style={styles.routeSummaryTitle}>{formatDistance(routeResult.distance)} · {formatDuration(routeResult.time)}</Text>
         </View>
-        <View style={styles.routeSummaryActions}>
+        <View style={[styles.routeSummaryActions, compact && styles.routeSummaryActionsCompact]}>
           <Text style={styles.routeSourceBadge}>{routeResult.source || "route"}</Text>
           <Pressable
             accessibilityRole="button"
@@ -1099,6 +1116,7 @@ function buildARRoutePayload({ routeResult, displayOption, startPlace, endPlace,
     start: startPlace ? { label: startPlace.label, coords: startPlace.coords } : null,
     end: endPlace ? { label: endPlace.label, coords: endPlace.coords } : null,
     points,
+    instructions: routeResult?.instructions || [],
     segments,
   };
 }
@@ -1123,6 +1141,7 @@ function routeSegmentsForAR(displayOption, fallbackRouteResult) {
         from: segment.from,
         to: segment.to,
         routeCode: segment.routeCode,
+        instructions: segment.instructions || segment.steps || [],
         coordinates: sanitizeRouteCoordinates(segment.coordinates || segment.points || segment.geometry?.coordinates),
       }))
       .filter((segment) => segment.coordinates.length >= 2);
@@ -1133,6 +1152,7 @@ function routeSegmentsForAR(displayOption, fallbackRouteResult) {
     return routeSegments
       .map((segment) => ({
         ...segment,
+        instructions: segment.instructions || segment.steps || [],
         coordinates: sanitizeRouteCoordinates(segment.coordinates),
       }))
       .filter((segment) => segment.coordinates.length >= 2);
@@ -1360,6 +1380,9 @@ const styles = StyleSheet.create({
     zIndex: 20,
     pointerEvents: "box-none",
   },
+  routingPanelCompact: {
+    zIndex: 60,
+  },
   routeCloseButton: {
     position: "absolute",
     top: 28,
@@ -1375,6 +1398,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     boxShadow: "0 10px 24px rgba(15, 23, 42, 0.14)",
   },
+  routeCloseButtonCompact: {
+    top: 16,
+    right: 12,
+    left: "auto",
+    zIndex: 90,
+  },
   routeCloseText: {
     color: "#0f172a",
     fontSize: 22,
@@ -1382,8 +1411,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   routeSummary: {
-    position: "absolute",
-    top: 244,
+    position: "relative",
+    top: 320,
     left: 20,
     zIndex: 40,
     width: 360,
@@ -1396,11 +1425,26 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.96)",
     boxShadow: "0 18px 44px rgba(15, 23, 42, 0.16)",
   },
+  routeSummaryCompact: {
+    position: "absolute",
+    top: 316,
+    left: 12,
+    right: 12,
+    zIndex: 85,
+    width: "auto",
+    maxWidth: "none",
+    maxHeight: "calc(100vh - 356px)",
+    padding: 12,
+  },
   routeSummaryHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 12,
+  },
+  routeSummaryHeaderCompact: {
+    alignItems: "stretch",
+    gap: 10,
   },
   routeSummaryTitleBlock: {
     flex: 1,
@@ -1410,6 +1454,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: "flex-end",
     gap: 8,
+  },
+  routeSummaryActionsCompact: {
+    alignItems: "stretch",
   },
   routeARButton: {
     minHeight: 36,
@@ -1574,6 +1621,16 @@ const styles = StyleSheet.create({
     boxShadow: "0 18px 48px rgba(15, 23, 42, 0.16)",
     backdropFilter: "blur(10px)",
   },
+  searchBoxCompact: {
+    top: 12,
+    left: 12,
+    right: 12,
+    width: "auto",
+    maxWidth: "none",
+    minHeight: 56,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
   searchIconWrap: {
     flexShrink: 0,
     width: 40,
@@ -1646,6 +1703,20 @@ const styles = StyleSheet.create({
     boxShadow: "0 16px 40px rgba(15, 23, 42, 0.16)",
     backdropFilter: "blur(10px)",
   },
+  busLayerButtonCompact: {
+    top: 84,
+    right: 12,
+    zIndex: 30,
+    minWidth: 0,
+    minHeight: 46,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  busLayerButtonCompactRouting: {
+    top: "auto",
+    bottom: "max(82px, calc(env(safe-area-inset-bottom) + 72px))",
+    zIndex: 35,
+  },
   busLayerButtonIcon: {
     width: 34,
     height: 34,
@@ -1686,6 +1757,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.94)",
     boxShadow: "0 18px 50px rgba(15, 23, 42, 0.18)",
     backdropFilter: "blur(10px)",
+  },
+  busPanelCompact: {
+    top: "auto",
+    right: 12,
+    bottom: "max(12px, env(safe-area-inset-bottom))",
+    zIndex: 95,
+    width: "calc(100vw - 24px)",
+    maxHeight: "52vh",
   },
   busPanelContent: {
     gap: 12,
@@ -2014,6 +2093,11 @@ const styles = StyleSheet.create({
     zIndex: 45,
     flexDirection: "row",
     gap: 10,
+  },
+  functionalButtonsCompact: {
+    right: 12,
+    bottom: "max(20px, env(safe-area-inset-bottom))",
+    zIndex: 25,
   },
   gpsButton: {
     width: 54,
