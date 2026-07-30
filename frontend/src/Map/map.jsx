@@ -1087,6 +1087,7 @@ function buildARRoutePayload({ routeResult, displayOption, startPlace, endPlace,
     start: startPlace ? { label: startPlace.label, coords: startPlace.coords } : null,
     end: endPlace ? { label: endPlace.label, coords: endPlace.coords } : null,
     points,
+    instructions: routeResult?.instructions || [],
     segments,
   };
 }
@@ -1111,6 +1112,7 @@ function routeSegmentsForAR(displayOption, fallbackRouteResult) {
         from: segment.from,
         to: segment.to,
         routeCode: segment.routeCode,
+        instructions: segment.instructions || segment.steps || [],
         coordinates: sanitizeRouteCoordinates(segment.coordinates || segment.points || segment.geometry?.coordinates),
       }))
       .filter((segment) => segment.coordinates.length >= 2);
@@ -1121,6 +1123,7 @@ function routeSegmentsForAR(displayOption, fallbackRouteResult) {
     return routeSegments
       .map((segment) => ({
         ...segment,
+        instructions: segment.instructions || segment.steps || [],
         coordinates: sanitizeRouteCoordinates(segment.coordinates),
       }))
       .filter((segment) => segment.coordinates.length >= 2);
